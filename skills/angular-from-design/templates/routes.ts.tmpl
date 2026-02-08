@@ -1,0 +1,21 @@
+// Template: Angular Routes Configuration
+// Variables: {{featureName}}, {{routes}}
+
+import { Routes } from '@angular/router';
+
+export const {{featureName | uppercase}}_ROUTES: Routes = [
+  {
+    path: '',
+    loadComponent: () => import('./{{featureName}}.component').then(m => m.{{featureName | pascalCase}}Component),
+    children: [
+      {{#routes}}
+      {
+        path: '{{path}}',
+        loadComponent: () => import('./components/{{componentFile}}').then(m => m.{{componentName}}Component),
+        {{#title}}title: '{{title}}',{{/title}}
+        {{#guards}}canActivate: [{{guards}}],{{/guards}}
+      },
+      {{/routes}}
+    ]
+  }
+];

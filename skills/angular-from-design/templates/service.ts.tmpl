@@ -1,0 +1,79 @@
+// Template: Angular Service with Signal-based State
+// Variables: {{serviceName}}, {{modelName}}, {{endpoint}}
+
+import { Injectable, inject, signal, computed } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable, finalize, catchError, of } from 'rxjs';
+import { {{modelName}} } from '../models/{{modelName | lowercase}}.model';
+
+@Injectable({ providedIn: 'root' })
+export class {{serviceName}}Service {
+  private http = inject(HttpClient);
+  
+  // === Private State ===
+  private _items = signal<{{modelName}}[]>([]);
+  private _loading = signal(false);
+  private _error = signal<string | null>(null);
+  
+  // === Public Readonly Signals ===
+  readonly items = this._items.asReadonly();
+  readonly loading = this._loading.asReadonly();
+  readonly error = this._error.asReadonly();
+  
+  // === Computed ===
+  readonly hasItems = computed(() => this._items().length > 0);
+  readonly itemCount = computed(() => this._items().length);
+  
+  // === API Methods ===
+  
+  loadAll(): void {
+    this._loading.set(true);
+    this._error.set(null);
+    
+    this.http.get<{{modelName}}[]>('{{endpoint}}')
+      .pipe(
+        finalize(() => this._loading.set(false)),
+        catchError(err => {
+          this._error.set(err.message || 'Failed to load items');
+          return of([]);
+        })
+      )
+      .subscribe(items => this._items.set(items));
+  }
+  
+  getById(id: string): Observable<{{modelName}}> {
+    return this.http.get<{{modelName}}>(`{{endpoint}}/${id}`);
+  }
+  
+  create(item: Omit<{{modelName}}, 'id'>): Observable<{{modelName}}> {
+    return this.http.post<{{modelName}}>('{{endpoint}}', item);
+  }
+  
+  update(id: string, item: Partial<{{modelName}}>): Observable<{{modelName}}> {
+    return this.http.put<{{modelName}}>(`{{endpoint}}/${id}`, item);
+  }
+  
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`{{endpoint}}/${id}`);
+  }
+  
+  // === Local State Mutations ===
+  
+  addItem(item: {{modelName}}): void {
+    this._items.update(items => [...items, item]);
+  }
+  
+  removeItem(id: string): void {
+    this._items.update(items => items.filter(i => i.id !== id));
+  }
+  
+  updateItem(id: string, updates: Partial<{{modelName}}>): void {
+    this._items.update(items => 
+      items.map(i => i.id === id ? { ...i, ...updates } : i)
+    );
+  }
+  
+  clearError(): void {
+    this._error.set(null);
+  }
+}
