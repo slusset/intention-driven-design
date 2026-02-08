@@ -1,0 +1,33 @@
+// Template: Standalone Angular Component
+// Variables: {{componentName}}, {{selector}}, {{inputs}}, {{outputs}}, {{template}}
+
+import { Component, input, output, computed, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+@Component({
+  selector: '{{selector}}',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    {{template}}
+  `
+})
+export class {{componentName}}Component {
+  // === Inputs ===
+  {{#inputs}}
+  {{name}} = input{{#required}}.required{{/required}}<{{type}}>({{#default}}{{default}}{{/default}});
+  {{/inputs}}
+  
+  // === Outputs ===
+  {{#outputs}}
+  {{name}} = output<{{type}}>();
+  {{/outputs}}
+  
+  // === Local State ===
+  // Add component-local signals here
+  
+  // === Computed ===
+  // Add derived state here
+  
+  // === Methods ===
+}
