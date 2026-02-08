@@ -7,13 +7,14 @@ Single source of truth for intention-driven development artifacts:
 
 ## Repository layout
 
-- `skills/`: canonical skill library (harmonized from `~/.codex/skills` and `~/.claude/skills`)
+- `skills/`: canonical IDD-focused skills (method, narrative, contracts, workflow)
+- `technical-skills/`: technical implementation skills (Angular, Spring, platform-specific)
 - `docs/idd/`: formalized method artifacts
 - `tools/`: sync/validation utilities
 
 ## Source of truth policy
 
-1. `skills/` in this repository is authoritative.
+1. `skills/` and `technical-skills/` in this repository are authoritative.
 2. Personal runtime folders (`~/.codex/skills`, `~/.claude/skills`) are downstream copies.
 3. Proposed skill changes should be committed here first, then synced out.
 

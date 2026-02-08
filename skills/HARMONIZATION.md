@@ -6,13 +6,30 @@ This manifest documents the initial unification of:
 - `~/.codex/skills`
 - `~/.claude/skills`
 
-into canonical repository state under `skills/`.
+into canonical repository state split between:
+- `skills/` (IDD-related)
+- `technical-skills/` (framework/platform)
 
 ## Canonical selection rule (initial pass)
 
 - Use `~/.codex/skills` as baseline because files are generally newer and include richer operational guidance.
 - Keep `.system/` skills in the repository, but treat them as platform/system extensions.
 - Track divergent files and revisit if downstream tool compatibility issues are discovered.
+
+## Directory split rule
+
+- Keep IDD methodology skills in `skills/`:
+  - `behavior-contract`
+  - `domain-modeling`
+  - `e2e-journey-testing`
+  - `solution-narrative`
+  - `workflow-guide`
+  - `.system/*`
+- Keep technical framework skills in `technical-skills/`:
+  - `angular-architecture`
+  - `angular-from-design`
+  - `angular-playwright`
+  - `spring-boot-architecture`
 
 ## Diff summary from initial pass
 
