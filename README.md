@@ -11,14 +11,18 @@ This repo serves two roles:
 ## Repository layout
 
 ```
-docs/idd/
+.claude-plugin/              Plugin + marketplace metadata
+├── plugin.json              Plugin identity (name, version, author)
+└── marketplace.json         Catalog for `claude plugin marketplace add`
+
+docs/idd/                    IDD philosophy and concept library
 ├── manifesto.md             Core principles (the "why")
 ├── agent-operating-contract.md  Non-negotiable agent rules
 ├── project-template.md      Artifact spine and delivery loop
 ├── concepts.md              Atomic concept catalog (C1–C14)
 └── concept-skill-map.md     Which concepts each skill carries
 
-skills/                      Reference IDD skill implementations
+skills/                      IDD methodology skills (open standard format)
 ├── solution-narrative/      Personas, journeys, stories
 ├── domain-modeling/         Entities, aggregates, business rules
 ├── behavior-contract/       BDD features, OpenAPI contracts, fixtures
@@ -50,6 +54,41 @@ When converting a skill to a new agent platform:
 2. Skills in `skills/` are authoritative for operational implementation.
 3. Runtime copies (`~/.codex/skills`, `~/.claude/skills`) are downstream — never edit there first.
 4. Proposed changes are committed here, then synced out via `tools/sync-skills.sh`.
+
+## Installing as a plugin
+
+### Claude Code
+
+**Local testing** (loads skills directly, no install needed):
+```bash
+claude --plugin-dir /path/to/intention-driven-design
+```
+
+**Shareable install** (from GitHub):
+```bash
+claude plugin marketplace add slusset/intention-driven-design
+claude plugin install idd-skills@intention-driven-design
+```
+
+Skills become available as `/solution-narrative`, `/domain-modeling`,
+`/behavior-contract`, `/e2e-journey-testing`, and `/workflow-guide`.
+
+### Codex CLI
+
+Copy skills to user directory:
+```bash
+cp -r skills/* ~/.codex/skills/
+```
+
+Or use the sync utility:
+```bash
+./tools/sync-skills.sh
+```
+
+### Other agents (Cursor, Gemini CLI, etc.)
+
+All skills follow the [Agent Skills open standard](https://agentskills.io).
+Copy `skills/` to the agent's skill discovery path.
 
 ## Initial harmonization baseline
 

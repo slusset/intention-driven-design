@@ -1,0 +1,15 @@
+{
+  "name": "intention-driven-design",
+  "owner": {
+    "name": "Ted Slusser",
+    "url": "https://github.com/slusset"
+  },
+  "plugins": [
+    {
+      "name": "idd-skills",
+      "source": ".",
+      "description": "Intention-Driven Design methodology skills: narrative-first development with full traceability from personas through e2e tests.",
+      "version": "0.1.0"
+    }
+  ]
+}
