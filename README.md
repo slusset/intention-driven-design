@@ -8,6 +8,46 @@ This repo serves two roles:
 2. **Skill source** — reference skill implementations that embody the concepts
    and can be converted to any agent platform's native format.
 
+## Installation
+
+### 1. Cross-platform skills CLI (recommended)
+
+```bash
+npx skills add slusset/intention-driven-design
+```
+
+Works with Claude Code, Codex, and any agent that supports the SKILL.md format.
+
+### 2. Git clone
+
+```bash
+git clone https://github.com/slusset/intention-driven-design.git
+cd intention-driven-design
+make install          # both Claude Code and Codex
+make install-claude   # Claude Code only
+make install-codex    # Codex only
+```
+
+### 3. Download from GitHub Releases
+
+Download the latest zip from [Releases](https://github.com/slusset/intention-driven-design/releases), then:
+
+```bash
+unzip idd-skills-*.zip
+cd idd-skills
+./install.sh                      # both agents
+./install.sh --agent claude-code  # Claude Code only
+./install.sh --agent codex        # Codex only
+./install.sh --project            # project-local .claude/skills/
+```
+
+### 4. Manual copy
+
+```bash
+cp -R skills/* ~/.claude/skills/
+cp -R technical-skills/* ~/.claude/skills/
+```
+
 ## Repository layout
 
 ```
