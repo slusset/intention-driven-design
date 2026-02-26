@@ -33,24 +33,60 @@ Implement and maintain Playwright e2e tests for Angular by following the narrati
 
 6) **Assertions**
    - Match journey map assertions (visible/text/url/api/polling).
-   - Prefer explicit waits (`toHaveURL`, `toBeVisible`, `waitForResponse`) over sleeps.
+   - Prefer locator assertions (`toHaveURL`, `toBeVisible`, `toBeEditable`, `toHaveValue`) over sleeps.
+
+7) **Network mocking order**
+   - Register `page.route(...)` mocks before `page.goto(...)`.
+   - Mock background requests used by layout/guards (for example token balance calls), not only the main happy-path APIs.
+
+8) **Input stability (Angular reactive forms)**
+   - For flaky fields, wait for `toBeEditable()` before filling.
+   - Use `ControlOrMeta+A` + `fill()` for cross-platform selection.
+   - Validate value stability with `expect.poll(...)` when rerenders can clear input values.
+   - Avoid `locator.evaluate(...)` to set `.value` except as a last resort.
 
 ## Playwright Config (conditional)
 
-Use an env toggle for headed mode to stabilize animations/timeouts:
+Use env toggles for headed mode and artifacts to stabilize/debug runs:
 
 ```ts
 // playwright.config.ts
 const headed = process.env.PW_HEADED === '1';
+const recordVideo = process.env.PW_VIDEO === '1';
 
 export default defineConfig({
   use: {
     headless: !headed,
     launchOptions: headed ? { slowMo: 100 } : undefined,
     trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
+    video: recordVideo ? 'on' : 'retain-on-failure',
   },
   timeout: headed ? 60000 : 30000,
 });
+```
+
+Note: prefer config/env for video. `npx playwright test --video=on` is not supported in all CLI versions.
+
+## Flake-Resistant Fill Helper
+
+```ts
+const fillStable = async (page: Page, testId: string, value: string) => {
+  const input = page.getByTestId(testId);
+  await expect(input).toBeVisible();
+  await expect(input).toBeEditable();
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await input.click();
+    await input.press('ControlOrMeta+A');
+    await input.fill(value);
+    if ((await input.inputValue()) !== value) continue;
+    await page.waitForTimeout(100);
+    if ((await input.inputValue()) === value) return;
+  }
+
+  await expect.poll(async () => input.inputValue(), { timeout: 10000 }).toBe(value);
+};
 ```
 
 ## Test Template
@@ -81,3 +117,5 @@ test.describe('Journey: {Journey Title}', () => {
 - [ ] Fixtures pulled from `specs/fixtures/`.
 - [ ] `data-testid` selectors only.
 - [ ] No `page.goto()` for internal navigation.
+- [ ] Routes are mocked before navigation.
+- [ ] Inputs use stable fill pattern on flaky/reactive fields.

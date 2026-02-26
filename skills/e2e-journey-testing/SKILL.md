@@ -22,6 +22,8 @@ Translate user journeys into executable end-to-end tests. Ensures the full user 
 3. Implement e2e test following the map.
 4. Validate all journey steps are covered.
 5. Ensure tests are independent and repeatable.
+6. Register route mocks before first navigation.
+7. Use stable input patterns for reactive forms (`toBeEditable` + retry + value stability check).
 
 ## Traceability Requirements
 
@@ -356,6 +358,7 @@ export default defineConfig({
     baseURL: 'http://localhost:4200',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    video: process.env.PW_VIDEO === '1' ? 'on' : 'retain-on-failure',
   },
 
   projects: [
@@ -380,6 +383,8 @@ export default defineConfig({
 });
 ```
 
+Note: prefer config/env for video capture. `npx playwright test --video=on` is not supported by all Playwright CLI versions.
+
 ## Guardrails
 
 - One spec file per journey.
@@ -387,6 +392,8 @@ export default defineConfig({
 - Tests must be independent—no reliance on other test state.
 - Use fixtures from specs/, don't duplicate data.
 - Selectors use data-testid, never CSS classes or DOM structure.
+- Register `page.route(...)` mocks before `page.goto(...)`.
+- Mock background/guard requests used by the page, not only primary journey endpoints.
 - API assertions verify contract compliance.
 - No sleeps—use waitFor, polling, or network idle.
 - Clean up created resources after tests.
@@ -431,6 +438,8 @@ Before merging:
 - [ ] No hardcoded test data
 - [ ] Tests pass independently (no order dependence)
 - [ ] Selectors use data-testid
+- [ ] Route mocks registered before navigation
+- [ ] Flaky form fields use stable fill strategy
 - [ ] API calls verified against contract
 - [ ] Cleanup happens in afterEach
 - [ ] Tests pass in CI
@@ -484,6 +493,33 @@ await expect(async () => {
   expect(data.status).toBe('completed');
 }).toPass({ timeout: 30000 });
 ```
+
+### Stable Form Filling (Angular Reactive Forms)
+
+Use this for fields that sometimes clear during rerender/change-detection ticks:
+
+```typescript
+import { expect, type Page } from '@playwright/test';
+
+export const fillStable = async (page: Page, testId: string, value: string) => {
+  const input = page.getByTestId(testId);
+  await expect(input).toBeVisible();
+  await expect(input).toBeEditable();
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await input.click();
+    await input.press('ControlOrMeta+A');
+    await input.fill(value);
+    if ((await input.inputValue()) !== value) continue;
+    await page.waitForTimeout(100);
+    if ((await input.inputValue()) === value) return;
+  }
+
+  await expect.poll(async () => input.inputValue(), { timeout: 10000 }).toBe(value);
+};
+```
+
+Use `locator.evaluate(...)` to set `.value` only as a last resort.
 
 ### Testing Error States
 
@@ -686,7 +722,8 @@ test('Visual: Sidebar has correct grid width', async ({ page }) => {
 - **Naming**: Prefix visual tests with `Visual:` for easy filtering
 - **Viewport**: Always set explicit viewport size for reproducibility
 - **Animations**: Disable via CSS injection or `reducedMotion`
-- **Screenshots**: Store in `e2e/__screenshots__/` (gitignored by default)
+- **Screenshots**: Prefer viewport screenshots; use `fullPage: true` only when necessary for stability
+- **Snapshot Paths**: Store in `e2e/__screenshots__/` (gitignored by default)
 - **Baselines**: Generate with `--update-snapshots` after verifying correct rendering
 - **CI**: Screenshots regenerate on first CI run; Chromatic recommended for persistent baselines
 
