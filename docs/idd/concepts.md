@@ -151,11 +151,19 @@ A capability is done when:
 
 ## C13 — Fix Forward
 
-When a defect is found, the response is to add the missing specification first
-(feature scenario, contract clause, business rule), then fix the implementation
-to match. Fixing code without updating specs violates traceability.
+When a defect is found, the response is never "fix the code." The response is:
 
-**Applies to**: bug fix workflows
+1. Add the missing specification (feature scenario, contract clause, business rule).
+2. Fix the implementation to match the updated spec.
+3. Update certification evidence to cover the gap.
+
+Fixing code without updating specs is drift — the single most common way
+systems lose alignment with their intent. This concept is a critical safeguard
+for the entire traceability chain (C8).
+
+**Manifesto principle**: 7 (Evolution preserves meaning)
+**Applies to**: bug fix workflows, post-incident response, regression handling
+**See also**: manifesto.md (Fix Forward section), certification-guide.md
 
 ---
 
