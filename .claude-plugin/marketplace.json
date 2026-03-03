@@ -1,13 +1,15 @@
 {
-  "name": "idd-marketplace",
+  "name": "intention-driven-design",
   "owner": {
-    "name": "Ted Slusser"
+    "name": "Ted Slusser",
+    "url": "https://github.com/slusset"
   },
   "plugins": [
     {
       "name": "idd-skills",
       "source": ".",
-      "description": "Intention-Driven Design skills for domain modeling, behavior contracts, solution narratives, e2e testing, and architecture guidance."
+      "description": "Intention-Driven Design methodology skills: narrative-first development with full traceability from personas through e2e tests.",
+      "version": "0.1.0"
     }
   ]
 }

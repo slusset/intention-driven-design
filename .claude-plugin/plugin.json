@@ -1,11 +1,12 @@
 {
   "name": "idd-skills",
-  "description": "Intention-Driven Design skills for domain modeling, behavior contracts, solution narratives, e2e testing, and architecture guidance.",
+  "version": "0.1.0",
+  "description": "Intention-Driven Design methodology skills. Narrative-first development: personas, journeys, stories, domain models, behavior contracts, and e2e journey testing.",
   "author": {
-    "name": "Ted Slusser"
+    "name": "Ted Slusser",
+    "url": "https://github.com/slusset"
   },
   "repository": "https://github.com/slusset/intention-driven-design",
   "license": "MIT",
-  "keywords": ["idd", "domain-modeling", "design", "architecture", "bdd", "testing"],
-  "skills": ["./skills/"]
+  "keywords": ["idd", "intention-driven-design", "narrative-driven", "bdd", "domain-modeling"]
 }
