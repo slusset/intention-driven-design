@@ -125,9 +125,10 @@ Copy `skills/` to the agent's skill discovery path.
 | **Domain Modeling** | Entities, aggregates, business rules | `/domain-modeling` |
 | **Behavior Contract** | BDD features, OpenAPI contracts, fixtures | `/behavior-contract` |
 | **E2E Journey Testing** | Playwright tests from journey maps | `/e2e-journey-testing` |
+| **Certification** | Traceability verification and evidence manifests | `/certification` |
 | **Workflow Guide** | Meta-skill: when to use which skill | `/workflow-guide` |
 
-Skills are designed to be invoked in sequence: narrative → model → contract → implementation → validation. Each skill's output feeds the next.
+Skills are designed to be invoked in sequence: narrative → model → contract → implementation → validation → certification. Each skill's output feeds the next.
 
 ## Repository layout
 
@@ -145,6 +146,7 @@ skills/                      IDD methodology skills
 ├── domain-modeling/         Entities, aggregates, business rules
 ├── behavior-contract/       BDD features, OpenAPI contracts, fixtures
 ├── e2e-journey-testing/     Playwright journey tests
+├── certification/           Traceability verification and evidence
 └── workflow-guide/          Meta-skill: when to use which skill
 
 tools/                       Sync and validation utilities

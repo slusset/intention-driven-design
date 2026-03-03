@@ -18,59 +18,59 @@ This project follows **Intention-Driven Development**. We start with human needs
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
-│                         NARRATIVE LAYER                                    │
+│                         NARRATIVE LAYER                                   │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                    │
 │  │  Personas   │───▶│  Journeys   │───▶│   Stories   │                    │
 │  │  (who/why)  │    │ (experience)│    │   (what)    │                    │
 │  └─────────────┘    └─────────────┘    └──────┬──────┘                    │
-│                                               │                            │
-│                        /solution-narrative    │                            │
-├───────────────────────────────────────────────┼────────────────────────────┤
-│                         MODEL LAYER           │                            │
-│                                               ▼                            │
-│                                        ┌─────────────┐                     │
-│                                        │   Models    │                     │
-│                                        │ (concepts)  │                     │
-│                                        └──────┬──────┘                     │
-│                                               │                            │
-│                         /domain-modeling      │                            │
-├───────────────────────────────────────────────┼────────────────────────────┤
-│                        CONTRACT LAYER         │                            │
-│                                               ▼                            │
+│                                               │                           │
+│                        /solution-narrative    │                           │
+├───────────────────────────────────────────────┼───────────────────────────┤
+│                         MODEL LAYER           │                           │
+│                                               ▼                           │
+│                                        ┌─────────────┐                    │
+│                                        │   Models    │                    │
+│                                        │ (concepts)  │                    │
+│                                        └──────┬──────┘                    │
+│                                               │                           │
+│                         /domain-modeling      │                           │
+├───────────────────────────────────────────────┼───────────────────────────┤
+│                        CONTRACT LAYER         │                           │
+│                                               ▼                           │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                    │
 │  │  Features   │◀───│  Contract   │───▶│  Fixtures   │                    │
 │  │  (Gherkin)  │    │  (OpenAPI)  │    │ (test data) │                    │
 │  └─────────────┘    └─────────────┘    └─────────────┘                    │
-│                                                                            │
-│                        /behavior-contract                                  │
-├────────────────────────────────────────────────────────────────────────────┤
-│                      IMPLEMENTATION LAYER  (stack-specific)                │
-│                                                                            │
+│                                                                           │
+│                        /behavior-contract                                 │
+├───────────────────────────────────────────────────────────────────────────┤
+│                      IMPLEMENTATION LAYER  (stack-specific)               │
+│                                                                           │
 │  ┌─────────────────────────┐    ┌─────────────────────────┐               │
 │  │        Backend          │    │        Frontend         │               │
 │  │     (any framework)     │◀──▶│     (any framework)     │               │
 │  └─────────────────────────┘    └─────────────────────────┘               │
-│                                                                            │
-│  Implementation skills are stack-specific and interchangeable.             │
+│                                                                           │
+│  Implementation skills are stack-specific and interchangeable.            │
 │  Examples: /spring-boot-architecture, /angular-architecture,              │
 │  /angular-from-design — or your own stack's equivalent.                   │
-│                                                                            │
-├────────────────────────────────────────────────────────────────────────────┤
-│                        VALIDATION LAYER                                    │
-│                                                                            │
+│                                                                           │
+├───────────────────────────────────────────────────────────────────────────┤
+│                        VALIDATION LAYER                                   │
+│                                                                           │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                    │
 │  │ Unit Tests  │    │ Integration │    │  E2E Tests  │                    │
 │  │  (domain)   │    │  (contract) │    │ (journeys)  │                    │
 │  └─────────────┘    └─────────────┘    └─────────────┘                    │
-│                                                                            │
-│                        /e2e-journey-testing                                │
-├────────────────────────────────────────────────────────────────────────────┤
-│                      CERTIFICATION LAYER                                   │
-│                                                                            │
-│  Evidence manifest ── tied to intent ── published before merge             │
-│                                                                            │
-│                   See: docs/idd/certification-guide.md                     │
-└────────────────────────────────────────────────────────────────────────────┘
+│                                                                           │
+│                        /e2e-journey-testing                               │
+├───────────────────────────────────────────────────────────────────────────┤
+│                      CERTIFICATION LAYER                                  │
+│                                                                           │
+│  Evidence manifest ── tied to intent ── published before merge            │
+│                                                                           │
+│                        /certification                                     │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Quick Reference: Which Skill?
@@ -84,7 +84,7 @@ This project follows **Intention-Driven Development**. We start with human needs
 | Contract ready | Frontend implementation | Your frontend architecture skill |
 | Design mockup/HTML | UI components | Your frontend-from-design skill |
 | Journey + contract | E2E test coverage | `/e2e-journey-testing` |
-| All tests passing | Certifiable evidence | See certification-guide.md |
+| All tests passing | Certifiable evidence | `/certification` |
 | Unsure where to start | This guide | `/workflow-guide` |
 
 ## Detailed Workflow
@@ -119,7 +119,7 @@ This project follows **Intention-Driven Development**. We start with human needs
    ├── Implement Playwright tests
    └── Output: specs/journey-maps/, frontend/e2e/
 
-6. Certification
+6. /certification
    ├── Collect test evidence
    ├── Generate evidence manifest
    ├── Verify traceability chain
@@ -265,7 +265,7 @@ solution-narrative              ← Stack-agnostic
          e2e-journey-testing    ← Stack-aware (Playwright)
                    │
                    ▼
-           certification        ← Stack-agnostic
+          /certification        ← Stack-agnostic (cross-cutting)
 ```
 
 ## Getting Help

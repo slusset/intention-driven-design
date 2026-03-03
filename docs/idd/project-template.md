@@ -19,7 +19,7 @@
 3. Convert story acceptance criteria into BDD features + API contracts.
 4. Implement code from contracts and feature expectations.
 5. Produce executable verification: unit, contract, e2e, regression.
-6. Publish evidence under `certification/` before merge (see certification-guide.md).
+6. Publish evidence under `certification/` before merge (`/certification`).
 
 ## Done criteria
 
