@@ -108,8 +108,7 @@ claude plugin install idd-skills@intention-driven-design
 ### Codex CLI
 
 ```bash
-cp -r skills/* ~/.codex/skills/
-# or use: ./tools/sync-skills.sh
+./tools/link-skills.sh codex
 ```
 
 ### Other agents (Cursor, Gemini CLI, etc.)
@@ -126,7 +125,7 @@ Copy `skills/` to the agent's skill discovery path.
 | **Behavior Contract** | BDD features, OpenAPI contracts, fixtures | `/behavior-contract` |
 | **E2E Journey Testing** | Playwright tests from journey maps | `/e2e-journey-testing` |
 | **Certification** | Traceability verification and evidence manifests | `/certification` |
-| **Workflow Guide** | Meta-skill: when to use which skill | `/workflow-guide` |
+| **IDD Workflow** | Meta-skill: when to use which skill | `/idd-workflow` |
 
 Skills are designed to be invoked in sequence: narrative → model → contract → implementation → validation → certification. Each skill's output feeds the next.
 
@@ -147,11 +146,13 @@ skills/                      IDD methodology skills
 ├── behavior-contract/       BDD features, OpenAPI contracts, fixtures
 ├── e2e-journey-testing/     Playwright journey tests
 ├── certification/           Traceability verification and evidence
-└── workflow-guide/          Meta-skill: when to use which skill
+└── idd-workflow/            Meta-skill: when to use which skill
 
-tools/                       Sync and validation utilities
-├── sync-skills.sh           Push skills to agent runtimes
-└── diff-skills.sh           Detect drift between runtime copies
+tools/                       Build, link, and validation utilities
+├── build.sh                 Package plugin zip for distribution
+├── link-skills.sh           Symlink skills into agent runtimes
+├── generate-spec-graph.js   Generate interactive spec traceability graph
+└── check-traceability.js    Validate cross-references between spec artifacts
 ```
 
 ## How concepts and skills relate
@@ -167,8 +168,7 @@ When converting a skill to a new agent platform:
 
 1. Concept definitions in `docs/idd/` are authoritative for meaning.
 2. Skills in `skills/` are authoritative for operational implementation.
-3. Runtime copies (`~/.codex/skills`, `~/.claude/skills`) are downstream — never edit there first.
-4. Proposed changes are committed here, then synced out via `tools/sync-skills.sh`.
+3. Runtime copies (`~/.codex/skills`, `~/.claude/skills`) are symlinked from this repo via `tools/link-skills.sh` — never create standalone copies.
 
 ## Self-referential note
 

@@ -7,7 +7,7 @@ How IDD concepts distribute across skills. Use this when:
 
 ## Matrix
 
-| Concept | solution-narrative | domain-modeling | behavior-contract | e2e-journey-testing | certification | workflow-guide |
+| Concept | solution-narrative | domain-modeling | behavior-contract | e2e-journey-testing | certification | idd-workflow |
 |---------|:--:|:--:|:--:|:--:|:--:|:--:|
 | C1  Intent Precedes Code        | **primary** | | | | | referenced |
 | C2  Models Are Artifacts        | **primary** | **primary** | **primary** | | | referenced |
@@ -38,7 +38,7 @@ The certification skill is cross-cutting — it verifies the connections *betwee
 | behavior-contract    | C2, C3, C4, C8        | C7, C10, C11, C12, C13, C14 |
 | e2e-journey-testing  | C4, C5, C8, C12       | C3, C6, C11, C13, C14 |
 | certification        | C5, C8, C12            | C4, C13, C14 |
-| workflow-guide       | C8, C11, C13           | C1, C3, C4, C5, C6, C7, C9, C10, C12, C14 |
+| idd-workflow       | C8, C11, C13           | C1, C3, C4, C5, C6, C7, C9, C10, C12, C14 |
 
 ## Conversion checklist
 
@@ -61,4 +61,4 @@ When updating a concept definition in `concepts.md`:
 1. Find the concept row in the matrix.
 2. Update every skill marked **primary** — these define the concept operationally.
 3. Review skills marked **referenced** — they may need wording adjustments.
-4. Run `tools/diff-skills.sh` after syncing to verify no runtime copies diverge.
+4. Use `tools/link-skills.sh` to symlink skills into agent runtimes — no drift possible.

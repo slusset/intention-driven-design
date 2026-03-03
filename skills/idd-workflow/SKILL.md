@@ -1,5 +1,5 @@
 ---
-name: workflow-guide
+name: idd-workflow
 description: "Meta-skill explaining when to use each development skill. Use when starting new work, onboarding, or unsure which skill applies to a task."
 user-invocable: true
 disable-model-invocation: true
@@ -85,7 +85,7 @@ This project follows **Intention-Driven Development**. We start with human needs
 | Design mockup/HTML | UI components | Your frontend-from-design skill |
 | Journey + contract | E2E test coverage | `/e2e-journey-testing` |
 | All tests passing | Certifiable evidence | `/certification` |
-| Unsure where to start | This guide | `/workflow-guide` |
+| Unsure where to start | This guide | `/idd-workflow` |
 
 ## Detailed Workflow
 
@@ -273,5 +273,5 @@ solution-narrative              ← Stack-agnostic
 - **IDD philosophy**: `docs/idd/manifesto.md`
 - **Concept definitions**: `docs/idd/concepts.md`
 - **Certification standards**: `docs/idd/certification-guide.md`
-- **Process questions**: This guide (`/workflow-guide`)
+- **Process questions**: This guide (`/idd-workflow`)
 - **Specific patterns**: Each skill has templates and examples
