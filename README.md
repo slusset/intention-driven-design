@@ -23,7 +23,7 @@ skills/                      Reference IDD skill implementations
 ├── domain-modeling/         Entities, aggregates, business rules
 ├── behavior-contract/       BDD features, OpenAPI contracts, fixtures
 ├── e2e-journey-testing/     Playwright journey tests
-├── workflow-guide/          Meta-skill: when to use which skill
+├── idd-workflow/            Meta-skill: when to use which skill
 ├── .system/                 Platform skills (skill-creator, skill-installer)
 └── HARMONIZATION.md         Merge history from initial unification
 

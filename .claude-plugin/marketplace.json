@@ -1,0 +1,13 @@
+{
+  "name": "idd-marketplace",
+  "owner": {
+    "name": "Ted Slusser"
+  },
+  "plugins": [
+    {
+      "name": "idd-skills",
+      "source": ".",
+      "description": "Intention-Driven Design skills for domain modeling, behavior contracts, solution narratives, e2e testing, and architecture guidance."
+    }
+  ]
+}

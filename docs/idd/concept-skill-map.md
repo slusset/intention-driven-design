@@ -7,7 +7,7 @@ How IDD concepts distribute across skills. Use this when:
 
 ## Matrix
 
-| Concept | solution-narrative | domain-modeling | behavior-contract | e2e-journey-testing | workflow-guide |
+| Concept | solution-narrative | domain-modeling | behavior-contract | e2e-journey-testing | idd-workflow |
 |---------|:--:|:--:|:--:|:--:|:--:|
 | C1  Intent Precedes Code        | **primary** | | | | referenced |
 | C2  Models Are Artifacts        | **primary** | **primary** | **primary** | | referenced |
@@ -35,7 +35,7 @@ How IDD concepts distribute across skills. Use this when:
 | domain-modeling      | C2, C10                | C6, C7, C8, C11, C14 |
 | behavior-contract    | C2, C3, C4, C8        | C7, C10, C11, C12, C13, C14 |
 | e2e-journey-testing  | C4, C5, C8, C12       | C3, C6, C11, C13, C14 |
-| workflow-guide       | C8, C11, C13           | C1, C3, C4, C5, C6, C7, C9, C10, C12, C14 |
+| idd-workflow         | C8, C11, C13           | C1, C3, C4, C5, C6, C7, C9, C10, C12, C14 |
 
 ## Conversion checklist
 

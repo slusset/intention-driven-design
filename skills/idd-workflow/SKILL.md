@@ -1,5 +1,5 @@
 ---
-name: workflow-guide
+name: idd-workflow
 description: "Meta-skill explaining when to use each development skill. Use when starting new work, onboarding, or unsure which skill applies to a task."
 user-invocable: true
 disable-model-invocation: true
@@ -77,7 +77,7 @@ This project follows **narrative-driven development**. We start with human needs
 | Contract ready | Frontend implementation | `/angular-architecture` |
 | Design mockup/HTML | Angular components | `/angular-from-design` |
 | Journey + contract | E2E test coverage | `/e2e-journey-testing` |
-| Unsure where to start | This guide | `/workflow-guide` |
+| Unsure where to start | This guide | `/idd-workflow` |
 
 ## Detailed Workflow
 
@@ -245,6 +245,6 @@ spring-boot-architecture  angular-architecture
 ## Getting Help
 
 - **Architecture questions**: Read the skill files in `~/.codex/skills/`
-- **Process questions**: This guide (`/workflow-guide`)
+- **Process questions**: This guide (`/idd-workflow`)
 - **Project structure**: `specs/README.md`
 - **Specific patterns**: Each skill has templates and examples
