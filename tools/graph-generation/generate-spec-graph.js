@@ -11,7 +11,7 @@
  *   Click model    → reveals lifecycles
  *   Double-click   → collapse back
  *
- * Usage: node tools/generate-spec-graph.js [specs-dir]
+ * Usage: node tools/graph-generation/generate-spec-graph.js [specs-dir]
  * Output: specs-graph.html (in project root or next to specs-dir)
  */
 
@@ -797,25 +797,67 @@ function hideAll() {
   visibleNodes.clear();
 }
 
-function showNode(id) {
+function showNode(id, startPosition = null) {
   const node = cy.getElementById(id);
   if (node.length) {
+    const wasHidden = node.style('display') === 'none';
     node.style('display', 'element');
+    if (wasHidden && startPosition) {
+      // Seed newly revealed nodes at their parent location so they emerge from that node.
+      node.position({ x: startPosition.x, y: startPosition.y });
+    }
     visibleNodes.add(id);
+    return wasHidden;
   }
+  return false;
 }
 
 function showEdgesBetweenVisible() {
+  // Hide all first, then show one preferred edge per node pair.
+  cy.edges().forEach(edge => {
+    edge.style('display', 'none');
+    edge.removeClass('visible-edge');
+  });
+
+  const grouped = new Map(); // unordered node-pair key -> [edge]
   cy.edges().forEach(edge => {
     const s = edge.data('source');
     const t = edge.data('target');
-    if (visibleNodes.has(s) && visibleNodes.has(t)) {
-      edge.style('display', 'element');
-      edge.addClass('visible-edge');
-    } else {
-      edge.style('display', 'none');
-      edge.removeClass('visible-edge');
+    if (!visibleNodes.has(s) || !visibleNodes.has(t)) return;
+    const key = [s, t].sort().join('↔');
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(edge);
+  });
+
+  function edgeScore(edge) {
+    const s = edge.data('source');
+    const t = edge.data('target');
+    const sourceNode = cy.getElementById(s);
+    const targetNode = cy.getElementById(t);
+    const sDepth = sourceNode.data('depth') ?? 99;
+    const tDepth = targetNode.data('depth') ?? 99;
+    let score = 0;
+
+    // Prefer hierarchy direction (parent -> child) where available.
+    if ((targetNode.data('hParent') || null) === s) score += 100;
+    // Prefer flow from lower depth to higher depth.
+    if (sDepth < tDepth) score += 10;
+    return score;
+  }
+
+  grouped.forEach(edgesForPair => {
+    let best = edgesForPair[0];
+    let bestScore = edgeScore(best);
+    for (let i = 1; i < edgesForPair.length; i++) {
+      const candidate = edgesForPair[i];
+      const candidateScore = edgeScore(candidate);
+      if (candidateScore > bestScore) {
+        best = candidate;
+        bestScore = candidateScore;
+      }
     }
+    best.style('display', 'element');
+    best.addClass('visible-edge');
   });
 }
 
@@ -854,11 +896,13 @@ function showPersonas() {
 function expandNode(nodeId) {
   if (expandedNodes.has(nodeId)) return;
   expandedNodes.add(nodeId);
-  cy.getElementById(nodeId).addClass('expanded');
+  const parentNode = cy.getElementById(nodeId);
+  parentNode.addClass('expanded');
+  const parentPos = parentNode.position();
 
   const children = getChildren(nodeId);
   for (const childId of children) {
-    showNode(childId);
+    showNode(childId, parentPos);
   }
 
   showEdgesBetweenVisible();
@@ -1011,33 +1055,36 @@ function runLayout(callback) {
 const detailPanel = document.getElementById('detail-panel');
 const detailContent = document.getElementById('detail-content');
 
-// Single click: expand + show detail
+// Single click: toggle expand/collapse + show detail
 cy.on('tap', 'node', function(evt) {
   const node = evt.target;
   const nodeId = node.id();
   const childCount = node.data('childCount') || 0;
 
-  // Show detail panel
-  showDetail(node);
-
-  // Highlight
-  highlightNode(node);
-
-  // If has children and not yet expanded → expand
-  if (childCount > 0 && !expandedNodes.has(nodeId)) {
-    expandNode(nodeId);
-
-    // Add to breadcrumb
-    const existing = breadcrumbTrail.find(b => b.id === nodeId);
-    if (!existing) {
-      breadcrumbTrail.push({
-        id: nodeId,
-        label: node.data('label'),
-        type: node.data('nodeType'),
-      });
+  if (childCount > 0) {
+    if (expandedNodes.has(nodeId)) {
+      collapseNode(nodeId);
+      breadcrumbTrail = breadcrumbTrail.filter(b => b.id !== nodeId);
       updateBreadcrumb();
+    } else {
+      expandNode(nodeId);
+
+      // Add to breadcrumb
+      const existing = breadcrumbTrail.find(b => b.id === nodeId);
+      if (!existing) {
+        breadcrumbTrail.push({
+          id: nodeId,
+          label: node.data('label'),
+          type: node.data('nodeType'),
+        });
+        updateBreadcrumb();
+      }
     }
   }
+
+  // Show detail and highlight after expansion state changes.
+  showDetail(node);
+  highlightNode(node);
 });
 
 // Double click: collapse
@@ -1045,6 +1092,8 @@ cy.on('dbltap', 'node', function(evt) {
   const nodeId = evt.target.id();
   if (expandedNodes.has(nodeId)) {
     collapseNode(nodeId);
+    breadcrumbTrail = breadcrumbTrail.filter(b => b.id !== nodeId);
+    updateBreadcrumb();
   }
 });
 
