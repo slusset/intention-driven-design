@@ -27,6 +27,8 @@ How IDD concepts distribute across skills. Use this when:
 **primary** = skill is the main vehicle for this concept; it defines templates and enforces it.
 **referenced** = skill mentions or depends on the concept but doesn't define it.
 
+Note: The certification layer (`docs/idd/certification-guide.md`) is the primary vehicle for C5 (Fast Honest Feedback), C12 (Done Means Verified), and C8 (Traceability Chain) at the evidence level. It is documented as a guide rather than a skill because it operates across the entire chain rather than at a single layer.
+
 ## Concept density by skill
 
 | Skill | Primary concepts | Referenced concepts |
@@ -36,6 +38,7 @@ How IDD concepts distribute across skills. Use this when:
 | behavior-contract    | C2, C3, C4, C8        | C7, C10, C11, C12, C13, C14 |
 | e2e-journey-testing  | C4, C5, C8, C12       | C3, C6, C11, C13, C14 |
 | workflow-guide       | C8, C11, C13           | C1, C3, C4, C5, C6, C7, C9, C10, C12, C14 |
+| certification (guide)| C5, C8, C12            | C4, C13, C14 |
 
 ## Conversion checklist
 

@@ -9,15 +9,17 @@
 5. `specs/features/` (BDD)
 6. `specs/contracts/openapi/`
 7. `specs/fixtures/`
-8. `certification/` (automated evidence)
+8. `specs/journey-maps/`
+9. `certification/` (automated evidence tied to intent)
 
-## Delivery loop (intention -> artifact -> verification)
+## Delivery loop (intention → artifact → verification → evidence)
 
 1. Capture intent in persona + journey + story artifacts.
-2. Convert story acceptance criteria into BDD + API contracts.
-3. Implement code from contracts and feature expectations.
-4. Produce executable verification: unit, contract, e2e, regression.
-5. Publish evidence under `certification/` before merge.
+2. Model domain concepts, rules, and lifecycles.
+3. Convert story acceptance criteria into BDD features + API contracts.
+4. Implement code from contracts and feature expectations.
+5. Produce executable verification: unit, contract, e2e, regression.
+6. Publish evidence under `certification/` before merge (see certification-guide.md).
 
 ## Done criteria
 
@@ -25,3 +27,5 @@
 - Every contract operation references source story/feature.
 - Every automated test maps to an explicit intent artifact.
 - No feature is accepted on manual confidence alone.
+- Certification evidence manifest is committed with traceability verified.
+- Gaps are declared honestly, not hidden.
