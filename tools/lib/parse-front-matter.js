@@ -146,6 +146,10 @@ function parseYamlFrontMatter(content) {
     const frontMatter = {};
     if (data.id) frontMatter.id = data.id;
     if (data.type) frontMatter.type = data.type;
+    if (data.refs) frontMatter.refs = data.refs;
+    if (data.journey) frontMatter.journey = data.journey;
+    if (data.story) frontMatter.story = data.story;
+    if (data.scenario) frontMatter.scenario = data.scenario;
     if (data.sources) frontMatter.sources = data.sources;
     if (data.scope) frontMatter.scope = data.scope;
 
@@ -234,7 +238,13 @@ function validateFrontMatter(filePath, frontMatter, expectedType) {
 
   // Check recommended fields
   for (const field of schema.recommended) {
-    const value = getNestedValue(frontMatter, field);
+    let value = getNestedValue(frontMatter, field);
+    // Journey maps may keep the canonical journey link in sources.journey.
+    if ((value === undefined || value === null || value === '') &&
+        expectedType === 'journey-map' &&
+        field === 'journey') {
+      value = getNestedValue(frontMatter, 'sources.journey');
+    }
     if (value === undefined || value === null || value === '') {
       warnings.push(`Missing recommended field: ${field}`);
     }
