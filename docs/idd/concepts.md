@@ -88,14 +88,16 @@ Artifact references must be updated when upstream artifacts change.
 Every downstream artifact references its upstream source. The full chain:
 
 ```
-Persona → Journey → Story → Feature → Contract → Tests → Evidence
+Persona → Journey → Story → Capability → Feature → Contract → Tests → Evidence
 ```
 
-No link in the chain is optional. If an artifact exists, its provenance is
-declared.
+The capability groups artifacts into a certifiable scope. No link in the chain
+is optional. If an artifact exists, its provenance is declared.
 
-**Enforced via**: comment headers, `x-story`/`x-feature`/`x-journey` OpenAPI
-extensions, `_meta` blocks in fixtures, test file headers.
+**Enforced via**: YAML front-matter (preferred), comment headers,
+`x-story`/`x-feature`/`x-journey` OpenAPI extensions, `_meta` blocks in
+fixtures, test file headers. See `docs/idd/front-matter-spec.md` for the
+uniform front-matter schema.
 
 ---
 
@@ -176,3 +178,24 @@ Four rules agents must never violate:
 4. No silent drift: refactors must preserve declared invariants.
 
 **Defined in**: agent-operating-contract.md
+
+---
+
+## C15 — Capability as Certification Unit
+
+A capability is the smallest unit of intent that delivers independently
+verifiable user value. It groups the artifacts that must be true together —
+personas, journeys, stories, features, contracts, and models — into a declared
+scope with a certification boundary.
+
+Capabilities are defined before certification and remain stable across the
+implementation lifecycle. The capability artifact is the single source of truth
+for "what are we building and certifying?" Evidence manifests reference
+capabilities; capabilities enumerate their constituent artifacts.
+
+**Artifacts involved**: `specs/capabilities/{name}.capability.yaml`,
+`certification/{capability}/evidence.yaml`
+**Defined in**: front-matter-spec.md (capability schema), certification-guide.md
+(certification workflow)
+**Related concepts**: C8 (closes the chain at scope level), C11 (adds a
+grouping layer above the spine), C12 (defines what "done" means for)

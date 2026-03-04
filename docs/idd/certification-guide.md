@@ -32,25 +32,14 @@ The `evidence.yaml` file is the structured link between intent and verification:
 ```yaml
 # certification/{capability-name}/evidence.yaml
 
-capability: trade-show-signup
-description: "Mobile signup and first audit at trade show"
+capability: specs/capabilities/trade-show-signup.capability.yaml
 certified_at: 2026-03-01T14:30:00Z
 certified_by: CI    # or agent name, or human
 
-# What intent does this evidence cover?
-intent:
-  personas:
-    - specs/personas/trade-show-prospect.md
-  journeys:
-    - specs/journeys/trade-show-signup.md
-  stories:
-    - specs/stories/onboarding/mobile-signup.md
-    - specs/stories/audits/quick-start-audit.md
-  features:
-    - specs/features/onboarding/mobile-signup.feature
-    - specs/features/audits/create-audit.feature
-  contracts:
-    - specs/contracts/openapi/api.yaml
+# Intent scope is defined in the capability file above.
+# The capability's scope block is the single source of truth for
+# which personas, journeys, stories, features, contracts, and models
+# belong to this certification unit.
 
 # What evidence was collected?
 evidence:
@@ -93,11 +82,45 @@ gaps:
   - "iPad viewport not included in visual regression"
 ```
 
+## Capability artifacts
+
+Certification happens at the capability level, not the PR level. A capability is the smallest unit of intent that delivers independently verifiable user value (C15).
+
+Each capability has a definition file that declares its scope:
+
+```yaml
+# specs/capabilities/{capability-name}.capability.yaml
+
+id: trade-show-signup
+type: capability
+description: "Mobile signup and first audit at trade show"
+
+scope:
+  personas:
+    - specs/personas/trade-show-prospect.md
+  journeys:
+    - specs/journeys/trade-show-signup.md
+  stories:
+    - specs/stories/onboarding/mobile-signup.md
+    - specs/stories/audits/quick-start-audit.md
+  features:
+    - specs/features/onboarding/mobile-signup.feature
+    - specs/features/audits/create-audit.feature
+  models:
+    - specs/models/account/account.model.yaml
+    - specs/models/audit/audit.model.yaml
+  contracts:
+    - specs/contracts/openapi/api.yaml
+```
+
+The capability file is the single source of truth for "what are we certifying?" The evidence manifest references it rather than re-enumerating intent artifacts inline. This eliminates duplication and makes scope changes traceable in version control.
+
+Define capabilities early — when solution-narrative produces its first stories. The scope grows as downstream artifacts (features, contracts, models) are created.
+
 ## When to certify
 
-Certification happens at the capability level, not the PR level. A capability is the smallest unit of intent that delivers user value — typically one journey or a cluster of related stories.
-
 Certify when:
+- The capability file exists with a complete scope.
 - All stories in the capability have corresponding features.
 - All features have contract and unit test coverage.
 - The journey has end-to-end coverage.
@@ -178,3 +201,4 @@ The `gaps` section is not a failure — it's a declaration of what isn't verifie
 - **C12 (Done Means Verified)**: Certification is the operational definition of "done."
 - **C13 (Fix Forward)**: When a defect is found post-certification, the fix includes updating the evidence.
 - **C14 (Agent Non-Negotiables)**: Rule 3 — no merge without verifiable evidence — is enforced here.
+- **C15 (Capability as Certification Unit)**: The capability artifact defines the certification boundary. Evidence references the capability; the capability enumerates intent.

@@ -26,8 +26,17 @@ This project follows **Intention-Driven Development**. We start with human needs
 │                                               │                           │
 │                        /solution-narrative    │                           │
 ├───────────────────────────────────────────────┼───────────────────────────┤
-│                         MODEL LAYER           │                           │
+│                       CAPABILITY SCOPE        │                           │
 │                                               ▼                           │
+│                                   ┌───────────────────┐                   │
+│                                   │   Capability      │                   │
+│                                   │  (cert boundary)  │                   │
+│                                   └────────┬──────────┘                   │
+│                                            │                              │
+│               specs/capabilities/          │                              │
+├────────────────────────────────────────────┼──────────────────────────────┤
+│                         MODEL LAYER        │                              │
+│                                            ▼                              │
 │                                        ┌─────────────┐                    │
 │                                        │   Models    │                    │
 │                                        │ (concepts)  │                    │
@@ -67,7 +76,7 @@ This project follows **Intention-Driven Development**. We start with human needs
 ├───────────────────────────────────────────────────────────────────────────┤
 │                      CERTIFICATION LAYER                                  │
 │                                                                           │
-│  Evidence manifest ── tied to intent ── published before merge            │
+│  Evidence manifest ── references capability ── published before merge     │
 │                                                                           │
 │                        /certification                                     │
 └───────────────────────────────────────────────────────────────────────────┘
@@ -78,6 +87,7 @@ This project follows **Intention-Driven Development**. We start with human needs
 | You Have | You Need | Use Skill |
 |----------|----------|-----------|
 | New feature request | Requirements captured | `/solution-narrative` |
+| Journeys and stories | Capability scope defined | Define `specs/capabilities/` |
 | Journeys and stories | Domain concepts defined | `/domain-modeling` |
 | Stories and models | API contract + Gherkin | `/behavior-contract` |
 | Contract ready | Backend implementation | Your backend architecture skill |
@@ -98,30 +108,38 @@ This project follows **Intention-Driven Development**. We start with human needs
    ├── Extract user stories
    └── Output: specs/personas/, specs/journeys/, specs/stories/
 
-2. /domain-modeling
+2. Define capability scope
+   ├── Create specs/capabilities/{name}.capability.yaml
+   ├── Declare which personas, journeys, stories are in scope
+   ├── Scope grows as features/contracts/models are added
+   └── Output: specs/capabilities/
+
+3. /domain-modeling
    ├── Identify entities and value objects
    ├── Define business rules
    ├── Document lifecycles
    └── Output: specs/models/
 
-3. /behavior-contract
+4. /behavior-contract
    ├── Write Gherkin feature files
    ├── Define OpenAPI contract
    ├── Create test fixtures
+   ├── Update capability scope with new features/contracts
    └── Output: specs/features/, specs/contracts/, specs/fixtures/
 
-4. Implementation (parallel, stack-specific)
+5. Implementation (parallel, stack-specific)
    ├── Backend architecture skill → backend/
    └── Frontend architecture skill → frontend/
 
-5. /e2e-journey-testing
+6. /e2e-journey-testing
    ├── Create journey map
    ├── Implement Playwright tests
    └── Output: specs/journey-maps/, frontend/e2e/
 
-6. /certification
+7. /certification
+   ├── Verify capability scope is complete
    ├── Collect test evidence
-   ├── Generate evidence manifest
+   ├── Generate evidence manifest (references capability file)
    ├── Verify traceability chain
    └── Output: certification/{capability}/
 ```
@@ -180,6 +198,7 @@ specs/                          ← Source of truth (stack-agnostic)
 ├── personas/                   ← /solution-narrative
 ├── journeys/                   ← /solution-narrative
 ├── stories/                    ← /solution-narrative
+├── capabilities/               ← Scope definition (after narrative)
 ├── models/                     ← /domain-modeling
 ├── features/                   ← /behavior-contract
 ├── contracts/openapi/          ← /behavior-contract
@@ -210,10 +229,12 @@ Code file
       └── Feature scenario
           └── Why this behavior?
               └── User story
-                  └── Why this capability?
-                      └── Journey step
-                          └── Why this experience?
-                              └── Persona goal
+                  └── What scope does this belong to?
+                      └── Capability definition
+                          └── Why this capability?
+                              └── Journey step
+                                  └── Why this experience?
+                                      └── Persona goal
 ```
 
 **In practice:**
@@ -272,6 +293,7 @@ solution-narrative              ← Stack-agnostic
 
 - **IDD philosophy**: `docs/idd/manifesto.md`
 - **Concept definitions**: `docs/idd/concepts.md`
+- **Front-matter schema**: `docs/idd/front-matter-spec.md`
 - **Certification standards**: `docs/idd/certification-guide.md`
 - **Process questions**: This guide (`/idd-workflow`)
 - **Specific patterns**: Each skill has templates and examples

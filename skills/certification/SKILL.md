@@ -65,16 +65,29 @@ certification/
 
 ### Step 1: Identify the capability boundary
 
-Determine which intent artifacts are in scope. A capability is typically one journey or a cluster of related stories.
+Locate the capability definition file. A capability groups the artifacts that must be true together — typically one journey or a cluster of related stories.
 
-```
-Ask or determine:
-- Which journey(s) does this capability cover?
-- Which stories belong to this capability?
-- Which personas are involved?
+```bash
+# Find capability definitions
+ls specs/capabilities/
 ```
 
-Search for the relevant artifacts:
+If the capability file exists (`specs/capabilities/{name}.capability.yaml`), its `scope` block is the authoritative source for which artifacts are in scope. Read it:
+
+```yaml
+# specs/capabilities/{name}.capability.yaml
+id: trade-show-signup
+type: capability
+scope:
+  personas: [...]
+  journeys: [...]
+  stories: [...]
+  features: [...]
+  models: [...]
+  contracts: [...]
+```
+
+If no capability file exists yet, create one by searching for the relevant artifacts:
 
 ```bash
 # Find journeys
@@ -86,6 +99,8 @@ grep -rl "journey-name" specs/stories/
 # Find features referencing those stories
 grep -rl "story-name" specs/features/
 ```
+
+Then write `specs/capabilities/{name}.capability.yaml` with the discovered scope.
 
 ### Step 2: Walk the traceability chain forward
 
@@ -193,23 +208,14 @@ Create `certification/{capability}/evidence.yaml`:
 ```yaml
 # certification/{capability-name}/evidence.yaml
 
-capability: {capability-name}
-description: "{one-line description of what this capability delivers}"
+capability: specs/capabilities/{capability-name}.capability.yaml
 certified_at: {ISO 8601 timestamp}
 certified_by: {agent name, CI, or human}
 
-# What intent does this evidence cover?
-intent:
-  personas:
-    - specs/personas/{persona}.md
-  journeys:
-    - specs/journeys/{journey}.md
-  stories:
-    - specs/stories/{area}/{story}.md
-  features:
-    - specs/features/{area}/{feature}.feature
-  contracts:
-    - specs/contracts/openapi/api.yaml
+# Intent scope is defined in the capability file above.
+# The capability's scope block is the single source of truth for
+# which personas, journeys, stories, features, contracts, and models
+# belong to this certification unit.
 
 # What evidence was collected?
 evidence:
@@ -325,6 +331,7 @@ The previous evidence.yaml is not deleted — it's overwritten with the new cert
 | C5 — Fast Honest Feedback | **primary**: evidence must be automated and deterministic |
 | C8 — Traceability Chain | **primary**: closes the chain from intent to proof |
 | C12 — Done Means Verified | **primary**: operational definition of "done" |
+| C15 — Capability as Cert Unit | **primary**: capability artifact defines the certification boundary |
 | C4 — Assumptions Executable | referenced: certification proves assumptions are executable |
 | C13 — Fix Forward | referenced: recertification follows fix-forward cycles |
 | C14 — Agent Non-Negotiables | referenced: enforces rule 3 (no merge without evidence) |

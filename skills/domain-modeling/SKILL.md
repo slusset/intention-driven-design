@@ -49,6 +49,8 @@ specs/
 ```yaml
 # specs/models/{aggregate}/{entity}.model.yaml
 
+id: audit
+type: model
 entity: Audit
 aggregate: Audit                    # Aggregate root this belongs to
 description: |
@@ -154,6 +156,8 @@ versioning:
 ```yaml
 # specs/models/{aggregate}/{entity}.lifecycle.yaml
 
+id: audit-lifecycle
+type: model
 entity: Audit
 description: "State transitions for an audit through its lifecycle"
 
@@ -229,6 +233,8 @@ transitions:
 ```yaml
 # specs/models/shared/{value-object}.model.yaml
 
+id: email-address
+type: model
 value_object: EmailAddress
 description: "A validated email address"
 

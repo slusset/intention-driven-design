@@ -10,7 +10,8 @@
 6. `specs/contracts/openapi/`
 7. `specs/fixtures/`
 8. `specs/journey-maps/`
-9. `certification/` (automated evidence tied to intent)
+9. `specs/capabilities/` (scope definition for certification units)
+10. `certification/` (automated evidence tied to intent)
 
 ## Delivery loop (intention → artifact → verification → evidence)
 

@@ -47,6 +47,11 @@ specs/
 ## Persona Template
 
 ```markdown
+---
+id: {persona-name}
+type: persona
+---
+
 # Persona: {Name}
 
 ## Role
@@ -71,6 +76,13 @@ specs/
 ## Journey Template
 
 ```markdown
+---
+id: {journey-name}
+type: journey
+refs:
+  persona: specs/personas/{persona-name}.md
+---
+
 # Journey: {Journey Name}
 
 ## Actor
@@ -109,6 +121,15 @@ Source Persona: specs/personas/{persona-name}.md
 ## User Story Template
 
 ```markdown
+---
+id: {story-name}
+type: story
+refs:
+  journey: specs/journeys/{journey-name}.md
+  persona: specs/personas/{persona-name}.md
+  steps: [1, 2, 3]
+---
+
 # Story: {Story Title}
 
 ## Narrative
@@ -120,16 +141,11 @@ So that {benefit}.
 - [ ] {Criterion 1 - plain language}
 - [ ] {Criterion 2}
 
-## Journey Reference
-- Journey: specs/journeys/{journey-name}.md
-- Steps: {step numbers this covers}
-
-## Persona Reference
-- Persona: specs/personas/{persona-name}.md
-
 ## Notes
 {Context, constraints, open questions}
 ```
+
+The front-matter `refs` block replaces the inline Journey Reference and Persona Reference sections. Tools parse front-matter for traceability; the body stays narrative-focused. See `docs/idd/front-matter-spec.md` for the full schema.
 
 ## Guardrails
 
@@ -166,10 +182,11 @@ When working with stakeholders:
 
 ## Handoff
 
-When narrative is complete, invoke behavior-contract skill to:
-1. Convert acceptance criteria → Gherkin scenarios
-2. Derive API contract from system responses in journeys
-3. Map journey steps to feature files
+When narrative is complete:
+
+1. **Define the capability** — create `specs/capabilities/{name}.capability.yaml` with the personas, journeys, and stories in scope. This declares the certification boundary early.
+2. **Invoke domain-modeling** — identify entities, rules, and lifecycles from the stories.
+3. **Invoke behavior-contract** — convert acceptance criteria → Gherkin scenarios, derive API contract from system responses in journeys, map journey steps to feature files. Update the capability scope with the new features and contracts.
 
 ## Example
 

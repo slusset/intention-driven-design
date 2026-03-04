@@ -63,6 +63,8 @@ The journey map bridges narrative to technical implementation:
 ```yaml
 # specs/journey-maps/{journey-name}.map.yaml
 
+id: {journey-name}
+type: journey-map
 journey: {journey-name}                  # matches journey filename
 description: {purpose of this journey}
 sources:

@@ -50,6 +50,8 @@ specs/
 ```json
 {
   "_meta": {
+    "id": "{fixture-name}",
+    "type": "fixture",
     "story": "specs/stories/{area}/{story}.md",
     "feature": "specs/features/{area}/{feature}.feature",
     "scenario": "{scenario name}"
@@ -79,10 +81,11 @@ Before defining contract schemas, check specs/models/:
 ```gherkin
 # specs/features/{area}/{name}.feature
 
-# Story: specs/stories/{area}/{story}.md
-# Journey: specs/journeys/{journey}.md
-# Contract: {METHOD} {endpoint}
-# Traceability: Story -> Feature -> Contract -> Fixture
+# id: {feature-name}
+# type: feature
+# story: specs/stories/{area}/{story}.md
+# journey: specs/journeys/{journey}.md
+# contract: {METHOD} {endpoint}
 
 @{feature-area}
 Feature: {Feature Title}
@@ -358,8 +361,11 @@ Error:
 ```json
 {
   "_meta": {
+    "id": "create-audit-happy-path",
+    "type": "fixture",
     "description": "Successful audit creation",
-    "story": "create-first-audit",
+    "story": "specs/stories/audits/create-first-audit.md",
+    "feature": "specs/features/audits/create-audit.feature",
     "scenario": "Successfully create an audit"
   },
   "request": {
@@ -380,26 +386,31 @@ Error:
 
 ## Traceability
 
-Every artifact must reference its source:
+Every artifact must reference its source. Use front-matter fields (`id`, `type`, and typed refs) so tools can parse links uniformly. See `docs/idd/front-matter-spec.md` for the full schema.
 
-**In feature files:**
+**In feature files** (comment-based front-matter):
 ```gherkin
-# Story: specs/stories/audits/cancel-pending-audit.md
-# Journey: specs/journeys/cancel-audit.md
-# Contract: POST /audits/{id}/cancel
+# id: cancel-audit
+# type: feature
+# story: specs/stories/audits/cancel-pending-audit.md
+# journey: specs/journeys/cancel-audit.md
+# contract: POST /audits/{id}/cancel
 ```
 
-**In contract:**
+**In contract** (OpenAPI extensions — unchanged):
 ```yaml
 x-story: cancel-pending-audit
 x-feature: specs/features/audits/cancel-audit.feature
 ```
 
-**In fixtures:**
+**In fixtures** (`_meta` block with `id` and `type`):
 ```json
 {
   "_meta": {
-    "story": "cancel-pending-audit",
+    "id": "cancel-audit-happy-path",
+    "type": "fixture",
+    "story": "specs/stories/audits/cancel-pending-audit.md",
+    "feature": "specs/features/audits/cancel-audit.feature",
     "scenario": "Successfully cancel a pending audit"
   }
 }
