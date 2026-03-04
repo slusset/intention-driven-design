@@ -1,5 +1,12 @@
 {
+  "name": "idd-tools",
+  "version": "0.1.0",
   "private": true,
+  "bin": {
+    "idd-check-front-matter": "./check-front-matter.js",
+    "idd-check-capability-scope": "./check-capability-scope.js",
+    "idd-check-traceability": "./check-traceability.js"
+  },
   "dependencies": {
     "js-yaml": "^4.1.0"
   }
