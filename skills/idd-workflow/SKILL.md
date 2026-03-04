@@ -79,6 +79,13 @@ This project follows **Intention-Driven Development**. We start with human needs
 │  Evidence manifest ── references capability ── published before merge     │
 │                                                                           │
 │                        /certification                                     │
+├───────────────────────────────────────────────────────────────────────────┤
+│                        PR REVIEW GATE                                     │
+│                                                                           │
+│  CI checks ── traceability + front-matter + scope ── blocks merge on fail │
+│  Agent review ── semantic alignment ── advisory comments                  │
+│                                                                           │
+│                        /pr-review + .github/workflows/idd-check.yml       │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -95,6 +102,7 @@ This project follows **Intention-Driven Development**. We start with human needs
 | Design mockup/HTML | UI components | Your frontend-from-design skill |
 | Journey + contract | E2E test coverage | `/e2e-journey-testing` |
 | All tests passing | Certifiable evidence | `/certification` |
+| PR open, need compliance check | IDD compliance verified | `/pr-review` (or CI auto) |
 | Unsure where to start | This guide | `/idd-workflow` |
 
 ## Detailed Workflow
@@ -287,6 +295,9 @@ solution-narrative              ← Stack-agnostic
                    │
                    ▼
           /certification        ← Stack-agnostic (cross-cutting)
+                   │
+                   ▼
+          /pr-review            ← CI gate (cross-cutting)
 ```
 
 ## Getting Help
@@ -295,5 +306,7 @@ solution-narrative              ← Stack-agnostic
 - **Concept definitions**: `docs/idd/concepts.md`
 - **Front-matter schema**: `docs/idd/front-matter-spec.md`
 - **Certification standards**: `docs/idd/certification-guide.md`
+- **PR compliance checks**: `skills/pr-review/SKILL.md`
+- **CI workflow**: `.github/workflows/idd-check.yml`
 - **Process questions**: This guide (`/idd-workflow`)
 - **Specific patterns**: Each skill has templates and examples

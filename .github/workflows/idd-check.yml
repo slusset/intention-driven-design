@@ -1,0 +1,328 @@
+# IDD Compliance Check
+#
+# Runs deterministic traceability and front-matter checks on every PR.
+# This is Layer 1 of the PR review skill — fast, no LLM, runs in CI.
+#
+# Layer 2 (semantic review via Claude) is triggered separately by label
+# or comment. See skills/pr-review/SKILL.md for full architecture.
+
+name: IDD Compliance
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      # Only run when spec, contract, model, or implementation files change
+      - 'specs/**'
+      - 'backend/src/**'
+      - 'frontend/src/**'
+      - 'certification/**'
+      - 'tools/check-*.js'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  traceability:
+    name: Traceability & Front-Matter
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd tools
+          npm install js-yaml 2>/dev/null || npm init -y && npm install js-yaml
+
+      # ── Check 1: Traceability links ──────────────────────────────
+      - name: Check traceability links
+        id: traceability
+        continue-on-error: true
+        run: |
+          set +e
+          OUTPUT=$(node tools/check-traceability.js 2>&1)
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+          # Save full output for the comment
+          echo "$OUTPUT" > /tmp/traceability-output.txt
+
+          # Extract counts from output
+          ERRORS=$(echo "$OUTPUT" | grep -oP 'Errors: \K\d+' || echo "0")
+          WARNINGS=$(echo "$OUTPUT" | grep -oP 'Warnings: \K\d+' || echo "0")
+          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+          echo "warnings=$WARNINGS" >> $GITHUB_OUTPUT
+
+          exit 0  # Don't fail the step; we'll report in the comment
+
+      # ── Check 2: Front-matter presence ───────────────────────────
+      - name: Check front-matter on changed specs
+        id: frontmatter
+        continue-on-error: true
+        run: |
+          set +e
+          ERRORS=0
+          WARNINGS=0
+          DETAILS=""
+
+          # Get list of changed spec files in this PR
+          CHANGED_SPECS=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- 'specs/' 2>/dev/null || echo "")
+
+          if [ -z "$CHANGED_SPECS" ]; then
+            echo "No spec files changed"
+            echo "errors=0" >> $GITHUB_OUTPUT
+            echo "warnings=0" >> $GITHUB_OUTPUT
+            echo "checked=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          CHECKED=0
+
+          for FILE in $CHANGED_SPECS; do
+            if [ ! -f "$FILE" ]; then
+              continue
+            fi
+
+            CHECKED=$((CHECKED + 1))
+
+            case "$FILE" in
+              specs/personas/*.md)
+                # Check for id and type in YAML front-matter
+                if ! head -20 "$FILE" | grep -q "^id:"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`id\` in front-matter"
+                fi
+                if ! head -20 "$FILE" | grep -q "^type: persona"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`type: persona\` in front-matter"
+                fi
+                ;;
+
+              specs/journeys/*.md)
+                if ! head -20 "$FILE" | grep -q "^id:"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`id\` in front-matter"
+                fi
+                if ! head -20 "$FILE" | grep -q "^type: journey"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`type: journey\` in front-matter"
+                fi
+                ;;
+
+              specs/stories/**/*.md | specs/stories/*.md)
+                if ! head -20 "$FILE" | grep -q "^id:"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`id\` in front-matter"
+                fi
+                if ! head -20 "$FILE" | grep -q "^type: story"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`type: story\` in front-matter"
+                fi
+                ;;
+
+              specs/features/**/*.feature | specs/features/*.feature)
+                if ! head -10 "$FILE" | grep -q "^# id:"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`# id:\` comment header"
+                fi
+                if ! head -10 "$FILE" | grep -q "^# type: feature"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`# type: feature\` comment header"
+                fi
+                if ! head -10 "$FILE" | grep -q "^# story:"; then
+                  WARNINGS=$((WARNINGS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`# story:\` reference (warning)"
+                fi
+                ;;
+
+              specs/models/**/*.model.yaml | specs/models/**/*.model.yml)
+                if ! head -5 "$FILE" | grep -q "^id:"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`id\` field"
+                fi
+                if ! head -5 "$FILE" | grep -q "^type: model"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`type: model\` field"
+                fi
+                ;;
+
+              specs/capabilities/*.capability.yaml | specs/capabilities/*.capability.yml)
+                if ! head -5 "$FILE" | grep -q "^id:"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`id\` field"
+                fi
+                if ! head -5 "$FILE" | grep -q "^type: capability"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`type: capability\` field"
+                fi
+                if ! grep -q "^scope:" "$FILE"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`scope\` block"
+                fi
+                ;;
+
+              specs/journey-maps/*.map.yaml | specs/journey-maps/*.map.yml)
+                if ! head -5 "$FILE" | grep -q "^id:"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`id\` field"
+                fi
+                if ! head -5 "$FILE" | grep -q "^type: journey-map"; then
+                  ERRORS=$((ERRORS + 1))
+                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`type: journey-map\` field"
+                fi
+                ;;
+            esac
+          done
+
+          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+          echo "warnings=$WARNINGS" >> $GITHUB_OUTPUT
+          echo "checked=$CHECKED" >> $GITHUB_OUTPUT
+
+          # Save details for comment
+          echo -e "$DETAILS" > /tmp/frontmatter-details.txt
+
+          exit 0
+
+      # ── Check 3: Spec-before-code warning ────────────────────────
+      - name: Check spec-before-code
+        id: specbeforecode
+        run: |
+          set +e
+
+          # Files changed in implementation
+          IMPL_CHANGES=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- 'backend/src/' 'frontend/src/' 2>/dev/null | wc -l | tr -d ' ')
+
+          # Files changed in specs
+          SPEC_CHANGES=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- 'specs/' 2>/dev/null | wc -l | tr -d ' ')
+
+          echo "impl_changes=$IMPL_CHANGES" >> $GITHUB_OUTPUT
+          echo "spec_changes=$SPEC_CHANGES" >> $GITHUB_OUTPUT
+
+          if [ "$IMPL_CHANGES" -gt "0" ] && [ "$SPEC_CHANGES" -eq "0" ]; then
+            echo "warning=true" >> $GITHUB_OUTPUT
+            # List the impl files for the comment
+            git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- 'backend/src/' 'frontend/src/' > /tmp/impl-files.txt 2>/dev/null
+          else
+            echo "warning=false" >> $GITHUB_OUTPUT
+          fi
+
+          exit 0
+
+      # ── Post results as PR comment ───────────────────────────────
+      - name: Post review comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Gather results from previous steps
+            const traceErrors = parseInt('${{ steps.traceability.outputs.errors }}') || 0;
+            const traceWarnings = parseInt('${{ steps.traceability.outputs.warnings }}') || 0;
+            const traceExit = parseInt('${{ steps.traceability.outputs.exit_code }}') || 0;
+
+            const fmErrors = parseInt('${{ steps.frontmatter.outputs.errors }}') || 0;
+            const fmWarnings = parseInt('${{ steps.frontmatter.outputs.warnings }}') || 0;
+            const fmChecked = parseInt('${{ steps.frontmatter.outputs.checked }}') || 0;
+
+            const implChanges = parseInt('${{ steps.specbeforecode.outputs.impl_changes }}') || 0;
+            const specChanges = parseInt('${{ steps.specbeforecode.outputs.spec_changes }}') || 0;
+            const specWarning = '${{ steps.specbeforecode.outputs.warning }}' === 'true';
+
+            // Build comment
+            let body = '## IDD Compliance Review\n\n';
+
+            // Traceability
+            const traceIcon = traceExit === 0 ? '✅' : '❌';
+            body += `### Traceability ${traceIcon}\n`;
+            if (traceExit === 0) {
+              body += '- All traceability links resolve correctly\n';
+            } else {
+              body += `- ${traceErrors} error(s), ${traceWarnings} warning(s)\n`;
+              try {
+                const details = fs.readFileSync('/tmp/traceability-output.txt', 'utf8');
+                if (details.trim()) {
+                  body += `\n<details><summary>Details</summary>\n\n\`\`\`\n${details}\n\`\`\`\n</details>\n`;
+                }
+              } catch(e) {}
+            }
+            body += '\n';
+
+            // Front-matter
+            if (fmChecked > 0) {
+              const fmIcon = fmErrors === 0 ? '✅' : '❌';
+              body += `### Front-Matter ${fmIcon}\n`;
+              if (fmErrors === 0) {
+                body += `- All ${fmChecked} changed spec file(s) have valid front-matter\n`;
+              } else {
+                body += `- ${fmErrors} error(s), ${fmWarnings} warning(s) in ${fmChecked} file(s)\n`;
+                try {
+                  const details = fs.readFileSync('/tmp/frontmatter-details.txt', 'utf8');
+                  if (details.trim()) {
+                    body += `\n${details.trim()}\n`;
+                  }
+                } catch(e) {}
+              }
+            } else {
+              body += '### Front-Matter ➖\n- No spec files changed\n';
+            }
+            body += '\n';
+
+            // Spec-before-code
+            if (specWarning) {
+              body += '### Spec-Before-Code ⚠️\n';
+              body += `- ${implChanges} implementation file(s) changed without spec updates\n`;
+              body += '- If this changes behavior, update specs first ([C13 Fix Forward](docs/idd/concepts.md))\n';
+              try {
+                const files = fs.readFileSync('/tmp/impl-files.txt', 'utf8');
+                if (files.trim()) {
+                  body += `\n<details><summary>Changed implementation files</summary>\n\n\`\`\`\n${files.trim()}\n\`\`\`\n</details>\n`;
+                }
+              } catch(e) {}
+            } else if (implChanges > 0) {
+              body += '### Spec-Before-Code ✅\n';
+              body += `- ${implChanges} implementation file(s) with ${specChanges} spec file(s) updated\n`;
+            }
+            body += '\n---\n';
+            body += '*Automated by [IDD PR Review](skills/pr-review/SKILL.md) • [What is IDD?](docs/idd/manifesto.md)*\n';
+
+            // Determine overall status
+            const hasFailures = traceExit !== 0 || fmErrors > 0;
+
+            // Find and update existing comment, or create new one
+            const marker = '## IDD Compliance Review';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body && c.body.startsWith(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+            }
+
+            // Fail the job if there are errors
+            if (hasFailures) {
+              core.setFailed(`IDD compliance check failed: ${traceErrors + fmErrors} error(s)`);
+            }

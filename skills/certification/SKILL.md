@@ -322,7 +322,8 @@ The previous evidence.yaml is not deleted — it's overwritten with the new cert
 | domain-modeling | Certification verifies that model rules are reflected in features and tests |
 | behavior-contract | Certification verifies that features map to contracts and contracts have tests |
 | e2e-journey-testing | Certification verifies that journeys have maps and e2e coverage |
-| idd-workflow | Certification is step 6 in the workflow, invoked via `/certification` |
+| pr-review | PR review catches traceability gaps early in CI; certification provides the formal evidence record |
+| idd-workflow | Certification is step 7 in the workflow, invoked via `/certification` |
 
 ## Concepts Carried
 
