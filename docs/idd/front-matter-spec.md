@@ -207,7 +207,7 @@ See `docs/idd/certification-guide.md` for how capabilities relate to certificati
 
 1. **Document** (this spec): Define the schema. Done.
 2. **Generate**: Skills start producing front-matter when creating new artifacts.
-3. **Validate**: `check-traceability.js` prefers front-matter when present, falls back to existing conventions.
+3. **Validate**: `validate-traceability.js` prefers front-matter when present, falls back to existing conventions.
 4. **Backfill**: Optionally add front-matter to existing artifacts.
 5. **Enforce**: Once adoption is high, make front-matter required for new artifacts.
 
