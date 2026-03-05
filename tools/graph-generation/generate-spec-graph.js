@@ -140,6 +140,77 @@ function normalizeContractSignature(value) {
   return `${match[1].toUpperCase()} ${match[2]}`;
 }
 
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function inferLegacyScopedRef(rootPrefix, section, rawValue) {
+  const normalized = normalizeRef(rawValue);
+  if (!normalized) return null;
+
+  if (rootPrefix && normalized.startsWith(`${rootPrefix}/`)) {
+    return normalized;
+  }
+
+  if (rootPrefix && normalized.startsWith(`${section}/`)) {
+    return `${rootPrefix}/${normalized}`;
+  }
+
+  if (normalized.includes('/')) {
+    return normalized;
+  }
+
+  const withExtension = normalized.endsWith('.md') ? normalized : `${normalized}.md`;
+  return rootPrefix ? `${rootPrefix}/${section}/${withExtension}` : `${section}/${withExtension}`;
+}
+
+function extractLegacyRefs(record, rootPrefix) {
+  const text = String(record.content || '');
+  if (!text) return {};
+
+  const prefix = escapeRegExp(rootPrefix);
+  const includePrefix = rootPrefix ? `${prefix}\\/` : '';
+  const result = {};
+
+  if (record.type === 'journey') {
+    const personaMatch = text.match(new RegExp(`[Pp]ersona:\\s*(?:${includePrefix}personas\\/)?([^\\s\\n]+)`));
+    if (personaMatch) {
+      result.persona = inferLegacyScopedRef(rootPrefix, 'personas', personaMatch[1]);
+    }
+  }
+
+  if (record.type === 'story') {
+    const journeyMatch = text.match(new RegExp(`[Jj]ourney:\\s*(?:${includePrefix}journeys\\/)?([^\\s\\n]+)`));
+    if (journeyMatch) {
+      result.journey = inferLegacyScopedRef(rootPrefix, 'journeys', journeyMatch[1]);
+    }
+
+    const personaMatch = text.match(new RegExp(`[Pp]ersona:\\s*(?:${includePrefix}personas\\/)?([^\\s\\n]+)`));
+    if (personaMatch) {
+      result.persona = inferLegacyScopedRef(rootPrefix, 'personas', personaMatch[1]);
+    }
+  }
+
+  if (record.type === 'feature') {
+    const storyMatch = text.match(new RegExp(`#\\s*[Ss]tory:\\s*(?:${includePrefix}stories\\/)?([^\\s\\n]+)`));
+    if (storyMatch) {
+      result.story = inferLegacyScopedRef(rootPrefix, 'stories', storyMatch[1]);
+    }
+
+    const journeyMatch = text.match(new RegExp(`#\\s*[Jj]ourney:\\s*(?:${includePrefix}journeys\\/)?([^\\s\\n]+)`));
+    if (journeyMatch) {
+      result.journey = inferLegacyScopedRef(rootPrefix, 'journeys', journeyMatch[1]);
+    }
+
+    const contractMatch = text.match(/#\s*[Cc]ontract:\s*((?:GET|POST|PUT|PATCH|DELETE)\s+\S+)/);
+    if (contractMatch) {
+      result.contract = normalizeContractSignature(contractMatch[1]);
+    }
+  }
+
+  return result;
+}
+
 function createGraphState() {
   return {
     nodesByUid: new Map(),
@@ -151,6 +222,7 @@ function createGraphState() {
     contractUidsByFile: new Map(),
     capabilityMembers: new Map(),
     warnings: [],
+    specRootPrefix: '',
     nextNodeCounter: 1,
   };
 }
@@ -199,7 +271,6 @@ function addEdge(state, edge) {
     edge.target,
     edge.style || 'solid',
     edge.category || 'trace',
-    edge.label || '',
   ].join('|');
 
   if (state.edgesByKey.has(key)) return;
@@ -263,6 +334,7 @@ function registerArtifactsFromFrontMatter(state, specsDir) {
       id,
       path: relativePath,
       frontMatter,
+      content,
     });
   }
 }
@@ -314,7 +386,10 @@ function registerContractsFromOpenApi(state, specsDir) {
         if (!uid) continue;
 
         if (signature) {
-          state.contractsBySignature.set(signature, uid);
+          if (!state.contractsBySignature.has(signature)) {
+            state.contractsBySignature.set(signature, new Set());
+          }
+          state.contractsBySignature.get(signature).add(uid);
         }
         if (!state.contractUidsByFile.has(relativePath)) {
           state.contractUidsByFile.set(relativePath, []);
@@ -334,7 +409,7 @@ function resolveReferenceToUids(state, ref, typeHint) {
   if (typeHint === 'contract') {
     const directSignature = normalizeContractSignature(normalized);
     if (directSignature && state.contractsBySignature.has(directSignature)) {
-      return [state.contractsBySignature.get(directSignature)];
+      return Array.from(state.contractsBySignature.get(directSignature));
     }
 
     if (state.contractUidsByFile.has(normalized)) {
@@ -411,21 +486,25 @@ function addArtifactEdges(state) {
 
     const refs = record.frontMatter.refs || {};
     const sources = record.frontMatter.sources || {};
+    const legacyRefs = extractLegacyRefs(record, state.specRootPrefix);
 
     if (record.type === 'journey') {
-      connectFromReference(state, refs.persona, 'persona', record.uid, 'refs.persona');
+      connectFromReference(state, refs.persona || legacyRefs.persona, 'persona', record.uid, 'refs.persona');
     }
 
     if (record.type === 'story') {
-      connectFromReference(state, refs.journey, 'journey', record.uid, 'refs.journey');
-      connectFromReference(state, refs.persona, 'persona', record.uid, 'refs.persona');
+      connectFromReference(state, refs.journey || legacyRefs.journey, 'journey', record.uid, 'refs.journey');
+      connectFromReference(state, refs.persona || legacyRefs.persona, 'persona', record.uid, 'refs.persona');
     }
 
     if (record.type === 'feature') {
-      connectFromReference(state, record.frontMatter.story, 'story', record.uid, 'story');
-      connectFromReference(state, record.frontMatter.journey, 'journey', record.uid, 'journey');
+      connectFromReference(state, record.frontMatter.story || legacyRefs.story, 'story', record.uid, 'story');
+      connectFromReference(state, record.frontMatter.journey || legacyRefs.journey, 'journey', record.uid, 'journey');
 
-      const contractRefs = toArray(record.frontMatter.contract);
+      const contractRefs = [
+        ...toArray(record.frontMatter.contract),
+        ...toArray(legacyRefs.contract),
+      ];
       for (const contractRef of contractRefs) {
         const targetContracts = resolveReferenceToUids(state, contractRef, 'contract');
         for (const contractUid of targetContracts) {
@@ -677,6 +756,7 @@ function toJsonGraph(state, renderResult) {
 
 function buildGraph(specsDir) {
   const state = createGraphState();
+  state.specRootPrefix = toPosix(path.relative(process.cwd(), specsDir));
 
   registerArtifactsFromFrontMatter(state, specsDir);
   registerContractsFromOpenApi(state, specsDir);
