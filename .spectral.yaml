@@ -1,0 +1,54 @@
+formats:
+  - oas3
+
+rules:
+  idd-operation-id-required:
+    description: OpenAPI operations must declare an operationId.
+    message: '{{path}} is missing an operationId.'
+    severity: error
+    given: $.paths[*][*]
+    then:
+      field: operationId
+      function: truthy
+
+  idd-operation-summary-required:
+    description: OpenAPI operations should provide a short summary.
+    message: '{{path}} is missing a summary.'
+    severity: error
+    given: $.paths[*][*]
+    then:
+      field: summary
+      function: truthy
+
+  idd-x-story-required:
+    description: OpenAPI operations must trace back to a story artifact.
+    message: '{{path}} is missing x-story.'
+    severity: error
+    given: $.paths[*][*]
+    then:
+      field: x-story
+      function: pattern
+      functionOptions:
+        match: '^specs/stories/.+\.md$'
+
+  idd-x-feature-required:
+    description: OpenAPI operations must trace back to a feature artifact.
+    message: '{{path}} is missing x-feature.'
+    severity: error
+    given: $.paths[*][*]
+    then:
+      field: x-feature
+      function: pattern
+      functionOptions:
+        match: '^specs/features/.+\.feature$'
+
+  idd-x-journey-required:
+    description: OpenAPI operations must trace back to a journey artifact.
+    message: '{{path}} is missing x-journey.'
+    severity: error
+    given: $.paths[*][*]
+    then:
+      field: x-journey
+      function: pattern
+      functionOptions:
+        match: '^specs/journeys/.+\.journey\.md$'

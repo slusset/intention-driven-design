@@ -43,8 +43,6 @@ jobs:
         run: |
           cd tools
           npm ci
-          cd ..
-          npm install -g @stoplight/spectral-cli gherkin-lint
 
       - name: Gather changed specs
         id: changed_specs
@@ -152,7 +150,7 @@ jobs:
         run: |
           set +e
           if [ -f specs/contracts/openapi/api.yaml ]; then
-            spectral lint specs/contracts/openapi/api.yaml --ruleset .spectral.yaml > /tmp/openapi-lint.txt 2>&1
+            npx --prefix tools spectral lint specs/contracts/openapi/api.yaml --ruleset .spectral.yaml > /tmp/openapi-lint.txt 2>&1
             EXIT_CODE=$?
             if [ "$EXIT_CODE" -eq 0 ]; then
               printf '%s\n' '{"errors":[],"warnings":[],"info":["OpenAPI lint passed"]}' > /tmp/openapi.json
@@ -174,7 +172,7 @@ jobs:
         run: |
           set +e
           if [ -d specs/features ]; then
-            gherkin-lint specs/features/**/*.feature > /tmp/gherkin-lint.txt 2>&1
+            npx --prefix tools gherkin-lint -c .gherkin-lintrc specs/features/**/*.feature > /tmp/gherkin-lint.txt 2>&1
             EXIT_CODE=$?
             if [ "$EXIT_CODE" -eq 0 ]; then
               printf '%s\n' '{"errors":[],"warnings":[],"info":["Gherkin lint passed"]}' > /tmp/gherkin.json
