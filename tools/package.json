@@ -4,6 +4,7 @@
   "private": true,
   "bin": {
     "idd-generate-evidence": "./generate-evidence.js",
+    "idd-validate-evidence": "./validate-evidence.js",
     "idd-validate-front-matter": "./validate-front-matter.js",
     "idd-validate-capability-scope": "./validate-capability-scope.js",
     "idd-validate-traceability": "./validate-traceability.js",
