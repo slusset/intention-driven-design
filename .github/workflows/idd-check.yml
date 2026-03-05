@@ -208,112 +208,141 @@ jobs:
             echo "warning=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Build validation summary
+        if: always()
+        env:
+          TRACEABILITY_EXIT_CODE: ${{ steps.traceability.outputs.exit_code }}
+          FRONTMATTER_EXIT_CODE: ${{ steps.frontmatter.outputs.exit_code }}
+          CAPABILITY_SCOPE_EXIT_CODE: ${{ steps.capability_scope.outputs.exit_code }}
+          FIXTURES_EXIT_CODE: ${{ steps.fixtures.outputs.exit_code }}
+          MODELS_EXIT_CODE: ${{ steps.models.outputs.exit_code }}
+          JOURNEY_MAPS_EXIT_CODE: ${{ steps.journey_maps.outputs.exit_code }}
+          OPENAPI_LINT_EXIT_CODE: ${{ steps.openapi_lint.outputs.exit_code }}
+          GHERKIN_LINT_EXIT_CODE: ${{ steps.gherkin_lint.outputs.exit_code }}
+          IMPL_CHANGES: ${{ steps.specbeforecode.outputs.impl_changes }}
+          SPEC_CHANGES: ${{ steps.specbeforecode.outputs.spec_changes }}
+          SPEC_WARNING: ${{ steps.specbeforecode.outputs.warning }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          function readJson(path) {
+            try {
+              return JSON.parse(fs.readFileSync(path, 'utf8'));
+            } catch (error) {
+              return { errors: [`Failed to read ${path}: ${error.message}`], warnings: [], info: [] };
+            }
+          }
+
+          function summarizeLines(lines, limit = 20) {
+            if (!Array.isArray(lines) || lines.length === 0) return '';
+            const shown = lines.slice(0, limit).map((line) => `- ${line}`).join('\n');
+            const extra = lines.length > limit ? `\n- ...and ${lines.length - limit} more` : '';
+            return `${shown}${extra}`;
+          }
+
+          const checks = [
+            { name: 'Traceability', path: '/tmp/traceability.json', exitCode: Number(process.env.TRACEABILITY_EXIT_CODE || 0) },
+            { name: 'Front-Matter', path: '/tmp/frontmatter.json', exitCode: Number(process.env.FRONTMATTER_EXIT_CODE || 0) },
+            { name: 'Capability Scope', path: '/tmp/capability-scope.json', exitCode: Number(process.env.CAPABILITY_SCOPE_EXIT_CODE || 0) },
+            { name: 'Fixtures', path: '/tmp/fixtures.json', exitCode: Number(process.env.FIXTURES_EXIT_CODE || 0) },
+            { name: 'Models', path: '/tmp/models.json', exitCode: Number(process.env.MODELS_EXIT_CODE || 0) },
+            { name: 'Journey Maps', path: '/tmp/journey-maps.json', exitCode: Number(process.env.JOURNEY_MAPS_EXIT_CODE || 0) },
+            { name: 'OpenAPI Lint', path: '/tmp/openapi.json', exitCode: Number(process.env.OPENAPI_LINT_EXIT_CODE || 0) },
+            { name: 'Gherkin Lint', path: '/tmp/gherkin.json', exitCode: Number(process.env.GHERKIN_LINT_EXIT_CODE || 0) },
+          ];
+
+          let body = '## IDD Compliance Review\n\n';
+          let totalErrors = 0;
+          let totalWarnings = 0;
+
+          for (const check of checks) {
+            const data = readJson(check.path);
+            const errors = Array.isArray(data.errors) ? data.errors : [];
+            const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+            const info = Array.isArray(data.info) ? data.info : [];
+
+            totalErrors += errors.length;
+            totalWarnings += warnings.length;
+
+            const icon = check.exitCode === 0 ? '✅' : '❌';
+            body += `### ${check.name} ${icon}\n`;
+            body += `- Errors: ${errors.length}\n`;
+            body += `- Warnings: ${warnings.length}\n`;
+
+            const details = [];
+            const errText = summarizeLines(errors, 20);
+            if (errText) {
+              details.push('**Errors**');
+              details.push(errText);
+            }
+
+            const warnText = summarizeLines(warnings, 20);
+            if (warnText) {
+              details.push('**Warnings**');
+              details.push(warnText);
+            }
+
+            const infoText = summarizeLines(info, 10);
+            if (infoText) {
+              details.push('**Info**');
+              details.push(infoText);
+            }
+
+            if (details.length > 0) {
+              body += '\n<details><summary>Details</summary>\n\n';
+              body += `${details.join('\n\n')}\n`;
+              body += '\n</details>\n';
+            }
+
+            body += '\n';
+          }
+
+          const implChanges = Number(process.env.IMPL_CHANGES || 0);
+          const specChanges = Number(process.env.SPEC_CHANGES || 0);
+          const specWarning = process.env.SPEC_WARNING === 'true';
+
+          if (specWarning) {
+            body += '### Spec-Before-Code ⚠️\n';
+            body += `- ${implChanges} implementation file(s) changed without spec updates\n`;
+            body += '- If behavior changed, update specs first.\n';
+            try {
+              const files = fs.readFileSync('/tmp/impl-files.txt', 'utf8').trim();
+              if (files) {
+                body += '\n<details><summary>Changed implementation files</summary>\n\n';
+                body += `\n\`\`\`\n${files}\n\`\`\`\n`;
+                body += '\n</details>\n';
+              }
+            } catch (_) {
+              // Ignore.
+            }
+            body += '\n';
+          } else if (implChanges > 0) {
+            body += '### Spec-Before-Code ✅\n';
+            body += `- ${implChanges} implementation file(s) with ${specChanges} spec file(s) updated\n\n`;
+          }
+
+          body += '---\n';
+          body += `Total errors: ${totalErrors}  \nTotal warnings: ${totalWarnings}\n`;
+          body += '\n*Automated by IDD validation workflow.*\n';
+
+          fs.writeFileSync('/tmp/idd-summary.md', body);
+          NODE
+
+          cat /tmp/idd-summary.md >> "$GITHUB_STEP_SUMMARY"
+
       - name: Post review comment
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-
-            function readJson(path) {
-              try {
-                return JSON.parse(fs.readFileSync(path, 'utf8'));
-              } catch (error) {
-                return { errors: [`Failed to read ${path}: ${error.message}`], warnings: [], info: [] };
-              }
+            let body;
+            try {
+              body = fs.readFileSync('/tmp/idd-summary.md', 'utf8');
+            } catch (error) {
+              body = `## IDD Compliance Review\n\n- Failed to load generated summary: ${error.message}\n`;
             }
-
-            function summarizeLines(lines, limit = 20) {
-              if (!Array.isArray(lines) || lines.length === 0) return '';
-              const shown = lines.slice(0, limit).map((line) => `- ${line}`).join('\n');
-              const extra = lines.length > limit ? `\n- ...and ${lines.length - limit} more` : '';
-              return `${shown}${extra}`;
-            }
-
-            const checks = [
-              { name: 'Traceability', path: '/tmp/traceability.json', exitCode: Number('${{ steps.traceability.outputs.exit_code }}') || 0 },
-              { name: 'Front-Matter', path: '/tmp/frontmatter.json', exitCode: Number('${{ steps.frontmatter.outputs.exit_code }}') || 0 },
-              { name: 'Capability Scope', path: '/tmp/capability-scope.json', exitCode: Number('${{ steps.capability_scope.outputs.exit_code }}') || 0 },
-              { name: 'Fixtures', path: '/tmp/fixtures.json', exitCode: Number('${{ steps.fixtures.outputs.exit_code }}') || 0 },
-              { name: 'Models', path: '/tmp/models.json', exitCode: Number('${{ steps.models.outputs.exit_code }}') || 0 },
-              { name: 'Journey Maps', path: '/tmp/journey-maps.json', exitCode: Number('${{ steps.journey_maps.outputs.exit_code }}') || 0 },
-              { name: 'OpenAPI Lint', path: '/tmp/openapi.json', exitCode: Number('${{ steps.openapi_lint.outputs.exit_code }}') || 0 },
-              { name: 'Gherkin Lint', path: '/tmp/gherkin.json', exitCode: Number('${{ steps.gherkin_lint.outputs.exit_code }}') || 0 },
-            ];
-
-            let body = '## IDD Compliance Review\n\n';
-            let totalErrors = 0;
-            let totalWarnings = 0;
-
-            for (const check of checks) {
-              const data = readJson(check.path);
-              const errors = Array.isArray(data.errors) ? data.errors : [];
-              const warnings = Array.isArray(data.warnings) ? data.warnings : [];
-              const info = Array.isArray(data.info) ? data.info : [];
-
-              totalErrors += errors.length;
-              totalWarnings += warnings.length;
-
-              const icon = check.exitCode === 0 ? '✅' : '❌';
-              body += `### ${check.name} ${icon}\n`;
-              body += `- Errors: ${errors.length}\n`;
-              body += `- Warnings: ${warnings.length}\n`;
-
-              const details = [];
-              const errText = summarizeLines(errors, 20);
-              if (errText) {
-                details.push('**Errors**');
-                details.push(errText);
-              }
-
-              const warnText = summarizeLines(warnings, 20);
-              if (warnText) {
-                details.push('**Warnings**');
-                details.push(warnText);
-              }
-
-              const infoText = summarizeLines(info, 10);
-              if (infoText) {
-                details.push('**Info**');
-                details.push(infoText);
-              }
-
-              if (details.length > 0) {
-                body += '\n<details><summary>Details</summary>\n\n';
-                body += `${details.join('\n\n')}\n`;
-                body += '\n</details>\n';
-              }
-
-              body += '\n';
-            }
-
-            const implChanges = Number('${{ steps.specbeforecode.outputs.impl_changes }}') || 0;
-            const specChanges = Number('${{ steps.specbeforecode.outputs.spec_changes }}') || 0;
-            const specWarning = '${{ steps.specbeforecode.outputs.warning }}' === 'true';
-
-            if (specWarning) {
-              body += '### Spec-Before-Code ⚠️\n';
-              body += `- ${implChanges} implementation file(s) changed without spec updates\n`;
-              body += '- If behavior changed, update specs first.\n';
-              try {
-                const files = fs.readFileSync('/tmp/impl-files.txt', 'utf8').trim();
-                if (files) {
-                  body += '\n<details><summary>Changed implementation files</summary>\n\n';
-                  body += `\n\`\`\`\n${files}\n\`\`\`\n`;
-                  body += '\n</details>\n';
-                }
-              } catch (_) {
-                // Ignore.
-              }
-              body += '\n';
-            } else if (implChanges > 0) {
-              body += '### Spec-Before-Code ✅\n';
-              body += `- ${implChanges} implementation file(s) with ${specChanges} spec file(s) updated\n\n`;
-            }
-
-            body += '---\n';
-            body += `Total errors: ${totalErrors}  \\nTotal warnings: ${totalWarnings}\n`;
-            body += '\n*Automated by IDD validation workflow.*\n';
 
             const marker = '## IDD Compliance Review';
             const { data: comments } = await github.rest.issues.listComments({
@@ -342,18 +371,26 @@ jobs:
       - name: Enforce failure status
         if: always()
         run: |
-          FAIL_COUNT=0
-          [ "${{ steps.traceability.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
-          [ "${{ steps.frontmatter.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
-          [ "${{ steps.capability_scope.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
-          [ "${{ steps.fixtures.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
-          [ "${{ steps.models.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
-          [ "${{ steps.journey_maps.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
-          [ "${{ steps.openapi_lint.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
-          [ "${{ steps.gherkin_lint.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
+          FAILURES=()
+          [ "${{ steps.traceability.outputs.exit_code }}" != "0" ] && FAILURES+=("Traceability")
+          [ "${{ steps.frontmatter.outputs.exit_code }}" != "0" ] && FAILURES+=("Front-Matter")
+          [ "${{ steps.capability_scope.outputs.exit_code }}" != "0" ] && FAILURES+=("Capability Scope")
+          [ "${{ steps.fixtures.outputs.exit_code }}" != "0" ] && FAILURES+=("Fixtures")
+          [ "${{ steps.models.outputs.exit_code }}" != "0" ] && FAILURES+=("Models")
+          [ "${{ steps.journey_maps.outputs.exit_code }}" != "0" ] && FAILURES+=("Journey Maps")
+          [ "${{ steps.openapi_lint.outputs.exit_code }}" != "0" ] && FAILURES+=("OpenAPI Lint")
+          [ "${{ steps.gherkin_lint.outputs.exit_code }}" != "0" ] && FAILURES+=("Gherkin Lint")
 
-          if [ "$FAIL_COUNT" -gt 0 ]; then
-            echo "Validation failed in $FAIL_COUNT check(s)."
+          if [ "${#FAILURES[@]}" -gt 0 ]; then
+            FAIL_LIST=""
+            for check in "${FAILURES[@]}"; do
+              if [ -n "$FAIL_LIST" ]; then
+                FAIL_LIST="$FAIL_LIST, "
+              fi
+              FAIL_LIST="${FAIL_LIST}${check}"
+            done
+            echo "Validation failed in ${#FAILURES[@]} check(s): $FAIL_LIST"
+            echo "See the job summary for detailed validator output."
             exit 1
           fi
 
