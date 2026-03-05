@@ -66,7 +66,7 @@ The automated layer is fast and cheap (no LLM). The agent layer catches what sta
 
 ## Layer 1: Deterministic Checks
 
-These run without an LLM. They extend `tools/check-traceability.js` to operate on the PR diff rather than the full repo.
+These run without an LLM. They use the `tools/validate-*.js` suite in diff mode for PRs and full-scan mode on `main`.
 
 ### Check 1: Front-Matter Presence
 
@@ -92,11 +92,11 @@ See `docs/idd/front-matter-spec.md` for the full schema.
 Every `refs` path, `sources` path, `_meta.story`, `_meta.feature`, `# story:`, and `# journey:` value must point to a file that exists in the repo.
 
 ```bash
-# Run the existing checker
-node tools/check-traceability.js
+# Run the traceability validator
+node tools/validate-traceability.js
 ```
 
-**Pass criteria**: Zero broken links (exit code 0 from check-traceability.js).
+**Pass criteria**: Zero broken links (exit code 0 from `validate-traceability.js`).
 
 ### Check 3: Capability Scope Updated
 
@@ -183,9 +183,12 @@ The deterministic checks run as a GitHub Action. See `.github/workflows/idd-chec
 PR opened/updated
     │
     ├── Layer 1: idd-check.yml (automatic, every PR)
-    │   ├── check-traceability.js (existing tool)
-    │   ├── check-front-matter.js (new, validates front-matter)
-    │   ├── check-capability-scope.js (new, validates scope)
+    │   ├── validate-traceability.js
+    │   ├── validate-front-matter.js
+    │   ├── validate-capability-scope.js
+    │   ├── validate-fixtures.js
+    │   ├── validate-models.js
+    │   ├── validate-journey-maps.js
     │   └── Posts results as PR comment
     │
     └── Layer 2: Agent review (optional, triggered by label or comment)
@@ -207,7 +210,7 @@ Layer 2 (semantic review) can be triggered by:
 Both layers post results in a consistent format:
 
 ```markdown
-## IDD Compliance Review
+## IDD Validation Report
 
 ### Traceability ✅
 - Stories → Features: 3/3 (100%)
@@ -232,15 +235,15 @@ Both layers post results in a consistent format:
 *Automated by [IDD PR Review](docs/idd/pr-review.md) • [What is IDD?](docs/idd/manifesto.md)*
 ```
 
-## Creating New Check Scripts
+## Creating New Validator Scripts
 
 The deterministic checks are implemented as standalone Node.js scripts in `tools/`. Each follows the same pattern:
 
 ```javascript
 #!/usr/bin/env node
 /**
- * Check description
- * Usage: node tools/check-{name}.js [specs-dir]
+ * Validator description
+ * Usage: node tools/validate-{name}.js [specs-dir]
  * Exit: 0 = pass, 1 = fail
  */
 
@@ -288,4 +291,4 @@ PR review catches problems early and cheaply. Certification provides the formal 
 - Never block a PR on Layer 2 results alone. Humans decide on semantic issues.
 - The spec-before-code check is a warning, never a blocker. Pure refactors are valid.
 - PR review does not replace certification. It complements it.
-- Check scripts must exit 0 (pass) or 1 (fail) — no partial states.
+- Validator scripts must exit 0 (pass) or 1 (fail) — no partial states.
