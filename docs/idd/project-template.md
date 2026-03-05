@@ -10,17 +10,18 @@
 6. `specs/contracts/openapi/`
 7. `specs/fixtures/`
 8. `specs/journey-maps/`
-9. `specs/capabilities/` (scope definition for certification units)
+9. `specs/capabilities/` (created as a stub after narrative, finalized after models/contracts/features exist)
 10. `certification/` (automated evidence tied to intent)
 
 ## Delivery loop (intention → artifact → verification → evidence)
 
 1. Capture intent in persona + journey + story artifacts.
-2. Model domain concepts, rules, and lifecycles.
-3. Convert story acceptance criteria into BDD features + API contracts.
-4. Implement code from contracts and feature expectations.
-5. Produce executable verification: unit, contract, e2e, regression.
-6. Publish evidence under `certification/` before merge (`/certification`).
+2. Create a capability stub with personas, journeys, and stories.
+3. Model domain concepts, rules, and lifecycles.
+4. Convert story acceptance criteria into BDD features + API contracts, then finalize the capability scope with models, features, and contracts.
+5. Implement code from contracts and feature expectations.
+6. Produce executable verification: unit, contract, e2e, regression.
+7. Publish evidence under `certification/` before merge (`/certification`).
 
 ## Done criteria
 

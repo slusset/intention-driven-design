@@ -22,7 +22,8 @@ Transform narrative artifacts into executable specifications and API contracts. 
 3. Identify API touchpoints from journey system responses.
 4. Define or update OpenAPI contract.
 5. Create fixtures for test data.
-6. Ensure traceability: story → feature → contract → implementation.
+6. Finalize the capability scope by adding the relevant models, features, and contracts.
+7. Ensure traceability: story → feature → contract → implementation.
 
 ## Artifact Locations
 
@@ -478,6 +479,7 @@ Use 409 Conflict with descriptive error code.
 ## Handoff
 
 When complete:
+- **Capability scope**: Finalize `specs/capabilities/{name}.capability.yaml` so it includes the relevant `scope.models`, `scope.features`, and `scope.contracts` before implementation handoff.
 - **Backend** (hexagonal-architecture skill): Implement ports/adapters from contract
 - **Frontend** (angular-architecture skill): Generate client from contract, implement UI from journeys
 - **E2E** (e2e-journey-testing skill): Create journey maps and tests

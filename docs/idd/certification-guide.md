@@ -115,7 +115,38 @@ scope:
 
 The capability file is the single source of truth for "what are we certifying?" The evidence manifest references it rather than re-enumerating intent artifacts inline. This eliminates duplication and makes scope changes traceable in version control.
 
-Define capabilities early — when solution-narrative produces its first stories. The scope grows as downstream artifacts (features, contracts, models) are created.
+Capability timing is two-phase:
+
+1. **Stub early** — when `solution-narrative` produces its first stories, create `specs/capabilities/{capability-name}.capability.yaml` with:
+   - `id`
+   - `type`
+   - `description`
+   - `scope.personas`
+   - `scope.journeys`
+   - `scope.stories`
+2. **Finalize later** — after `domain-modeling` and `behavior-contract`, update the same capability file with:
+   - `scope.models`
+   - `scope.features`
+   - `scope.contracts`
+
+Stub example:
+
+```yaml
+id: trade-show-signup
+type: capability
+description: "Mobile signup and first audit at trade show"
+
+scope:
+  personas:
+    - specs/personas/trade-show-prospect.md
+  journeys:
+    - specs/journeys/trade-show-signup.md
+  stories:
+    - specs/stories/onboarding/mobile-signup.md
+    - specs/stories/audits/quick-start-audit.md
+```
+
+Do not wait for every downstream artifact before creating the capability file. The early stub declares the certification boundary. Do not certify from the stub alone; certification requires the finalized scope.
 
 ## When to certify
 

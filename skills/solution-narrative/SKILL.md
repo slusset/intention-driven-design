@@ -185,8 +185,10 @@ When working with stakeholders:
 When narrative is complete:
 
 1. **Define the capability** — create `specs/capabilities/{name}.capability.yaml` with the personas, journeys, and stories in scope. This declares the certification boundary early.
+   - This is a **stub capability**, not the final scope.
+   - Include only `id`, `type`, `description`, `scope.personas`, `scope.journeys`, and `scope.stories` at this stage.
 2. **Invoke domain-modeling** — identify entities, rules, and lifecycles from the stories.
-3. **Invoke behavior-contract** — convert acceptance criteria → Gherkin scenarios, derive API contract from system responses in journeys, map journey steps to feature files. Update the capability scope with the new features and contracts.
+3. **Invoke behavior-contract** — convert acceptance criteria → Gherkin scenarios, derive API contract from system responses in journeys, map journey steps to feature files, then finalize the capability scope with models, features, and contracts.
 
 ## Example
 

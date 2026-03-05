@@ -207,11 +207,11 @@ Discovery answers "what skills are available." Selection answers "which one shou
    ├── Extract user stories
    └── Output: specs/personas/, specs/journeys/, specs/stories/
 
-2. Define capability scope
+2. Create capability scope stub
    ├── Create specs/capabilities/{name}.capability.yaml
-   ├── Declare which personas, journeys, stories are in scope
-   ├── Scope grows as features/contracts/models are added
-   └── Output: specs/capabilities/
+   ├── Fill `id`, `type`, `description`
+   ├── Declare which personas, journeys, and stories are in scope
+   └── Output: capability stub in specs/capabilities/
 
 3. /domain-modeling
    ├── Identify entities and value objects
@@ -223,8 +223,8 @@ Discovery answers "what skills are available." Selection answers "which one shou
    ├── Write Gherkin feature files
    ├── Define OpenAPI contract
    ├── Create test fixtures
-   ├── Update capability scope with new features/contracts
-   └── Output: specs/features/, specs/contracts/, specs/fixtures/
+   ├── Finalize the capability scope with models, features, and contracts
+   └── Output: specs/features/, specs/contracts/, specs/fixtures/ + finalized capability scope
 
 5. Resolve implementation skills
    ├── Scan `technical-skills/`
