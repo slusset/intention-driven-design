@@ -1,7 +1,7 @@
 id: mobile-signup-happy-path
 type: fixture
-story: examples/stories/mobile-signup.story.md
-feature: examples/features/mobile-signup.feature
+story: specs/stories/mobile-signup.story.md
+feature: specs/features/mobile-signup.feature
 scenario: Successful mobile signup
 request:
   method: POST

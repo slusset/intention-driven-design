@@ -1,7 +1,7 @@
 # id: mobile-signup
 # type: feature
-# story: examples/stories/mobile-signup.story.md
-# journey: examples/journeys/trade-show-signup.journey.md
+# story: specs/stories/mobile-signup.story.md
+# journey: specs/journeys/trade-show-signup.journey.md
 # contract: POST /accounts
 
 Feature: Mobile signup

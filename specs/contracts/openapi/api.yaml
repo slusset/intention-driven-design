@@ -6,9 +6,9 @@ paths:
   /accounts:
     post:
       operationId: createAccount
-      x-story: examples/stories/mobile-signup.story.md
-      x-feature: examples/features/mobile-signup.feature
-      x-journey: examples/journeys/trade-show-signup.journey.md
+      x-story: specs/stories/mobile-signup.story.md
+      x-feature: specs/features/mobile-signup.feature
+      x-journey: specs/journeys/trade-show-signup.journey.md
       summary: Create an account from the mobile signup flow
       requestBody:
         required: true
@@ -40,9 +40,9 @@ paths:
   /accounts/{accountId}/audits:
     post:
       operationId: createInitialAudit
-      x-story: examples/stories/quick-start-audit.story.md
-      x-feature: examples/features/mobile-signup.feature
-      x-journey: examples/journeys/trade-show-signup.journey.md
+      x-story: specs/stories/quick-start-audit.story.md
+      x-feature: specs/features/mobile-signup.feature
+      x-journey: specs/journeys/trade-show-signup.journey.md
       summary: Create a first audit from quick-start prompt
       parameters:
         - in: path

@@ -1,0 +1,22 @@
+id: trade-show-signup
+type: journey-map
+journey: trade-show-signup
+sources:
+  journey: specs/journeys/trade-show-signup.journey.md
+  stories:
+    - specs/stories/mobile-signup.story.md
+    - specs/stories/quick-start-audit.story.md
+  features:
+    - specs/features/mobile-signup.feature
+fixtures:
+  mobile-signup-happy-path:
+    ref: specs/fixtures/mobile-signup.fixture.yaml
+steps:
+  - id: scan-qr
+    story: specs/stories/mobile-signup.story.md
+  - id: submit-signup
+    story: specs/stories/mobile-signup.story.md
+  - id: open-quick-start
+    story: specs/stories/quick-start-audit.story.md
+  - id: create-first-audit
+    story: specs/stories/quick-start-audit.story.md

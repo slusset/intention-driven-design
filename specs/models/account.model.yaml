@@ -4,10 +4,10 @@ entity: Account
 aggregate: AccountAggregate
 sources:
   stories:
-    - examples/stories/mobile-signup.story.md
-    - examples/stories/quick-start-audit.story.md
+    - specs/stories/mobile-signup.story.md
+    - specs/stories/quick-start-audit.story.md
   journeys:
-    - examples/journeys/trade-show-signup.journey.md
+    - specs/journeys/trade-show-signup.journey.md
 fields:
   accountId:
     type: string

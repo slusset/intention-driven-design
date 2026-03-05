@@ -1,0 +1,21 @@
+id: trade-show-signup
+type: capability
+description: Mobile signup and first audit flow for trade-show conversations
+scope:
+  personas:
+    - specs/personas/trade-show-prospect.persona.md
+  journeys:
+    - specs/journeys/trade-show-signup.journey.md
+  stories:
+    - specs/stories/mobile-signup.story.md
+    - specs/stories/quick-start-audit.story.md
+  features:
+    - specs/features/mobile-signup.feature
+  models:
+    - specs/models/account.model.yaml
+  contracts:
+    - specs/contracts/openapi/api.yaml
+  fixtures:
+    - specs/fixtures/mobile-signup.fixture.yaml
+  journey_maps:
+    - specs/journey-maps/trade-show-signup.journey-map.yaml
