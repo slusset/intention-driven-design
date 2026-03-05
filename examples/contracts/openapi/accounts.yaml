@@ -1,0 +1,65 @@
+openapi: 3.1.0
+info:
+  title: Trade Show Account API (Example)
+  version: 1.0.0
+paths:
+  /accounts:
+    post:
+      operationId: createAccount
+      x-story: examples/stories/mobile-signup.story.md
+      x-feature: examples/features/mobile-signup.feature
+      x-journey: examples/journeys/trade-show-signup.journey.md
+      summary: Create an account from the mobile signup flow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, boothCode]
+              properties:
+                email:
+                  type: string
+                  format: email
+                boothCode:
+                  type: string
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accountId, status]
+                properties:
+                  accountId:
+                    type: string
+                  status:
+                    type: string
+                    enum: [active]
+  /accounts/{accountId}/audits:
+    post:
+      operationId: createInitialAudit
+      x-story: examples/stories/quick-start-audit.story.md
+      x-feature: examples/features/mobile-signup.feature
+      x-journey: examples/journeys/trade-show-signup.journey.md
+      summary: Create a first audit from quick-start prompt
+      parameters:
+        - in: path
+          name: accountId
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Initial audit created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [auditId, accountId]
+                properties:
+                  auditId:
+                    type: string
+                  accountId:
+                    type: string
