@@ -20,7 +20,7 @@ const VALID_TYPES = [
   'fixture', 'journey-map', 'capability'
 ];
 
-// ── File pattern → expected type mapping ──────────────────────────────
+// ── File pattern → expected type mapping ─────────────────────────────
 const FILE_TYPE_MAP = [
   { pattern: /(?:^|\/)personas\/.*\.md$/, type: 'persona' },
   { pattern: /(?:^|\/)journeys\/.*\.md$/, type: 'journey' },
@@ -173,7 +173,7 @@ function parseFrontMatter(filePath, content) {
   const ext = path.extname(filePath).toLowerCase();
 
   if (ext === '.md') {
-    return parseMarkdownFrontMatter(content);
+    return parseMarkdownFrontMatter8content);
   }
 
   if (ext === '.feature') {
@@ -350,6 +350,51 @@ function findFiles(dir, pattern) {
 }
 
 /**
+ * Find files from a list of regex patterns.
+ */
+function findFilesByPatterns(dir, patterns) {
+  const files = [];
+  for (const pattern of patterns) {
+    files.push(...findFiles(dir, pattern));
+  }
+  return Array.from(new Set(files));
+}
+
+/**
+ * Read and parse any supported spec file using the front-matter parser.
+ * Returns { content, parsed, error }.
+ */
+function loadSpecFile(filePath) {
+  let content;
+  try {
+    content = fs.readFileSync(filePath, 'utf8');
+  } catch (e) {
+    return { content: null, parsed: null, error: `Cannot read file: ${e.message}` };
+  }
+
+  const parsed = parseFrontMatter(filePath, content);
+  if (parsed.parseError) {
+    return { content, parsed: null, error: `Parse error: ${parsed.parseError}` };
+  }
+
+  return { content, parsed, error: null };
+}
+
+/**
+ * Read and parse a YAML file.
+ * Returns { data, error }.
+ */
+function loadYamlFile(filePath) {
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const data = yaml.load(content);
+    return { data, error: null };
+  } catch (e) {
+    return { data: null, error: `Failed to parse YAML: ${e.message}` };
+  }
+}
+
+/**
  * Check if a file exists relative to project root.
  */
 function fileExists(relativePath, projectRoot) {
@@ -398,6 +443,9 @@ module.exports = {
   extractRefs,
   getNestedValue,
   findFiles,
+  findFilesByPatterns,
+  loadSpecFile,
+  loadYamlFile,
   fileExists,
   formatResults,
 };
