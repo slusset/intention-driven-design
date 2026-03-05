@@ -50,6 +50,57 @@ When scaffolding `specs/skills/repo-overlay.md`, ask only enough to capture the 
 
 If the user wants a starting point, scaffold from `skills/idd-workflow/templates/repo-overlay-template.md` into `specs/skills/repo-overlay.md` and fill the known fields first.
 
+## Technical Skill Discovery And Selection
+
+Use a hybrid model: convention for discovery, explicit config for selection, repo inference as fallback.
+
+### Selection Precedence
+
+Resolve stack-specific implementation skills in this order:
+
+1. `specs/skills/repo-overlay.md`
+   - Preferred source of truth for backend, frontend, mobile, SDK, infrastructure, test, and design-to-code skill mapping.
+2. Explicit `AGENTS.md` instructions
+   - Use when the repo has hard requirements that override general conventions.
+3. Discovered repo-local technical skills
+   - Scan `technical-skills/*/SKILL.md` and treat each directory as an available candidate skill.
+4. Repo implementation signals
+   - Infer likely stack matches from files such as `package.json`, `angular.json`, `pom.xml`, `build.gradle`, `playwright.config.*`, OpenAPI/codegen configs, or other obvious framework markers.
+5. User clarification
+   - Ask only when multiple plausible skills remain and choosing the wrong one would likely cause drift.
+
+### Discovery Procedure
+
+1. Scan `technical-skills/` for available skill directories.
+2. Extract each candidate's:
+   - skill name
+   - description
+   - likely domain (`backend`, `frontend`, `mobile`, `sdk`, `design-to-code`, `e2e`, `infra`, or `cross-cutting`)
+   - likely framework or stack keywords
+3. Read `repo-overlay` mappings when present and bind implementation areas to explicit skills.
+4. If no explicit mapping exists, inspect repo signals and rank candidates by fit.
+5. If exactly one candidate clearly matches an area, select it.
+6. If multiple candidates plausibly match, present the best options briefly and ask once.
+7. If no dedicated skill matches, continue with a generic implementation checklist plus repo architecture docs and test commands.
+
+### Repo Signal Examples
+
+- `angular.json` or Angular workspace scripts → prefer Angular frontend skills
+- `pom.xml` with Spring Boot dependencies → prefer Spring Boot backend skill
+- `playwright.config.*` plus Angular frontend → prefer Angular Playwright for Angular-specific e2e work
+- OpenAPI generator config or generated client directories → include SDK/codegen workflow constraints in downstream prompts
+
+### Output Contract For Selection
+
+Always produce a concrete result for each relevant area:
+
+- selected skill
+- selection source (`overlay`, `agents`, `discovered+inferred`, or `user`)
+- supporting evidence (for example: matching repo files, overlay mapping, or explicit instruction)
+- fallback plan when no dedicated skill exists
+
+Discovery answers "what skills are available." Selection answers "which one should be used here."
+
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
 │                         NARRATIVE LAYER                                   │
@@ -131,8 +182,8 @@ If the user wants a starting point, scaffold from `skills/idd-workflow/templates
 | Journeys and stories | Capability scope defined | Define `specs/capabilities/` |
 | Journeys and stories | Domain concepts defined | `/domain-modeling` |
 | Stories and models | API contract + Gherkin | `/behavior-contract` |
-| Contract ready | Backend implementation | Your backend architecture skill |
-| Contract ready | Frontend implementation | Your frontend architecture skill |
+| Contract ready | Backend implementation | Resolved backend technical skill |
+| Contract ready | Frontend implementation | Resolved frontend technical skill |
 | Design mockup/HTML | UI components | Your frontend-from-design skill |
 | Journey + contract | E2E test coverage | `/e2e-journey-testing` |
 | All tests passing | Certifiable evidence | `/certification` |
@@ -175,16 +226,24 @@ If the user wants a starting point, scaffold from `skills/idd-workflow/templates
    ├── Update capability scope with new features/contracts
    └── Output: specs/features/, specs/contracts/, specs/fixtures/
 
-5. Implementation (parallel, stack-specific)
-   ├── Backend architecture skill → backend/
-   └── Frontend architecture skill → frontend/
+5. Resolve implementation skills
+   ├── Scan `technical-skills/`
+   ├── Apply overlay/AGENTS mappings if present
+   ├── Infer defaults from repo signals if mappings are absent
+   ├── Ask only if multiple plausible matches remain
+   └── Output: selected stack-specific skills + fallback assumptions
 
-6. /e2e-journey-testing
+6. Implementation (parallel, stack-specific)
+   ├── Selected backend skill → backend/
+   ├── Selected frontend skill → frontend/
+   └── If no dedicated skill exists, follow repo architecture docs + generic implementation checklist
+
+7. /e2e-journey-testing
    ├── Create journey map
    ├── Implement Playwright tests
    └── Output: specs/journey-maps/, frontend/e2e/
 
-7. /certification
+8. /certification
    ├── Verify capability scope is complete
    ├── Collect test evidence
    ├── Generate evidence manifest (references capability file)
@@ -201,8 +260,8 @@ If the user wants a starting point, scaffold from `skills/idd-workflow/templates
    └── Apply repo constraints to all downstream changes
 
 1. Identify the change scope:
-   - UI only? → Frontend architecture skill
-   - API change? → /behavior-contract first, then both architecture skills
+   - UI only? → Resolve frontend technical skill
+   - API change? → /behavior-contract first, then resolve affected implementation skills
    - New behavior? → /solution-narrative to update story, then cascade
 
 2. Update specs first:
@@ -210,14 +269,20 @@ If the user wants a starting point, scaffold from `skills/idd-workflow/templates
    - Model changes → /domain-modeling
    - Contract changes → /behavior-contract
 
-3. Implement changes:
-   - Backend → Backend architecture skill
-   - Frontend → Frontend architecture skill
+3. Resolve implementation skills:
+   - Overlay mapping first
+   - `AGENTS.md` explicit requirements second
+   - `technical-skills/` discovery + repo inference third
+   - Ask once only if still ambiguous
 
-4. Update tests:
+4. Implement changes:
+   - Backend → Selected backend technical skill or generic backend checklist
+   - Frontend → Selected frontend technical skill or generic frontend checklist
+
+5. Update tests:
    - Journey affected? → /e2e-journey-testing
 
-5. Update certification evidence if capability scope changed.
+6. Update certification evidence if capability scope changed.
 ```
 
 ### Bug Fixes (Fix Forward)
@@ -323,6 +388,9 @@ A: Warn once, explain what the overlay controls, offer to scaffold it, then cont
 **Q: What technology stacks does IDD support?**
 A: The narrative, model, and contract layers are completely stack-agnostic. Implementation skills are interchangeable — add or swap skills for any backend/frontend framework. The `specs/` directory is portable across any technology choice.
 
+**Q: How should technical skills be discovered?**
+A: Discover by convention from `technical-skills/*/SKILL.md`, but do not stop there. Use the repo overlay as the preferred source of truth for which discovered skills are authoritative, then fall back to `AGENTS.md`, repo-file inference, and finally a brief user clarification only when ambiguity remains.
+
 ## Skill Dependencies
 
 ```
@@ -369,6 +437,8 @@ When this meta-skill is used by an orchestrator, include these fields in the han
 - `repo_overlay_path` (resolved path)
 - `repo_overlay_status` (`loaded`, `missing-warned`, or `skipped`)
 - `repo_overlay_constraints` (summary bullets when loaded, otherwise the fallback assumptions or open gaps)
+- `technical_skills_discovered` (list of repo-local candidates with area/framework hints)
+- `technical_skill_selection` (chosen skill per area with selection source and evidence)
 - `skills_selected` (ordered list for this task)
 - `blocking_issues` (true blockers only; missing overlay alone does not belong here)
 

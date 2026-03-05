@@ -158,6 +158,8 @@ Skills are designed to be invoked in sequence: narrative → model → contract 
 
 These are intentionally orthogonal to IDD. They plug into the implementation and validation layers without changing the upstream `specs/` artifacts.
 
+See [`technical-skills/README.md`](technical-skills/README.md) for the discovery convention and how to add new stack-specific skills.
+
 | Skill | Purpose | Invocation |
 |-------|---------|------------|
 | **Angular Architecture** | Angular structure, test commands, and UI guardrails | `/angular-architecture` |
