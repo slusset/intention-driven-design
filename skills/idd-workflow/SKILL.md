@@ -186,6 +186,7 @@ Discovery answers "what skills are available." Selection answers "which one shou
 | Contract ready | Frontend implementation | Resolved frontend technical skill |
 | Design mockup/HTML | UI components | Your frontend-from-design skill |
 | Journey + contract | E2E test coverage | `/e2e-journey-testing` |
+| Bug report / defect | Spec + fix + evidence | `/idd-workflow fix` |
 | All tests passing | Certifiable evidence | `/certification` |
 | PR open, need compliance check | IDD compliance verified | `/pr-review` (or CI auto) |
 | Unsure where to start | This guide | `/idd-workflow` |
@@ -290,25 +291,55 @@ Discovery answers "what skills are available." Selection answers "which one shou
 Bug fixes follow the Fix Forward principle (C13): fix the spec first, then the code.
 
 ```
-1. Identify where the bug manifests:
-   - E2E test failing? Check journey map accuracy
-   - Integration test failing? Check contract compliance
-   - Unit test failing? Check domain logic vs model rules
+1. Reproduce the defect
+   ├── Start from the failing test, bug report, or user journey break
+   ├── Identify the observable behavior that is wrong
+   └── Capture which artifact or environment exposed it
 
-2. Trace back to spec:
-   - Does the feature file cover this case?
-   - Is the contract accurate?
-   - Is the business rule documented?
+2. Trace back to the nearest intent artifact
+   ├── Journey missing or wrong? → inspect `specs/journeys/` and `specs/stories/`
+   ├── Business rule or lifecycle missing? → inspect `specs/models/`
+   ├── Scenario, API behavior, or fixture missing? → inspect `specs/features/`, `specs/contracts/`, and `specs/fixtures/`
+   └── Journey-map or e2e expectation wrong? → inspect `specs/journey-maps/` and e2e sources
 
-3. Fix forward:
-   - Add missing scenario to feature file
-   - Update contract if API was wrong
-   - Fix implementation to match spec
-   - Update certification evidence
+3. Identify the spec gap and invoke the right skill
+   ├── Missing journey step, persona context, or story intent → `/solution-narrative`
+   ├── Missing entity, invariant, state transition, or rule → `/domain-modeling`
+   ├── Missing scenario, contract behavior, or fixture → `/behavior-contract`
+   ├── Missing journey-map step or e2e assertion → `/e2e-journey-testing`
+   └── If the spec is already correct, record that the gap is implementation-only and preserve the current spec
+
+4. Update spec artifacts first
+   ├── Add or correct the missing narrative/model/contract artifact
+   ├── Update capability scope if new models, features, contracts, or journeys enter scope
+   └── Re-check traceability before touching implementation
+
+5. Implement the fix to match the updated spec
+   ├── Resolve the appropriate technical skill using the repo overlay / discovery flow
+   ├── Change code only after the spec describes the corrected behavior
+   └── Add or update the validating tests that prove the repaired behavior
+
+6. Recertify
+   ├── Re-run the relevant verification layer(s)
+   ├── Update `certification/{capability}/evidence.yaml` via `/certification`
+   └── Confirm the repaired gap is now represented in both traceability and evidence
 ```
 
 **Never fix code without updating the spec.** Fixing code without updating specs is drift — the single most common way systems lose alignment with their intent.
 Always apply repo overlay constraints while fixing forward (for example, architecture boundaries and test pyramid policy).
+
+### Fix Forward Skill Routing
+
+Use this decision table when a defect is discovered:
+
+| Gap Found | Primary Skill | Expected Artifact Update |
+|-----------|---------------|--------------------------|
+| Journey step, user intent, or story coverage missing | `/solution-narrative` | `specs/personas/`, `specs/journeys/`, `specs/stories/` |
+| Business rule, invariant, aggregate boundary, or lifecycle missing | `/domain-modeling` | `specs/models/` |
+| Scenario, API contract, error behavior, or fixture missing | `/behavior-contract` | `specs/features/`, `specs/contracts/`, `specs/fixtures/` |
+| Journey-map step or e2e assertion missing | `/e2e-journey-testing` | `specs/journey-maps/`, `frontend/e2e/` |
+| Spec is correct and code is wrong | Resolved technical skill | implementation + tests |
+| Evidence out of date after the repair | `/certification` | `certification/{capability}/` |
 
 ## Artifact Locations
 

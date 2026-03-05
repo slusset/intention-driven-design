@@ -21,7 +21,7 @@ Certification is cross-cutting — it doesn't produce narrative, model, contract
 
 - After implementation and all tests pass.
 - Before merge or PR approval.
-- When the idd-workflow reaches step 6 (Certification).
+- When the idd-workflow reaches step 8 (Certification).
 - After a Fix Forward cycle to update evidence for the repaired gap.
 - When auditing an existing capability's traceability health.
 
@@ -323,7 +323,7 @@ The previous evidence.yaml is not deleted — it's overwritten with the new cert
 | behavior-contract | Certification verifies that features map to contracts and contracts have tests |
 | e2e-journey-testing | Certification verifies that journeys have maps and e2e coverage |
 | pr-review | PR review catches traceability gaps early in CI; certification provides the formal evidence record |
-| idd-workflow | Certification is step 7 in the workflow, invoked via `/certification` |
+| idd-workflow | Certification is step 8 in the workflow, invoked via `/certification` |
 
 ## Concepts Carried
 
