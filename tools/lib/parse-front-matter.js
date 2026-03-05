@@ -22,15 +22,15 @@ const VALID_TYPES = [
 
 // ── File pattern → expected type mapping ──────────────────────────────
 const FILE_TYPE_MAP = [
-  { pattern: /specs\/personas\/.*\.md$/, type: 'persona' },
-  { pattern: /specs\/journeys\/.*\.md$/, type: 'journey' },
-  { pattern: /specs\/stories\/.*\.md$/, type: 'story' },
-  { pattern: /specs\/models\/.*\.model\.ya?ml$/, type: 'model' },
-  { pattern: /specs\/models\/.*\.lifecycle\.ya?ml$/, type: 'model' },
-  { pattern: /specs\/features\/.*\.feature$/, type: 'feature' },
-  { pattern: /specs\/fixtures\/.*\.json$/, type: 'fixture' },
-  { pattern: /specs\/journey-maps\/.*\.map\.ya?ml$/, type: 'journey-map' },
-  { pattern: /specs\/capabilities\/.*\.capability\.ya?ml$/, type: 'capability' },
+  { pattern: /(?:^|\/)personas\/.*\.md$/, type: 'persona' },
+  { pattern: /(?:^|\/)journeys\/.*\.md$/, type: 'journey' },
+  { pattern: /(?:^|\/)stories\/.*\.md$/, type: 'story' },
+  { pattern: /(?:^|\/)models\/.*\.model\.ya?ml$/, type: 'model' },
+  { pattern: /(?:^|\/)models\/.*\.lifecycle\.ya?ml$/, type: 'model' },
+  { pattern: /(?:^|\/)features\/.*\.feature$/, type: 'feature' },
+  { pattern: /(?:^|\/)fixtures\/.*\.(?:json|fixture\.ya?ml)$/, type: 'fixture' },
+  { pattern: /(?:^|\/)journey-maps\/.*\.(?:map|journey-map)\.ya?ml$/, type: 'journey-map' },
+  { pattern: /(?:^|\/)capabilities\/.*\.capability\.ya?ml$/, type: 'capability' },
 ];
 
 // ── Required fields by type ───────────────────────────────────────────
@@ -149,6 +149,8 @@ function parseYamlFrontMatter(content) {
     if (data.refs) frontMatter.refs = data.refs;
     if (data.journey) frontMatter.journey = data.journey;
     if (data.story) frontMatter.story = data.story;
+    if (data.feature) frontMatter.feature = data.feature;
+    if (data.contract) frontMatter.contract = data.contract;
     if (data.scenario) frontMatter.scenario = data.scenario;
     if (data.sources) frontMatter.sources = data.sources;
     if (data.scope) frontMatter.scope = data.scope;
@@ -261,15 +263,16 @@ function extractRefs(frontMatter) {
   if (!frontMatter) return [];
 
   const refs = [];
+  const isSpecRef = (value) => typeof value === 'string' && /^(specs|examples)\//.test(value);
 
   // From markdown refs block
   if (frontMatter.refs) {
     for (const [key, value] of Object.entries(frontMatter.refs)) {
-      if (typeof value === 'string' && value.startsWith('specs/')) {
+      if (isSpecRef(value)) {
         refs.push(value);
       } else if (Array.isArray(value)) {
         for (const item of value) {
-          if (typeof item === 'string' && item.startsWith('specs/')) {
+          if (isSpecRef(item)) {
             refs.push(item);
           }
         }
@@ -280,11 +283,11 @@ function extractRefs(frontMatter) {
   // From YAML sources block (models)
   if (frontMatter.sources) {
     for (const [key, value] of Object.entries(frontMatter.sources)) {
-      if (typeof value === 'string' && value.startsWith('specs/')) {
+      if (isSpecRef(value)) {
         refs.push(value);
       } else if (Array.isArray(value)) {
         for (const item of value) {
-          if (typeof item === 'string' && item.startsWith('specs/')) {
+          if (isSpecRef(item)) {
             refs.push(item);
           }
         }
@@ -295,11 +298,11 @@ function extractRefs(frontMatter) {
   // From YAML scope block (capabilities)
   if (frontMatter.scope) {
     for (const [key, value] of Object.entries(frontMatter.scope)) {
-      if (typeof value === 'string' && value.startsWith('specs/')) {
+      if (isSpecRef(value)) {
         refs.push(value);
       } else if (Array.isArray(value)) {
         for (const item of value) {
-          if (typeof item === 'string' && item.startsWith('specs/')) {
+          if (isSpecRef(item)) {
             refs.push(item);
           }
         }
@@ -308,15 +311,15 @@ function extractRefs(frontMatter) {
   }
 
   // From Gherkin comment headers
-  if (typeof frontMatter.story === 'string' && frontMatter.story.startsWith('specs/')) {
+  if (isSpecRef(frontMatter.story)) {
     refs.push(frontMatter.story);
   }
-  if (typeof frontMatter.journey === 'string' && frontMatter.journey.startsWith('specs/')) {
+  if (isSpecRef(frontMatter.journey)) {
     refs.push(frontMatter.journey);
   }
 
   // From JSON _meta (fixture front-matter is already flattened)
-  if (typeof frontMatter.feature === 'string' && frontMatter.feature.startsWith('specs/')) {
+  if (isSpecRef(frontMatter.feature)) {
     refs.push(frontMatter.feature);
   }
 
