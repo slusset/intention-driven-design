@@ -13,12 +13,12 @@ The result is a framework where AI agents can autonomously implement, verify, an
 ## How it works
 
 ```
-┌──────────────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────────────────┐
 │                      NARRATIVE LAYER                         │
 │   Personas ──▶ Journeys ──▶ Stories                          │
 │   (who/why)    (experience)   (what)                         │
 │                                          /solution-narrative │
-├──────────────────────────────────────────────────────────────┤
+├────────────────────────────────────────────────────────────────┤
 │                       MODEL LAYER                            │
 │                  Domain Models                               │
 │                  (concepts, rules, lifecycles)               │
@@ -33,7 +33,7 @@ The result is a framework where AI agents can autonomously implement, verify, an
 │   Backend ◀──────────────────────▶ Frontend                  │
 │   (any stack)                      (any stack)               │
 │                                                              │
-├──────────────────────────────────────────────────────────────┤
+├───────────────────────────────────────────────────────────────┤
 │                    VALIDATION LAYER                          │
 │   Unit Tests ── Integration ── E2E Journey Tests             │
 │   (domain)      (contract)     (experience)                  │
@@ -153,9 +153,37 @@ skills/                      IDD methodology skills
 tools/                       Build, link, and validation utilities
 ├── build.sh                 Package plugin zip for distribution
 ├── link-skills.sh           Symlink skills into agent runtimes
-├── generate-spec-graph.js   Generate interactive spec traceability graph
-└── check-traceability.js    Validate cross-references between spec artifacts
+├── validate-traceability.js Validate cross-references between spec artifacts
+├── validate-front-matter.js Validate front-matter schema and required fields
+├── validate-capability-scope.js Validate capability scope coverage
+├── validate-fixtures.js     Validate fixture payloads against OpenAPI schemas
+├── validate-models.js       Validate model/lifecycle structure
+├── validate-journey-maps.js Validate journey-map structure
+├── graph-generation/
+│   └── generate-spec-graph.js Generate interactive spec traceability graph
+└── lib/                     Shared parser + validator utilities
 ```
+
+## Validation suite
+
+Run the full validator suite against a downstream project's `specs/` directory:
+
+```bash
+node tools/validate-traceability.js [specs-dir]
+node tools/validate-front-matter.js [specs-dir]
+node tools/validate-capability-scope.js [specs-dir]
+node tools/validate-fixtures.js [specs-dir]
+node tools/validate-models.js [specs-dir]
+node tools/validate-journey-maps.js [specs-dir]
+```
+
+All validators support:
+- `[specs-dir]` (defaults to `./specs`)
+- `--files <paths...>` for PR-diff scoped validation
+- `--json` for machine-readable CI output
+- `--strict` to fail on warnings
+
+CI runs these validators through `.github/workflows/idd-check.yml` and posts one aggregated PR comment.
 
 ## How concepts and skills relate
 
