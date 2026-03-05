@@ -59,6 +59,7 @@ This is a **methodology repo**, not an application. It contains:
 
 - `docs/idd/` — Markdown documentation defining IDD concepts, manifesto, certification guide, front-matter spec, project template, and agent operating contract
 - `skills/` — SKILL.md files that guide agents through IDD phases (solution-narrative, domain-modeling, behavior-contract, e2e-journey-testing, certification, pr-review, idd-workflow)
+- `technical-skills/` — Stack-specific SKILL.md files layered on top of IDD for implementation and framework-specific testing
 - `tools/` — Node.js scripts for CI checks (check-traceability.js, check-front-matter.js, check-capability-scope.js) and a shared library (lib/parse-front-matter.js)
 - `.github/workflows/idd-check.yml` — GitHub Actions CI workflow
 - `README.md` — Project overview with skill table and layered architecture diagram
@@ -138,6 +139,7 @@ After planning changes, verify:
 5. For **skill changes**:
    - Validate that templates in the skill match `docs/idd/front-matter-spec.md`
    - Check that any referenced file paths exist or are documented as "created by this skill"
+   - If `idd-workflow` changes repo-overlay behavior, verify its scaffold/template paths exist and the README still explains how technical skills are selected
 
 ## Step 3: Validate and submit
 

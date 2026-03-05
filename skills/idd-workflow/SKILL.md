@@ -6,6 +6,7 @@ disable-model-invocation: true
 argument-hint: "[topic or situation]"
 allowed-tools:
   - Read
+  - Write
   - Glob
   - Grep
 ---
@@ -16,23 +17,38 @@ allowed-tools:
 
 This project follows **Intention-Driven Development**. We start with human needs and work down to code, maintaining traceability at every step. The narrative, model, and contract layers are stack-agnostic — implementation skills can be swapped for any technology.
 
-## Mandatory Preflight: Repo Overlay
+## Required Preflight: Repo Overlay Check
 
 Before applying any workflow step, load repo-specific constraints from the repository overlay.
 
 1. Resolve overlay path in this order:
    - Path explicitly declared in `AGENTS.md` (for example: `Repo overlay: specs/skills/repo-overlay.md`)
    - Fallback default: `specs/skills/repo-overlay.md`
-2. Read overlay content before selecting or invoking downstream skills.
-3. If overlay is missing, surface this immediately as a blocking setup issue.
-   - Do not silently continue as if no repo constraints exist.
+2. If the overlay exists, read it before selecting or invoking downstream skills.
+3. If the overlay is missing, warn but continue.
+   - Explain what the overlay is: a repo-local map of preferred stack skills, architecture rules, test commands/libraries, SDK/client generation workflow, and CI expectations.
    - Report which path was attempted.
-   - Ask for either:
-     - creation/restoration of the overlay, or
-     - explicit user override to proceed without overlay.
-4. Carry overlay constraints forward into all downstream skill prompts (architecture, tests, certification, CI expectations).
+   - Offer to scaffold one now by asking a few short questions.
+   - If the user declines, continue with `AGENTS.md`, repo docs, and explicit assumptions as fallback.
+4. Do not repeat the same missing-overlay warning on every invocation within the same session.
+   - Mark the first pass as `missing-warned`.
+   - If the user explicitly chooses to continue without scaffolding, mark the repo as `skipped` for the remainder of the session unless they ask to revisit it.
+5. Carry overlay constraints forward into all downstream skill prompts (architecture, tests, certification, CI expectations). If no overlay exists, carry forward the fallback assumptions you made.
 
-This preflight is required for reliable orchestration and prevents architecture/test-policy drift.
+This preflight check is required for reliable orchestration and prevents architecture/test-policy drift, but a missing overlay is not itself a blocker.
+
+### Overlay Scaffold Questions
+
+When scaffolding `specs/skills/repo-overlay.md`, ask only enough to capture the repo's operational constraints:
+
+1. Which backend, frontend, mobile, infra, or SDK stacks are in play?
+2. Which stack-specific skills should be preferred for each area?
+3. Which architecture docs, ADRs, or module boundaries are authoritative?
+4. Which test commands and libraries are required for unit, integration, contract, and e2e coverage?
+5. Are there SDK/client generation steps, mock servers, or schema-driven test tools that implementation skills must honor?
+6. What CI or certification expectations must every downstream skill preserve?
+
+If the user wants a starting point, scaffold from `skills/idd-workflow/templates/repo-overlay-template.md` into `specs/skills/repo-overlay.md` and fill the known fields first.
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
@@ -130,9 +146,9 @@ This preflight is required for reliable orchestration and prevents architecture/
 ```
 0. Repo preflight (required)
    ├── Load AGENTS.md in target repo
-   ├── Resolve and load repo overlay (see Mandatory Preflight)
-   ├── If missing, surface immediately and block by default
-   └── Output: loaded repo constraints (or explicit override)
+   ├── Resolve and load repo overlay (see Required Preflight)
+   ├── If missing, warn once, offer scaffold, then continue
+   └── Output: loaded repo constraints or fallback assumptions
 
 1. /solution-narrative
    ├── Create or review persona
@@ -181,6 +197,7 @@ This preflight is required for reliable orchestration and prevents architecture/
 ```
 0. Repo preflight (required)
    ├── Load AGENTS.md + repo overlay
+   ├── If overlay missing, warn once and proceed with fallback assumptions
    └── Apply repo constraints to all downstream changes
 
 1. Identify the change scope:
@@ -301,7 +318,7 @@ A: It should:
 A: For pure bug fixes or minor UI tweaks, yes. For anything that changes behavior, no — update the spec first. When in doubt, ask: "Would someone need to update the feature file for this?"
 
 **Q: What if the repo overlay file is missing?**
-A: Treat it as a blocking preflight issue. Surface it immediately with attempted path(s), and request either overlay creation or an explicit user override to proceed without repo-specific constraints.
+A: Warn once, explain what the overlay controls, offer to scaffold it, then continue with explicit fallback assumptions. If the user chooses to proceed without one, remember that decision for the rest of the session and stop re-warning unless they ask to revisit it.
 
 **Q: What technology stacks does IDD support?**
 A: The narrative, model, and contract layers are completely stack-agnostic. Implementation skills are interchangeable — add or swap skills for any backend/frontend framework. The `specs/` directory is portable across any technology choice.
@@ -350,9 +367,9 @@ When this meta-skill is used by an orchestrator, include these fields in the han
 - `repo_root`
 - `agents_file` (resolved path)
 - `repo_overlay_path` (resolved path)
-- `repo_overlay_status` (`loaded` or `missing`)
-- `repo_overlay_constraints` (summary bullets when loaded)
+- `repo_overlay_status` (`loaded`, `missing-warned`, or `skipped`)
+- `repo_overlay_constraints` (summary bullets when loaded, otherwise the fallback assumptions or open gaps)
 - `skills_selected` (ordered list for this task)
-- `blocking_issues` (must include missing overlay when applicable)
+- `blocking_issues` (true blockers only; missing overlay alone does not belong here)
 
-If `repo_overlay_status=missing`, default recommendation is to halt orchestration until resolved unless user explicitly overrides.
+If `repo_overlay_status=missing-warned`, continue orchestration after surfacing the warning and scaffold offer. If `repo_overlay_status=skipped`, continue without re-warning in the same session unless the user asks to revisit the overlay.

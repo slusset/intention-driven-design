@@ -124,13 +124,22 @@ claude plugin install idd-skills@intention-driven-design
 ### Codex CLI
 
 ```bash
-./tools/link-skills.sh codex
+./tools/link-skills.sh codex --with-technical
 ```
 
 ### Other agents (Cursor, Gemini CLI, etc.)
 
 All skills follow the [Agent Skills open standard](https://agentskills.io).
-Copy `skills/` to the agent's skill discovery path.
+Copy `skills/` and any needed `technical-skills/` into the agent's skill discovery path.
+
+## Repo overlay and technical skills
+
+IDD's narrative, model, and contract skills stay stack-agnostic. Repositories can layer stack-specific implementation guidance on top by:
+
+1. Installing the technical skills they need from `technical-skills/`
+2. Adding `specs/skills/repo-overlay.md` to declare which technical skills, architecture docs, test commands, and SDK/codegen workflows are authoritative for that repo
+
+The `idd-workflow` skill should load that overlay before picking backend/frontend implementation skills. If the overlay is missing, it should warn, offer to scaffold one, and continue with explicit assumptions instead of blocking the session.
 
 ## Skills
 
@@ -144,6 +153,17 @@ Copy `skills/` to the agent's skill discovery path.
 | **IDD Workflow** | Meta-skill: when to use which skill | `/idd-workflow` |
 
 Skills are designed to be invoked in sequence: narrative → model → contract → implementation → validation → certification. Each skill's output feeds the next.
+
+## Technical skills
+
+These are intentionally orthogonal to IDD. They plug into the implementation and validation layers without changing the upstream `specs/` artifacts.
+
+| Skill | Purpose | Invocation |
+|-------|---------|------------|
+| **Angular Architecture** | Angular structure, test commands, and UI guardrails | `/angular-architecture` |
+| **Angular Playwright** | Angular-focused Playwright workflow | `/angular-playwright` |
+| **Angular From Design** | Convert static UI/design output into Angular implementation | `/angular-from-design` |
+| **Spring Boot Architecture** | Spring Boot boundaries, package rules, and test commands | `/spring-boot-architecture` |
 
 ## Repository layout
 
@@ -163,6 +183,12 @@ skills/                      IDD methodology skills
 ├── e2e-journey-testing/     Playwright journey tests
 ├── certification/           Traceability verification and evidence
 └── idd-workflow/            Meta-skill: when to use which skill
+
+technical-skills/            Stack-specific implementation guidance
+├── angular-architecture/    Angular architecture and test workflow
+├── angular-playwright/      Angular Playwright patterns
+├── angular-from-design/     Angular implementation from static design
+└── spring-boot-architecture/ Spring Boot architecture and test workflow
 
 tools/                       Build, link, and validation utilities
 ├── build.sh                 Package plugin zip for distribution
