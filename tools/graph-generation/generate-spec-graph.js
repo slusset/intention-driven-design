@@ -1,1375 +1,805 @@
 #!/usr/bin/env node
 
 /**
- * Generates an interactive Cytoscape.js + ELK spec traceability graph.
+ * Generate a Mermaid traceability graph from IDD front-matter metadata.
  *
- * UX: Progressive drill-down starting from personas.
- *   Click persona  → reveals journeys + journey maps
- *   Click journey  → reveals stories
- *   Click story    → reveals features, contracts, models
- *   Click feature  → reveals fixtures
- *   Click model    → reveals lifecycles
- *   Double-click   → collapse back
+ * Usage:
+ *   node tools/graph-generation/generate-spec-graph.js [specs-dir] [--format mermaid|json]
  *
- * Usage: node tools/graph-generation/generate-spec-graph.js [specs-dir]
- * Output: specs-graph.html (in project root or next to specs-dir)
+ * Examples:
+ *   node tools/graph-generation/generate-spec-graph.js --format mermaid > specs/GRAPH.md
+ *   node tools/graph-generation/generate-spec-graph.js examples --format mermaid
  */
 
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const {
+  getExpectedType,
+  parseFrontMatter,
+  findFiles,
+} = require('../lib/parse-front-matter');
 
-const SPECS_DIR = process.argv[2]
-  ? path.resolve(process.argv[2])
-  : path.join(process.cwd(), 'specs');
-const PROJECT_NAME = path.basename(path.resolve(SPECS_DIR, '..'));
-const OUTPUT_FILE = path.join(path.resolve(SPECS_DIR, '..'), 'specs-graph.html');
+const SUPPORTED_FORMATS = new Set(['mermaid', 'json']);
+const DEFAULT_FORMAT = 'mermaid';
+const NODE_TYPES = new Set([
+  'persona',
+  'journey',
+  'story',
+  'feature',
+  'model',
+  'fixture',
+  'journey-map',
+  'capability',
+  'contract',
+]);
+const OPERATION_METHODS = ['get', 'post', 'put', 'patch', 'delete'];
 
-// ── Graph data structures ─────────────────────────────────────────
+function parseArgs(argv) {
+  const args = {
+    specsDir: null,
+    format: DEFAULT_FORMAT,
+    help: false,
+  };
 
-const nodes = [];
-const edges = [];
-const nodeIds = new Set();
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
 
-function addNode(id, type, label, data = {}) {
-  if (nodeIds.has(id)) return;
-  nodeIds.add(id);
-  nodes.push({ id, type, label, data });
-}
+    if (arg === '--help' || arg === '-h') {
+      args.help = true;
+      continue;
+    }
 
-function addEdge(source, target, relationship) {
-  if (!source || !target) return;
-  edges.push({ source, target, relationship });
-}
+    if (arg === '--format') {
+      args.format = argv[i + 1] || '';
+      i += 1;
+      continue;
+    }
 
-// ── File discovery ────────────────────────────────────────────────
+    if (arg.startsWith('--format=')) {
+      args.format = arg.slice('--format='.length);
+      continue;
+    }
 
-function findFiles(dir, pattern) {
-  const files = [];
-  if (!fs.existsSync(dir)) return files;
-  function walk(currentDir) {
-    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = path.join(currentDir, entry.name);
-      if (entry.isDirectory()) walk(fullPath);
-      else if (pattern.test(entry.name)) files.push(fullPath);
+    if (arg.startsWith('--')) {
+      throw new Error(`Unknown option: ${arg}`);
+    }
+
+    if (!args.specsDir) {
+      args.specsDir = path.resolve(arg);
+    } else {
+      throw new Error(`Unexpected positional argument: ${arg}`);
     }
   }
-  walk(dir);
-  return files;
+
+  if (!args.specsDir) {
+    args.specsDir = path.join(process.cwd(), 'specs');
+  }
+
+  args.format = String(args.format || DEFAULT_FORMAT).toLowerCase();
+  if (!SUPPORTED_FORMATS.has(args.format)) {
+    throw new Error(`Unsupported format '${args.format}'. Expected one of: ${Array.from(SUPPORTED_FORMATS).join(', ')}`);
+  }
+
+  return args;
 }
 
-function relPath(fullPath) {
-  return path.relative(process.cwd(), fullPath);
+function printHelp() {
+  process.stdout.write([
+    'Generate a spec traceability graph from front-matter.',
+    '',
+    'Usage:',
+    '  node tools/graph-generation/generate-spec-graph.js [specs-dir] [--format mermaid|json]',
+    '',
+    'Options:',
+    '  --format <value>   Output format (default: mermaid)',
+    '  --help, -h         Show this help text',
+    '',
+    'Examples:',
+    '  node tools/graph-generation/generate-spec-graph.js --format mermaid > specs/GRAPH.md',
+    '  node tools/graph-generation/generate-spec-graph.js examples --format mermaid',
+    '',
+  ].join('\n'));
 }
 
-function titleCase(str) {
-  return str.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+function toPosix(value) {
+  return value.replace(/\\/g, '/');
 }
 
-// ── Indexes ───────────────────────────────────────────────────────
+function normalizeRef(ref) {
+  if (!ref || typeof ref !== 'string') return null;
+  return toPosix(ref.trim().replace(/^\.\//, ''));
+}
 
-const storyIndex = new Map();
-const entityIndex = new Map();
+function inferIdFromPath(filePath) {
+  let id = path.basename(filePath);
+  id = id.replace(/\.(md|feature|json|yaml|yml)$/i, '');
+  id = id.replace(/\.(persona|journey|story|feature|fixture|journey-map|map|capability|model|lifecycle)$/i, '');
+  return id;
+}
 
-function buildStoryIndex() {
-  const storyFiles = findFiles(path.join(SPECS_DIR, 'stories'), /\.md$/);
-  for (const f of storyFiles) {
-    storyIndex.set(path.basename(f, '.md'), relPath(f));
+function operationSlug(method, routePath) {
+  return `${String(method || '').toUpperCase()}_${String(routePath || '')
+    .replace(/^\//, '')
+    .replace(/[{}]/g, '')
+    .replace(/\//g, '_')
+    .replace(/[^A-Za-z0-9_]+/g, '_')}`;
+}
+
+function toArray(value) {
+  if (value == null) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return [value];
+}
+
+function normalizeContractSignature(value) {
+  if (!value || typeof value !== 'string') return null;
+  const trimmed = value.trim().replace(/\s+/g, ' ');
+  const match = trimmed.match(/^(GET|POST|PUT|PATCH|DELETE)\s+(.+)$/i);
+  if (!match) return null;
+  return `${match[1].toUpperCase()} ${match[2]}`;
+}
+
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function inferLegacyScopedRef(rootPrefix, section, rawValue) {
+  const normalized = normalizeRef(rawValue);
+  if (!normalized) return null;
+
+  if (rootPrefix && normalized.startsWith(`${rootPrefix}/`)) {
+    return normalized;
+  }
+
+  if (rootPrefix && normalized.startsWith(`${section}/`)) {
+    return `${rootPrefix}/${normalized}`;
+  }
+
+  if (normalized.includes('/')) {
+    return normalized;
+  }
+
+  const withExtension = normalized.endsWith('.md') ? normalized : `${normalized}.md`;
+  return rootPrefix ? `${rootPrefix}/${section}/${withExtension}` : `${section}/${withExtension}`;
+}
+
+function extractLegacyRefs(record, rootPrefix) {
+  const text = String(record.content || '');
+  if (!text) return {};
+
+  const prefix = escapeRegExp(rootPrefix);
+  const includePrefix = rootPrefix ? `${prefix}\\/` : '';
+  const result = {};
+
+  if (record.type === 'journey') {
+    const personaMatch = text.match(new RegExp(`[Pp]ersona:\\s*(?:${includePrefix}personas\\/)?([^\\s\\n]+)`));
+    if (personaMatch) {
+      result.persona = inferLegacyScopedRef(rootPrefix, 'personas', personaMatch[1]);
+    }
+  }
+
+  if (record.type === 'story') {
+    const journeyMatch = text.match(new RegExp(`[Jj]ourney:\\s*(?:${includePrefix}journeys\\/)?([^\\s\\n]+)`));
+    if (journeyMatch) {
+      result.journey = inferLegacyScopedRef(rootPrefix, 'journeys', journeyMatch[1]);
+    }
+
+    const personaMatch = text.match(new RegExp(`[Pp]ersona:\\s*(?:${includePrefix}personas\\/)?([^\\s\\n]+)`));
+    if (personaMatch) {
+      result.persona = inferLegacyScopedRef(rootPrefix, 'personas', personaMatch[1]);
+    }
+  }
+
+  if (record.type === 'feature') {
+    const storyMatch = text.match(new RegExp(`#\\s*[Ss]tory:\\s*(?:${includePrefix}stories\\/)?([^\\s\\n]+)`));
+    if (storyMatch) {
+      result.story = inferLegacyScopedRef(rootPrefix, 'stories', storyMatch[1]);
+    }
+
+    const journeyMatch = text.match(new RegExp(`#\\s*[Jj]ourney:\\s*(?:${includePrefix}journeys\\/)?([^\\s\\n]+)`));
+    if (journeyMatch) {
+      result.journey = inferLegacyScopedRef(rootPrefix, 'journeys', journeyMatch[1]);
+    }
+
+    const contractMatch = text.match(/#\s*[Cc]ontract:\s*((?:GET|POST|PUT|PATCH|DELETE)\s+\S+)/);
+    if (contractMatch) {
+      result.contract = normalizeContractSignature(contractMatch[1]);
+    }
+  }
+
+  return result;
+}
+
+function createGraphState() {
+  return {
+    nodesByUid: new Map(),
+    nodeUidByPath: new Map(),
+    nodeUidByTypeId: new Map(),
+    edgesByKey: new Map(),
+    artifactRecords: [],
+    contractsBySignature: new Map(),
+    contractUidsByFile: new Map(),
+    capabilityMembers: new Map(),
+    warnings: [],
+    specRootPrefix: '',
+    nextNodeCounter: 1,
+  };
+}
+
+function addNode(state, node) {
+  if (!NODE_TYPES.has(node.type)) return null;
+
+  const normalizedPath = node.path ? normalizeRef(node.path) : null;
+  if (normalizedPath && state.nodeUidByPath.has(normalizedPath)) {
+    return state.nodeUidByPath.get(normalizedPath);
+  }
+
+  const uid = `n${state.nextNodeCounter}`;
+  state.nextNodeCounter += 1;
+
+  const fullNode = {
+    uid,
+    id: node.id,
+    type: node.type,
+    label: node.label || `${node.type}:${node.id}`,
+    path: normalizedPath,
+    meta: node.meta || {},
+  };
+
+  state.nodesByUid.set(uid, fullNode);
+
+  if (normalizedPath) {
+    state.nodeUidByPath.set(normalizedPath, uid);
+  }
+
+  if (node.id) {
+    const typeIdKey = `${node.type}:${node.id}`;
+    if (!state.nodeUidByTypeId.has(typeIdKey)) {
+      state.nodeUidByTypeId.set(typeIdKey, uid);
+    }
+  }
+
+  return uid;
+}
+
+function addEdge(state, edge) {
+  if (!edge.source || !edge.target || edge.source === edge.target) return;
+
+  const key = [
+    edge.source,
+    edge.target,
+    edge.style || 'solid',
+    edge.category || 'trace',
+  ].join('|');
+
+  if (state.edgesByKey.has(key)) return;
+
+  state.edgesByKey.set(key, {
+    source: edge.source,
+    target: edge.target,
+    style: edge.style || 'solid',
+    category: edge.category || 'trace',
+    label: edge.label || '',
+  });
+}
+
+function getAllSpecFiles(specsDir) {
+  return findFiles(specsDir, /\.(md|feature|json|ya?ml)$/i);
+}
+
+function registerArtifactsFromFrontMatter(state, specsDir) {
+  const files = getAllSpecFiles(specsDir);
+
+  for (const filePath of files) {
+    const relativePath = toPosix(path.relative(process.cwd(), filePath));
+    const expectedType = getExpectedType(relativePath);
+    if (!expectedType || !NODE_TYPES.has(expectedType)) {
+      continue;
+    }
+
+    let content;
+    try {
+      content = fs.readFileSync(filePath, 'utf8');
+    } catch (error) {
+      state.warnings.push(`Failed to read ${relativePath}: ${error.message}`);
+      continue;
+    }
+
+    const parsed = parseFrontMatter(filePath, content);
+    if (parsed.parseError) {
+      state.warnings.push(`Front-matter parse error in ${relativePath}: ${parsed.parseError}`);
+    }
+
+    const frontMatter = parsed.frontMatter || {};
+    const type = frontMatter.type || expectedType;
+    if (!NODE_TYPES.has(type)) {
+      continue;
+    }
+
+    const id = frontMatter.id || inferIdFromPath(filePath);
+    const uid = addNode(state, {
+      type,
+      id,
+      path: relativePath,
+      label: `${type}:${id}`,
+      meta: {
+        file: relativePath,
+      },
+    });
+
+    state.artifactRecords.push({
+      uid,
+      type,
+      id,
+      path: relativePath,
+      frontMatter,
+      content,
+    });
   }
 }
 
-function resolveStoryName(kebabName, tag) {
-  if (storyIndex.has(kebabName)) return storyIndex.get(kebabName);
-  const withTag = `specs/stories/${tag}/${kebabName}.md`;
-  if (fs.existsSync(path.join(process.cwd(), withTag))) return withTag;
-  for (const [name, p] of storyIndex) {
-    if (name === kebabName) return p;
+function registerContractsFromOpenApi(state, specsDir) {
+  const contractsDir = path.join(specsDir, 'contracts', 'openapi');
+  const openApiFiles = findFiles(contractsDir, /\.ya?ml$/i);
+
+  for (const filePath of openApiFiles) {
+    const relativePath = toPosix(path.relative(process.cwd(), filePath));
+
+    let doc;
+    try {
+      doc = yaml.load(fs.readFileSync(filePath, 'utf8'));
+    } catch (error) {
+      state.warnings.push(`Failed to parse OpenAPI file ${relativePath}: ${error.message}`);
+      continue;
+    }
+
+    if (!doc || typeof doc !== 'object' || !doc.paths) {
+      continue;
+    }
+
+    for (const [routePath, pathItem] of Object.entries(doc.paths)) {
+      if (!pathItem || typeof pathItem !== 'object' || pathItem.$ref) {
+        continue;
+      }
+
+      for (const method of OPERATION_METHODS) {
+        const operation = pathItem[method];
+        if (!operation || typeof operation !== 'object') {
+          continue;
+        }
+
+        const signature = normalizeContractSignature(`${method.toUpperCase()} ${routePath}`);
+        const id = operationSlug(method, routePath);
+        const uid = addNode(state, {
+          type: 'contract',
+          id,
+          path: `${relativePath}#${method.toUpperCase()} ${routePath}`,
+          label: `contract:${id}`,
+          meta: {
+            file: relativePath,
+            signature,
+            operationId: operation.operationId || '',
+          },
+        });
+
+        if (!uid) continue;
+
+        if (signature) {
+          if (!state.contractsBySignature.has(signature)) {
+            state.contractsBySignature.set(signature, new Set());
+          }
+          state.contractsBySignature.get(signature).add(uid);
+        }
+        if (!state.contractUidsByFile.has(relativePath)) {
+          state.contractUidsByFile.set(relativePath, []);
+        }
+        state.contractUidsByFile.get(relativePath).push(uid);
+
+        addContractReferenceEdges(state, uid, operation, relativePath);
+      }
+    }
   }
+}
+
+function resolveReferenceToUids(state, ref, typeHint) {
+  const normalized = normalizeRef(ref);
+  if (!normalized) return [];
+
+  if (typeHint === 'contract') {
+    const directSignature = normalizeContractSignature(normalized);
+    if (directSignature && state.contractsBySignature.has(directSignature)) {
+      return Array.from(state.contractsBySignature.get(directSignature));
+    }
+
+    if (state.contractUidsByFile.has(normalized)) {
+      return state.contractUidsByFile.get(normalized);
+    }
+  }
+
+  if (state.nodeUidByPath.has(normalized)) {
+    return [state.nodeUidByPath.get(normalized)];
+  }
+
+  const inferredId = inferIdFromPath(normalized);
+  if (typeHint) {
+    const hintedKey = `${typeHint}:${inferredId}`;
+    if (state.nodeUidByTypeId.has(hintedKey)) {
+      return [state.nodeUidByTypeId.get(hintedKey)];
+    }
+  }
+
+  if (!typeHint && inferredId) {
+    const matches = [];
+    for (const [key, uid] of state.nodeUidByTypeId.entries()) {
+      if (key.endsWith(`:${inferredId}`)) {
+        matches.push(uid);
+      }
+    }
+    return matches;
+  }
+
+  return [];
+}
+
+function connectFromReference(state, ref, typeHint, targetUid, edgeLabel) {
+  for (const value of toArray(ref)) {
+    const sourceUids = resolveReferenceToUids(state, value, typeHint);
+
+    for (const sourceUid of sourceUids) {
+      addEdge(state, {
+        source: sourceUid,
+        target: targetUid,
+        style: 'solid',
+        category: 'trace',
+        label: edgeLabel,
+      });
+    }
+  }
+}
+
+function addContractReferenceEdges(state, contractUid, operation, contractFilePath) {
+  const storyRefs = toArray(operation['x-story']);
+  const featureRefs = toArray(operation['x-feature']);
+  const journeyRefs = toArray(operation['x-journey']);
+
+  for (const ref of storyRefs) {
+    connectFromReference(state, ref, 'story', contractUid, 'x-story');
+  }
+
+  for (const ref of featureRefs) {
+    connectFromReference(state, ref, 'feature', contractUid, 'x-feature');
+  }
+
+  for (const ref of journeyRefs) {
+    connectFromReference(state, ref, 'journey', contractUid, 'x-journey');
+  }
+
+  if (storyRefs.length === 0 && featureRefs.length === 0 && journeyRefs.length === 0) {
+    state.warnings.push(`No x-story/x-feature/x-journey links for contract operation in ${contractFilePath}`);
+  }
+}
+
+function addArtifactEdges(state) {
+  for (const record of state.artifactRecords) {
+    if (!record.uid) continue;
+
+    const refs = record.frontMatter.refs || {};
+    const sources = record.frontMatter.sources || {};
+    const legacyRefs = extractLegacyRefs(record, state.specRootPrefix);
+
+    if (record.type === 'journey') {
+      connectFromReference(state, refs.persona || legacyRefs.persona, 'persona', record.uid, 'refs.persona');
+    }
+
+    if (record.type === 'story') {
+      connectFromReference(state, refs.journey || legacyRefs.journey, 'journey', record.uid, 'refs.journey');
+      connectFromReference(state, refs.persona || legacyRefs.persona, 'persona', record.uid, 'refs.persona');
+    }
+
+    if (record.type === 'feature') {
+      connectFromReference(state, record.frontMatter.story || legacyRefs.story, 'story', record.uid, 'story');
+      connectFromReference(state, record.frontMatter.journey || legacyRefs.journey, 'journey', record.uid, 'journey');
+
+      const contractRefs = [
+        ...toArray(record.frontMatter.contract),
+        ...toArray(legacyRefs.contract),
+      ];
+      for (const contractRef of contractRefs) {
+        const targetContracts = resolveReferenceToUids(state, contractRef, 'contract');
+        for (const contractUid of targetContracts) {
+          addEdge(state, {
+            source: record.uid,
+            target: contractUid,
+            style: 'solid',
+            category: 'trace',
+            label: 'contract',
+          });
+        }
+      }
+    }
+
+    if (record.type === 'fixture') {
+      connectFromReference(state, record.frontMatter.story, 'story', record.uid, 'story');
+      connectFromReference(state, record.frontMatter.feature, 'feature', record.uid, 'feature');
+    }
+
+    if (record.type === 'model') {
+      for (const storyRef of toArray(sources.stories)) {
+        connectFromReference(state, storyRef, 'story', record.uid, 'sources.stories');
+      }
+      for (const journeyRef of toArray(sources.journeys)) {
+        connectFromReference(state, journeyRef, 'journey', record.uid, 'sources.journeys');
+      }
+    }
+
+    if (record.type === 'journey-map') {
+      connectFromReference(state, sources.journey, 'journey', record.uid, 'sources.journey');
+
+      for (const storyRef of toArray(sources.stories)) {
+        connectFromReference(state, storyRef, 'story', record.uid, 'sources.stories');
+      }
+
+      for (const featureRef of toArray(sources.features)) {
+        connectFromReference(state, featureRef, 'feature', record.uid, 'sources.features');
+      }
+    }
+  }
+}
+
+function scopeTypeHint(scopeKey) {
+  const normalized = String(scopeKey || '').toLowerCase();
+  const key = normalized.replace(/[-_]/g, '');
+
+  if (key === 'personas') return 'persona';
+  if (key === 'journeys') return 'journey';
+  if (key === 'stories') return 'story';
+  if (key === 'features') return 'feature';
+  if (key === 'models') return 'model';
+  if (key === 'fixtures') return 'fixture';
+  if (key === 'journeymaps') return 'journey-map';
+  if (key === 'contracts') return 'contract';
+
   return null;
 }
 
-function buildEntityIndex() {
-  const modelFiles = findFiles(path.join(SPECS_DIR, 'models'), /\.model\.ya?ml$/);
-  for (const f of modelFiles) {
-    try {
-      const model = yaml.load(fs.readFileSync(f, 'utf8'));
-      if (model.entity) entityIndex.set(model.entity, relPath(f));
-    } catch (_) { }
-  }
-}
+function addCapabilityScope(state) {
+  for (const record of state.artifactRecords) {
+    if (record.type !== 'capability' || !record.uid) continue;
 
-// ── Parsers (same as before) ──────────────────────────────────────
+    const members = new Set([record.uid]);
+    const scope = record.frontMatter.scope || {};
 
-function parsePersonas() {
-  for (const f of findFiles(path.join(SPECS_DIR, 'personas'), /\.md$/)) {
-    const id = relPath(f);
-    const content = fs.readFileSync(f, 'utf8');
-    const m = content.match(/^#\s*Persona:\s*(.+)$/m);
-    addNode(id, 'persona', m ? m[1].trim() : titleCase(path.basename(f, '.md')), { file: id });
-  }
-}
+    for (const [scopeKey, scopeRefs] of Object.entries(scope)) {
+      const typeHint = scopeTypeHint(scopeKey);
+      if (!typeHint) continue;
 
-function parseJourneys() {
-  for (const f of findFiles(path.join(SPECS_DIR, 'journeys'), /\.md$/)) {
-    const id = relPath(f);
-    const content = fs.readFileSync(f, 'utf8');
-    const m = content.match(/^#\s*Journey:\s*(.+)$/m);
-    addNode(id, 'journey', m ? m[1].trim() : titleCase(path.basename(f, '.md')), { file: id });
-
-    const pm = content.match(/Source Persona:\s*(specs\/personas\/[^\s]+)/);
-    if (pm) addEdge(id, pm[1], 'actor');
-
-    for (const sm of content.matchAll(/- (specs\/stories\/[^\s]+)/g)) {
-      addEdge(id, sm[1], 'includes-story');
-    }
-  }
-}
-
-function parseStories() {
-  for (const f of findFiles(path.join(SPECS_DIR, 'stories'), /\.md$/)) {
-    const id = relPath(f);
-    const content = fs.readFileSync(f, 'utf8');
-    const m = content.match(/^#\s*Story:\s*(.+)$/m);
-    addNode(id, 'story', m ? m[1].trim() : titleCase(path.basename(f, '.md')), { file: id });
-
-    const jm = content.match(/Journey:\s*(specs\/journeys\/[^\s]+)/);
-    if (jm) addEdge(id, jm[1], 'belongs-to-journey');
-
-    const pm = content.match(/Persona:\s*(specs\/personas\/[^\s]+)/);
-    if (pm) addEdge(id, pm[1], 'persona');
-  }
-}
-
-function parseFeatures() {
-  for (const f of findFiles(path.join(SPECS_DIR, 'features'), /\.feature$/)) {
-    const id = relPath(f);
-    const content = fs.readFileSync(f, 'utf8');
-    const fm = content.match(/Feature:\s*(.+)/);
-    const scenarioCount = (content.match(/Scenario:/g) || []).length;
-    addNode(id, 'feature', fm ? fm[1].trim() : titleCase(path.basename(f, '.feature')), { file: id, scenarioCount });
-
-    const sm = content.match(/^#\s*Story:\s*(specs\/stories\/[^\s]+)/m);
-    if (sm) addEdge(id, sm[1], 'specifies');
-
-    const jm = content.match(/^#\s*Journey:\s*(specs\/journeys\/[^\s]+)/m);
-    if (jm) addEdge(id, jm[1], 'traces-to-journey');
-
-    const cm = content.match(/^#\s*Contract:\s*((?:GET|POST|PUT|PATCH|DELETE)\s+\S+)/m);
-    if (cm) addEdge(id, `contract:${cm[1].trim()}`, 'tests-endpoint');
-  }
-}
-
-function parseModels() {
-  for (const f of findFiles(path.join(SPECS_DIR, 'models'), /\.model\.ya?ml$/)) {
-    const id = relPath(f);
-    let model;
-    try { model = yaml.load(fs.readFileSync(f, 'utf8')); } catch (_) { continue; }
-
-    const label = model.entity || titleCase(path.basename(f, '.model.yaml'));
-    const attrCount = model.attributes ? Object.keys(model.attributes).length : 0;
-    const ruleCount = model.rules ? model.rules.length : 0;
-    addNode(id, 'model', label, { file: id, entity: model.entity, attrCount, ruleCount });
-
-    for (const s of model.sources?.stories ?? []) addEdge(id, s, 'defined-by');
-    for (const j of model.sources?.journeys ?? []) addEdge(id, j, 'supports');
-    for (const [, rel] of Object.entries(model.relationships ?? {})) {
-      const tp = entityIndex.get(rel.entity);
-      if (tp) addEdge(id, tp, rel.type || 'relates-to');
-    }
-  }
-}
-
-function parseLifecycles() {
-  for (const f of findFiles(path.join(SPECS_DIR, 'models'), /\.lifecycle\.ya?ml$/)) {
-    const id = relPath(f);
-    let lc;
-    try { lc = yaml.load(fs.readFileSync(f, 'utf8')); } catch (_) { continue; }
-
-    const stateCount = lc.states ? Object.keys(lc.states).length : 0;
-    const transitionCount = lc.transitions ? Object.keys(lc.transitions).length : 0;
-    addNode(id, 'lifecycle', `${lc.entity || ''} Lifecycle`, { file: id, stateCount, transitionCount });
-
-    for (const s of lc.sources?.stories ?? []) addEdge(id, s, 'governs');
-    for (const j of lc.sources?.journeys ?? []) addEdge(id, j, 'supports');
-    const mp = entityIndex.get(lc.entity);
-    if (mp) addEdge(id, mp, 'lifecycle-of');
-  }
-}
-
-function parseContracts() {
-  const apiFile = path.join(SPECS_DIR, 'contracts/openapi/api.yaml');
-  if (!fs.existsSync(apiFile)) return;
-  let api;
-  try { api = yaml.load(fs.readFileSync(apiFile, 'utf8')); } catch (_) { return; }
-  if (!api.paths) return;
-
-  for (const [pathKey, pathItem] of Object.entries(api.paths)) {
-    if (pathItem.$ref) continue;
-    for (const method of ['get', 'post', 'put', 'patch', 'delete']) {
-      const op = pathItem[method];
-      if (!op) continue;
-      const id = `contract:${method.toUpperCase()} ${pathKey}`;
-      const tag = op.tags?.[0] || '';
-      addNode(id, 'contract', `${method.toUpperCase()} ${pathKey}`, {
-        operationId: op.operationId, tag, summary: op.summary || '',
-      });
-      if (op['x-journey']) addEdge(id, op['x-journey'], 'serves');
-      if (op['x-story']) {
-        const sp = resolveStoryName(op['x-story'], tag);
-        if (sp) addEdge(id, sp, 'implements');
-      }
-      if (op['x-feature']) addEdge(id, op['x-feature'], 'tested-by');
-    }
-  }
-}
-
-function parseJourneyMaps() {
-  for (const f of findFiles(path.join(SPECS_DIR, 'journey-maps'), /\.map\.ya?ml$/)) {
-    const id = relPath(f);
-    let map;
-    try { map = yaml.load(fs.readFileSync(f, 'utf8')); } catch (_) { continue; }
-
-    const stepCount = map.steps ? Object.keys(map.steps).length : 0;
-    addNode(id, 'journey-map', `${titleCase(map.journey || path.basename(f, '.map.yaml'))} (Map)`, { file: id, stepCount });
-
-    if (map.sources?.journey) addEdge(id, map.sources.journey, 'maps');
-    for (const s of map.sources?.stories ?? []) addEdge(id, s, 'covers');
-    for (const fe of map.sources?.features ?? []) addEdge(id, fe, 'validates');
-    if (map.fixtures) {
-      for (const [, fix] of Object.entries(map.fixtures)) {
-        if (fix?.ref) addEdge(id, fix.ref, 'uses-fixture');
-      }
-    }
-  }
-}
-
-function parseFixtures() {
-  for (const f of findFiles(path.join(SPECS_DIR, 'fixtures'), /\.json$/)) {
-    const id = relPath(f);
-    let fixture;
-    try { fixture = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (_) { continue; }
-    addNode(id, 'fixture', titleCase(path.basename(f, '.json')), { file: id });
-    if (fixture._meta?.story) addEdge(id, fixture._meta.story, 'test-data-for');
-    if (fixture._meta?.feature) addEdge(id, fixture._meta.feature, 'feeds');
-  }
-}
-
-// ── Hierarchy computation ─────────────────────────────────────────
-// Assigns each node a hierarchyParent and depth based on the traceability chain.
-// Depth: 0=persona, 1=journey/journey-map, 2=story, 3=feature/contract/model, 4=fixture/lifecycle
-
-function computeHierarchy(graph) {
-  const parentMap = new Map();   // nodeId → parentNodeId
-  const depthMap = new Map();    // nodeId → depth
-  const childrenMap = new Map(); // nodeId → Set<childNodeId>
-
-  // Build edge lookup: for each node, what edges connect to it?
-  const edgesBySource = new Map();
-  const edgesByTarget = new Map();
-  for (const e of graph.edges) {
-    if (!edgesBySource.has(e.source)) edgesBySource.set(e.source, []);
-    edgesBySource.get(e.source).push(e);
-    if (!edgesByTarget.has(e.target)) edgesByTarget.set(e.target, []);
-    edgesByTarget.get(e.target).push(e);
-  }
-
-  const nodeMap = new Map();
-  for (const n of graph.nodes) nodeMap.set(n.id, n);
-
-  function setParent(childId, parentId, depth) {
-    if (parentMap.has(childId)) return; // first assignment wins
-    parentMap.set(childId, parentId);
-    depthMap.set(childId, depth);
-    if (!childrenMap.has(parentId)) childrenMap.set(parentId, new Set());
-    childrenMap.get(parentId).add(childId);
-  }
-
-  // Depth 0: Personas
-  for (const n of graph.nodes) {
-    if (n.type === 'persona') {
-      depthMap.set(n.id, 0);
-    }
-  }
-
-  // Depth 1: Journeys → parent is persona (via 'actor' edge: journey→persona)
-  for (const n of graph.nodes) {
-    if (n.type === 'journey') {
-      const actorEdge = (edgesBySource.get(n.id) || []).find(e => e.relationship === 'actor');
-      if (actorEdge && nodeMap.get(actorEdge.target)?.type === 'persona') {
-        setParent(n.id, actorEdge.target, 1);
-      } else {
-        depthMap.set(n.id, 1); // orphan journey
-      }
-    }
-  }
-
-  // Depth 1: Journey maps → parent is journey (via 'maps' edge: jm→journey)
-  for (const n of graph.nodes) {
-    if (n.type === 'journey-map') {
-      const mapsEdge = (edgesBySource.get(n.id) || []).find(e => e.relationship === 'maps');
-      if (mapsEdge && nodeMap.get(mapsEdge.target)?.type === 'journey') {
-        // Parent is the journey's parent persona (so jm is sibling of journey)
-        const journeyParent = parentMap.get(mapsEdge.target);
-        if (journeyParent) {
-          setParent(n.id, mapsEdge.target, 1);
-        } else {
-          depthMap.set(n.id, 1);
+      for (const ref of toArray(scopeRefs)) {
+        const targetUids = resolveReferenceToUids(state, ref, typeHint);
+        for (const targetUid of targetUids) {
+          members.add(targetUid);
+          addEdge(state, {
+            source: record.uid,
+            target: targetUid,
+            style: 'dashed',
+            category: 'scope',
+            label: `scope.${scopeKey}`,
+          });
         }
-      } else {
-        depthMap.set(n.id, 1);
       }
     }
-  }
 
-  // Depth 2: Stories → parent is journey
-  // Via 'belongs-to-journey' (story→journey) or 'includes-story' (journey→story)
-  for (const n of graph.nodes) {
-    if (n.type === 'story') {
-      // Try belongs-to-journey first
-      const btj = (edgesBySource.get(n.id) || []).find(e => e.relationship === 'belongs-to-journey');
-      if (btj && nodeMap.get(btj.target)?.type === 'journey') {
-        setParent(n.id, btj.target, 2);
-        continue;
-      }
-      // Try reverse: journey includes-story → this story
-      const incEdge = (edgesByTarget.get(n.id) || []).find(e => e.relationship === 'includes-story');
-      if (incEdge && nodeMap.get(incEdge.source)?.type === 'journey') {
-        setParent(n.id, incEdge.source, 2);
-        continue;
-      }
-      depthMap.set(n.id, 2); // orphan story
-    }
+    state.capabilityMembers.set(record.uid, members);
   }
-
-  // Depth 3: Features → parent is story (via 'specifies' edge: feature→story)
-  for (const n of graph.nodes) {
-    if (n.type === 'feature') {
-      const specEdge = (edgesBySource.get(n.id) || []).find(e => e.relationship === 'specifies');
-      if (specEdge && nodeMap.get(specEdge.target)?.type === 'story') {
-        setParent(n.id, specEdge.target, 3);
-      } else {
-        depthMap.set(n.id, 3);
-      }
-    }
-  }
-
-  // Depth 3: Contracts → parent is story (via 'implements' edge: contract→story)
-  for (const n of graph.nodes) {
-    if (n.type === 'contract') {
-      const implEdge = (edgesBySource.get(n.id) || []).find(e => e.relationship === 'implements');
-      if (implEdge && nodeMap.get(implEdge.target)?.type === 'story') {
-        setParent(n.id, implEdge.target, 3);
-      } else {
-        depthMap.set(n.id, 3);
-      }
-    }
-  }
-
-  // Depth 3: Models → parent is story (via 'defined-by' edge: model→story, take first)
-  for (const n of graph.nodes) {
-    if (n.type === 'model') {
-      const defEdge = (edgesBySource.get(n.id) || []).find(e => e.relationship === 'defined-by');
-      if (defEdge && nodeMap.get(defEdge.target)?.type === 'story') {
-        setParent(n.id, defEdge.target, 3);
-      } else {
-        depthMap.set(n.id, 3);
-      }
-    }
-  }
-
-  // Depth 4: Fixtures → parent is feature (via 'feeds': fixture→feature)
-  //           or parent is story (via 'test-data-for': fixture→story)
-  for (const n of graph.nodes) {
-    if (n.type === 'fixture') {
-      const feedsEdge = (edgesBySource.get(n.id) || []).find(e => e.relationship === 'feeds');
-      if (feedsEdge && nodeMap.get(feedsEdge.target)?.type === 'feature') {
-        setParent(n.id, feedsEdge.target, 4);
-        continue;
-      }
-      const tdEdge = (edgesBySource.get(n.id) || []).find(e => e.relationship === 'test-data-for');
-      if (tdEdge && nodeMap.get(tdEdge.target)?.type === 'story') {
-        setParent(n.id, tdEdge.target, 4);
-        continue;
-      }
-      depthMap.set(n.id, 4);
-    }
-  }
-
-  // Depth 4: Lifecycles → parent is model (via 'lifecycle-of': lifecycle→model)
-  for (const n of graph.nodes) {
-    if (n.type === 'lifecycle') {
-      const lcEdge = (edgesBySource.get(n.id) || []).find(e => e.relationship === 'lifecycle-of');
-      if (lcEdge && nodeMap.get(lcEdge.target)?.type === 'model') {
-        setParent(n.id, lcEdge.target, 4);
-      } else {
-        depthMap.set(n.id, 4);
-      }
-    }
-  }
-
-  // Handle orphans: nodes with no parent get depth 0 so they appear at startup
-  const orphans = graph.nodes.filter(n => n.type !== 'persona' && !parentMap.has(n.id));
-  for (const o of orphans) {
-    depthMap.set(o.id, 0); // visible at top level alongside personas
-  }
-
-  console.log(`  Hierarchy: ${parentMap.size} parented, ${orphans.length} orphans (shown at top level)`);
-  if (orphans.length > 0) {
-    for (const o of orphans) {
-      console.log(`    orphan: [${o.type}] ${o.label}`);
-    }
-  }
-
-  return { parentMap, depthMap, childrenMap };
 }
 
-// ── Build graph ───────────────────────────────────────────────────
+function computeOrphans(state) {
+  const inDegree = new Map();
+  const outDegree = new Map();
 
-function buildGraph() {
-  console.log('Building spec graph...\n');
-
-  buildStoryIndex();
-  buildEntityIndex();
-
-  parsePersonas();
-  parseJourneys();
-  parseStories();
-  parseFeatures();
-  parseModels();
-  parseLifecycles();
-  parseContracts();
-  parseJourneyMaps();
-  parseFixtures();
-
-  const validEdges = edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
-  const dropped = edges.length - validEdges.length;
-
-  console.log(`  Nodes: ${nodes.length}`);
-  console.log(`  Edges: ${validEdges.length} (${dropped} dropped)`);
-
-  const typeCounts = {};
-  for (const n of nodes) typeCounts[n.type] = (typeCounts[n.type] || 0) + 1;
-  for (const [t, c] of Object.entries(typeCounts).sort((a, b) => b[1] - a[1])) {
-    console.log(`  ${t}: ${c}`);
+  for (const uid of state.nodesByUid.keys()) {
+    inDegree.set(uid, 0);
+    outDegree.set(uid, 0);
   }
-  console.log('');
 
-  return { nodes, edges: validEdges };
+  for (const edge of state.edgesByKey.values()) {
+    if (edge.category !== 'trace') continue;
+    outDegree.set(edge.source, (outDegree.get(edge.source) || 0) + 1);
+    inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1);
+  }
+
+  const orphanUids = [];
+
+  for (const node of state.nodesByUid.values()) {
+    if (node.type === 'capability') continue;
+    const incoming = inDegree.get(node.uid) || 0;
+    const outgoing = outDegree.get(node.uid) || 0;
+    if (incoming === 0 && outgoing === 0) {
+      orphanUids.push(node.uid);
+    }
+  }
+
+  return orphanUids;
 }
 
-// ── Convert to Cytoscape elements ─────────────────────────────────
+function escapeMermaidLabel(value) {
+  return String(value)
+    .replace(/"/g, '\\"')
+    .replace(/\r?\n/g, ' ')
+    .trim();
+}
 
-function toCytoscapeElements(graph, hierarchy) {
-  const { parentMap, depthMap, childrenMap } = hierarchy;
-  const elements = [];
+function typeClassDefs() {
+  return {
+    persona: 'fill:#dbeafe,stroke:#1d4ed8,color:#1e3a8a,stroke-width:1.5px',
+    journey: 'fill:#dcfce7,stroke:#166534,color:#14532d,stroke-width:1.5px',
+    story: 'fill:#fef9c3,stroke:#854d0e,color:#713f12,stroke-width:1.5px',
+    feature: 'fill:#fce7f3,stroke:#be185d,color:#831843,stroke-width:1.5px',
+    contract: 'fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e,stroke-width:1.5px',
+    model: 'fill:#ede9fe,stroke:#5b21b6,color:#4c1d95,stroke-width:1.5px',
+    fixture: 'fill:#ecfccb,stroke:#4d7c0f,color:#365314,stroke-width:1.5px',
+    'journey-map': 'fill:#ffedd5,stroke:#c2410c,color:#7c2d12,stroke-width:1.5px',
+    capability: 'fill:#f3f4f6,stroke:#374151,color:#111827,stroke-width:2px',
+  };
+}
 
-  // Nodes
-  for (const node of graph.nodes) {
-    const depth = depthMap.get(node.id) ?? 99;
-    const hParent = parentMap.get(node.id) || null;
-    const childCount = childrenMap.get(node.id)?.size || 0;
-    const children = childrenMap.has(node.id) ? Array.from(childrenMap.get(node.id)) : [];
+function renderMermaid(state) {
+  const nodes = Array.from(state.nodesByUid.values())
+    .sort((a, b) => a.type.localeCompare(b.type) || a.label.localeCompare(b.label));
 
-    elements.push({
-      data: {
-        id: node.id,
-        label: node.label,
-        nodeType: node.type,
-        depth,
-        hParent,
-        childCount,
-        children: JSON.stringify(children),
-        ...flatData(node.data),
-      },
-      classes: node.type,
+  const edges = Array.from(state.edgesByKey.values())
+    .sort((a, b) => {
+      const sourceA = state.nodesByUid.get(a.source);
+      const sourceB = state.nodesByUid.get(b.source);
+      const targetA = state.nodesByUid.get(a.target);
+      const targetB = state.nodesByUid.get(b.target);
+      const aKey = `${sourceA.type}:${sourceA.id}->${targetA.type}:${targetA.id}`;
+      const bKey = `${sourceB.type}:${sourceB.id}->${targetB.type}:${targetB.id}`;
+      return aKey.localeCompare(bKey);
     });
+
+  const orphanSet = new Set(computeOrphans(state));
+  const lines = [];
+
+  lines.push('graph LR');
+  lines.push('  %% Generated by tools/graph-generation/generate-spec-graph.js');
+  lines.push('  %% Orphan nodes are highlighted with the orphan class.');
+
+  for (const node of nodes) {
+    lines.push(`  ${node.uid}["${escapeMermaidLabel(node.label)}"]`);
   }
 
-  // Edges
-  for (const edge of graph.edges) {
-    elements.push({
-      data: {
-        id: `${edge.source}→${edge.target}`,
-        source: edge.source,
-        target: edge.target,
-        label: edge.relationship,
-        edgeType: edge.relationship,
-      },
-    });
-  }
-
-  return elements;
-}
-
-function flatData(data) {
-  const flat = {};
-  for (const [k, v] of Object.entries(data)) {
-    if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
-      flat[k] = v;
-    }
-  }
-  return flat;
-}
-
-// ── HTML template ─────────────────────────────────────────────────
-
-function generateHtml(elements) {
-  const elementsJson = JSON.stringify(elements, null, 2);
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>${titleCase(PROJECT_NAME)} — Spec Traceability Graph</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #0f1117; color: #e1e4e8;
-  }
-  #container { display: flex; height: 100vh; }
-  #cy { flex: 1; }
-
-  /* Detail panel */
-  #detail-panel {
-    width: 380px; background: #161b22; border-left: 1px solid #30363d;
-    padding: 20px; overflow-y: auto; display: none; flex-direction: column;
-    position: relative;
-  }
-  #detail-panel.open { display: flex; }
-  #detail-panel h2 { font-size: 16px; margin-bottom: 8px; color: #f0f6fc; }
-  .type-badge {
-    display: inline-block; padding: 2px 10px; border-radius: 12px;
-    font-size: 11px; font-weight: 600; text-transform: uppercase; margin-bottom: 12px;
-  }
-  .meta { font-size: 13px; color: #8b949e; margin-bottom: 16px; line-height: 1.7; }
-  .connections { font-size: 13px; }
-  .connections h3 {
-    font-size: 12px; color: #8b949e; margin: 14px 0 6px;
-    text-transform: uppercase; letter-spacing: 0.5px;
-  }
-  .connections li {
-    list-style: none; padding: 4px 0; cursor: pointer; color: #58a6ff;
-  }
-  .connections li:hover { text-decoration: underline; }
-  .conn-type { color: #484f58; font-size: 11px; }
-  #close-btn {
-    position: absolute; right: 12px; top: 12px; background: none; border: none;
-    color: #8b949e; cursor: pointer; font-size: 20px; line-height: 1;
-  }
-
-  /* Breadcrumb */
-  #breadcrumb {
-    position: absolute; top: 56px; left: 12px; z-index: 10;
-    display: flex; gap: 4px; align-items: center; font-size: 13px;
-  }
-  .crumb {
-    padding: 4px 10px; border-radius: 6px; cursor: pointer;
-    background: #21262d; border: 1px solid #30363d; color: #c9d1d9;
-  }
-  .crumb:hover { background: #30363d; }
-  .crumb.active { background: #1f6feb; border-color: #1f6feb; color: #fff; }
-  .crumb-sep { color: #484f58; }
-
-  /* Toolbar */
-  #toolbar {
-    position: absolute; top: 12px; left: 12px; z-index: 10;
-    display: flex; gap: 8px; flex-wrap: wrap;
-  }
-  .toolbar-btn {
-    padding: 6px 14px; border-radius: 6px; border: 1px solid #30363d;
-    background: #21262d; color: #c9d1d9; cursor: pointer; font-size: 12px;
-  }
-  .toolbar-btn:hover { background: #30363d; }
-
-  /* Legend */
-  #legend {
-    position: absolute; bottom: 12px; left: 12px; z-index: 10;
-    background: #161b22cc; border: 1px solid #30363d; border-radius: 8px;
-    padding: 10px 16px; font-size: 12px; display: flex; gap: 14px; flex-wrap: wrap;
-    backdrop-filter: blur(8px);
-  }
-  .legend-item { display: flex; align-items: center; gap: 5px; }
-  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
-
-  /* Stats */
-  #stats {
-    position: absolute; top: 12px; right: 12px; z-index: 10;
-    background: #161b22cc; border: 1px solid #30363d; border-radius: 8px;
-    padding: 8px 14px; font-size: 12px; color: #8b949e;
-    backdrop-filter: blur(8px);
-  }
-  #stats.with-panel { right: 392px; }
-
-  /* Hint */
-  #hint {
-    position: absolute; bottom: 56px; left: 50%; transform: translateX(-50%);
-    z-index: 10; background: #1f6feb; color: #fff; padding: 8px 18px;
-    border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity 0.4s;
-    pointer-events: none;
-  }
-  #hint.show { opacity: 1; }
-
-  /* Column headers */
-  #column-headers {
-    position: absolute; top: 46px; left: 0; right: 0; z-index: 5;
-    pointer-events: none; height: 0; overflow: visible;
-  }
-  .col-header {
-    position: absolute; top: 0;
-    font-size: 11px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 1px; color: #484f58;
-    border-bottom: 1px solid #21262d;
-    padding: 4px 12px; white-space: nowrap;
-  }
-</style>
-</head>
-<body>
-
-<div id="container">
-  <div id="cy"></div>
-  <div id="detail-panel">
-    <button id="close-btn">&times;</button>
-    <div id="detail-content"></div>
-  </div>
-</div>
-
-<div id="toolbar">
-  <button class="toolbar-btn" onclick="resetView()">⌂ Reset</button>
-  <button class="toolbar-btn" onclick="showAll()">Show All</button>
-  <button class="toolbar-btn" onclick="adjustSpacing(40)">+ Spacing</button>
-  <button class="toolbar-btn" onclick="adjustSpacing(-40)">− Spacing</button>
-</div>
-
-<div id="column-headers"></div>
-
-<div id="breadcrumb"></div>
-
-<div id="legend">
-  <div class="legend-item"><div class="legend-dot" style="background:#f97583"></div> Persona</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#79c0ff"></div> Journey</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#56d364"></div> Story</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#d2a8ff"></div> Feature</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#ffa657"></div> Contract</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#ff7b72"></div> Model</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#ffd866"></div> Lifecycle</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#a5d6ff"></div> Journey Map</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#7ee787"></div> Fixture</div>
-</div>
-
-<div id="stats"></div>
-<div id="hint">Click a node to explore deeper</div>
-
-<script src="https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
-<script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js"></script>
-<script src="https://unpkg.com/cytoscape-elk@2.2.0/dist/cytoscape-elk.js"></script>
-
-<script>
-cytoscapeElk(cytoscape);
-
-// ── Constants ──────────────────────────────────────────────────
-
-const TYPE_COLORS = {
-  persona:      { bg: '#f97583', text: '#0d1117' },
-  journey:      { bg: '#79c0ff', text: '#0d1117' },
-  story:        { bg: '#56d364', text: '#0d1117' },
-  feature:      { bg: '#d2a8ff', text: '#0d1117' },
-  contract:     { bg: '#ffa657', text: '#0d1117' },
-  model:        { bg: '#ff7b72', text: '#0d1117' },
-  lifecycle:    { bg: '#ffd866', text: '#0d1117' },
-  'journey-map':{ bg: '#a5d6ff', text: '#0d1117' },
-  fixture:      { bg: '#7ee787', text: '#0d1117' },
-};
-
-const TYPE_SHAPES = {
-  persona: 'ellipse', journey: 'round-rectangle', story: 'round-rectangle',
-  feature: 'diamond', contract: 'hexagon', model: 'rectangle',
-  lifecycle: 'octagon', 'journey-map': 'round-pentagon', fixture: 'round-triangle',
-};
-
-const DEPTH_LABELS = ['Personas', 'Journeys', 'Stories', 'Specs', 'Details'];
-
-// ── Init Cytoscape ─────────────────────────────────────────────
-
-const elements = ${elementsJson};
-
-const cy = cytoscape({
-  container: document.getElementById('cy'),
-  elements: elements,
-  style: [
-    {
-      selector: 'node',
-      style: {
-        'label': function(ele) {
-          const cc = ele.data('childCount');
-          const lbl = ele.data('label');
-          return cc > 0 ? lbl + ' (' + cc + ')' : lbl;
-        },
-        'text-valign': 'center',
-        'text-halign': 'center',
-        'font-size': '11px',
-        'text-wrap': 'wrap',
-        'text-max-width': '140px',
-        'width': 'label',
-        'height': 'label',
-        'padding': '14px',
-        'border-width': 2,
-        'border-color': '#30363d',
-        'transition-property': 'opacity, width, height, border-color',
-        'transition-duration': '0.3s',
-      }
-    },
-    ...Object.entries(TYPE_COLORS).map(([type, colors]) => ({
-      selector: '.' + type,
-      style: {
-        'background-color': colors.bg,
-        'color': colors.text,
-        'shape': TYPE_SHAPES[type] || 'round-rectangle',
-        'font-weight': (type === 'persona') ? 700 : 500,
-        'font-size': (type === 'persona') ? '14px' : '11px',
-        'padding': (type === 'persona') ? '20px' : '14px',
-      }
-    })),
-    {
-      selector: 'edge',
-      style: {
-        'width': 1.5,
-        'line-color': '#30363d',
-        'target-arrow-color': '#58a6ff',
-        'target-arrow-shape': 'triangle',
-        'curve-style': 'bezier',
-        'arrow-scale': 0.8,
-        'opacity': 0.5,
-        'transition-property': 'opacity, line-color',
-        'transition-duration': '0.3s',
-      }
-    },
-    {
-      selector: 'edge.visible-edge',
-      style: {
-        'line-color': '#484f58',
-        'target-arrow-color': '#79c0ff',
-        'opacity': 0.7,
-        'width': 2,
-      }
-    },
-    {
-      selector: 'node.highlighted',
-      style: {
-        'border-width': 3,
-        'border-color': '#f0f6fc',
-        'z-index': 20,
-      }
-    },
-    {
-      selector: 'node.expanded',
-      style: {
-        'border-width': 3,
-        'border-color': '#58a6ff',
-      }
-    },
-    {
-      selector: 'node.faded',
-      style: { 'opacity': 0.2 }
-    },
-    {
-      selector: 'edge.faded',
-      style: { 'opacity': 0.05 }
-    },
-  ],
-  layout: { name: 'preset' },
-  wheelSensitivity: 0.3,
-});
-
-// ── State ──────────────────────────────────────────────────────
-
-const expandedNodes = new Set();       // IDs of expanded nodes
-const visibleNodes = new Set();        // IDs of currently visible nodes
-let breadcrumbTrail = [];              // [{id, label, type}] for navigation
-let currentLayout = 'layered';
-let showAllMode = false;
-
-// ── Visibility engine ──────────────────────────────────────────
-
-function hideAll() {
-  cy.elements().style('display', 'none');
-  visibleNodes.clear();
-}
-
-function showNode(id, startPosition = null) {
-  const node = cy.getElementById(id);
-  if (node.length) {
-    const wasHidden = node.style('display') === 'none';
-    node.style('display', 'element');
-    if (wasHidden && startPosition) {
-      // Seed newly revealed nodes at their parent location so they emerge from that node.
-      node.position({ x: startPosition.x, y: startPosition.y });
-    }
-    visibleNodes.add(id);
-    return wasHidden;
-  }
-  return false;
-}
-
-function showEdgesBetweenVisible() {
-  // Hide all first, then show one preferred edge per node pair.
-  cy.edges().forEach(edge => {
-    edge.style('display', 'none');
-    edge.removeClass('visible-edge');
-  });
-
-  const grouped = new Map(); // unordered node-pair key -> [edge]
-  cy.edges().forEach(edge => {
-    const s = edge.data('source');
-    const t = edge.data('target');
-    if (!visibleNodes.has(s) || !visibleNodes.has(t)) return;
-    const key = [s, t].sort().join('↔');
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(edge);
-  });
-
-  function edgeScore(edge) {
-    const s = edge.data('source');
-    const t = edge.data('target');
-    const sourceNode = cy.getElementById(s);
-    const targetNode = cy.getElementById(t);
-    const sDepth = sourceNode.data('depth') ?? 99;
-    const tDepth = targetNode.data('depth') ?? 99;
-    let score = 0;
-
-    // Prefer hierarchy direction (parent -> child) where available.
-    if ((targetNode.data('hParent') || null) === s) score += 100;
-    // Prefer flow from lower depth to higher depth.
-    if (sDepth < tDepth) score += 10;
-    return score;
-  }
-
-  grouped.forEach(edgesForPair => {
-    let best = edgesForPair[0];
-    let bestScore = edgeScore(best);
-    for (let i = 1; i < edgesForPair.length; i++) {
-      const candidate = edgesForPair[i];
-      const candidateScore = edgeScore(candidate);
-      if (candidateScore > bestScore) {
-        best = candidate;
-        bestScore = candidateScore;
-      }
-    }
-    best.style('display', 'element');
-    best.addClass('visible-edge');
-  });
-}
-
-function getChildren(nodeId) {
-  const node = cy.getElementById(nodeId);
-  if (!node.length) return [];
-  try {
-    return JSON.parse(node.data('children') || '[]');
-  } catch { return []; }
-}
-
-// Show initial state: only personas
-function showPersonas() {
-  hideAll();
-  expandedNodes.clear();
-  breadcrumbTrail = [];
-  showAllMode = false;
-
-  cy.nodes().forEach(n => {
-    if (n.data('depth') === 0) {
-      showNode(n.id());
-    }
-  });
-
-  showEdgesBetweenVisible();
-  runLayout(() => {
-    cy.fit(cy.elements(':visible'), 80);
-    updateColumnHeaders();
-    showHint('Click a persona to see their journeys');
-  });
-  updateBreadcrumb();
-  updateStats();
-}
-
-// Expand a node: reveal its children
-function expandNode(nodeId) {
-  if (expandedNodes.has(nodeId)) return;
-  expandedNodes.add(nodeId);
-  const parentNode = cy.getElementById(nodeId);
-  parentNode.addClass('expanded');
-  const parentPos = parentNode.position();
-
-  const children = getChildren(nodeId);
-  for (const childId of children) {
-    showNode(childId, parentPos);
-  }
-
-  showEdgesBetweenVisible();
-  runLayout(() => {
-    // Center on the expanded node and its children
-    const expandedEle = cy.getElementById(nodeId);
-    const childEles = cy.collection();
-    for (const cid of children) {
-      const c = cy.getElementById(cid);
-      if (c.length) childEles.merge(c);
-    }
-    const focus = expandedEle.union(childEles);
-    if (focus.length > 0) {
-      cy.animate({
-        fit: { eles: cy.elements(':visible'), padding: 60 },
-      }, { duration: 400 });
-    }
-    updateColumnHeaders();
-  });
-
-  updateStats();
-}
-
-// Collapse a node: hide its children (and their children recursively)
-function collapseNode(nodeId) {
-  if (!expandedNodes.has(nodeId)) return;
-  expandedNodes.delete(nodeId);
-  cy.getElementById(nodeId).removeClass('expanded');
-
-  const toHide = new Set();
-  function collectDescendants(id) {
-    const children = getChildren(id);
-    for (const childId of children) {
-      toHide.add(childId);
-      expandedNodes.delete(childId);
-      cy.getElementById(childId).removeClass('expanded');
-      collectDescendants(childId);
-    }
-  }
-  collectDescendants(nodeId);
-
-  for (const id of toHide) {
-    cy.getElementById(id).style('display', 'none');
-    visibleNodes.delete(id);
-  }
-
-  showEdgesBetweenVisible();
-  runLayout(() => {
-    cy.animate({ fit: { eles: cy.elements(':visible'), padding: 60 } }, { duration: 400 });
-    updateColumnHeaders();
-  });
-
-  // Trim breadcrumb if we collapsed something in the trail
-  breadcrumbTrail = breadcrumbTrail.filter(b => !toHide.has(b.id));
-  updateBreadcrumb();
-  updateStats();
-}
-
-// ── Layout ─────────────────────────────────────────────────────
-//
-// Column-based layout: each depth level occupies a vertical lane
-// flowing left→right like a sequence diagram.
-//
-//  Col 0        Col 1         Col 2         Col 3          Col 4
-//  Personas  → Journeys   → Stories     → Features     → Fixtures
-//                                          Contracts      Lifecycles
-//                                          Models
-//
-// Within each column, nodes are sorted to cluster near their parent's Y.
-
-let COL_WIDTH = 280;     // horizontal spacing between depth columns
-let ROW_HEIGHT = 80;     // vertical spacing between nodes in a column
-const LEFT_PAD = 100;    // left margin
-const TOP_PAD = 80;      // top margin
-
-function runLayout(callback) {
-  const visibleNodes = cy.nodes(':visible');
-  if (visibleNodes.length === 0) { if (callback) callback(); return; }
-
-  // Group visible nodes by depth
-  const columns = new Map(); // depth → [node]
-  visibleNodes.forEach(n => {
-    const d = n.data('depth') ?? 0;
-    if (!columns.has(d)) columns.set(d, []);
-    columns.get(d).push(n);
-  });
-
-  // Sort nodes within each column to cluster children near their parent's Y
-  // First pass: position depth-0 nodes
-  const positions = new Map(); // nodeId → {x, y}
-
-  // Sort columns by depth
-  const depths = Array.from(columns.keys()).sort((a, b) => a - b);
-
-  for (const depth of depths) {
-    const col = columns.get(depth);
-    const x = LEFT_PAD + depth * COL_WIDTH;
-
-    if (depth === 0) {
-      // Top-level: sort alphabetically by type then label
-      col.sort((a, b) => {
-        const ta = a.data('nodeType'), tb = b.data('nodeType');
-        if (ta !== tb) return ta === 'persona' ? -1 : tb === 'persona' ? 1 : ta.localeCompare(tb);
-        return a.data('label').localeCompare(b.data('label'));
-      });
-      col.forEach((n, i) => {
-        positions.set(n.id(), { x, y: TOP_PAD + i * ROW_HEIGHT });
-      });
-    } else {
-      // Sort by parent's Y position so children cluster near parent
-      col.sort((a, b) => {
-        const pa = positions.get(a.data('hParent'));
-        const pb = positions.get(b.data('hParent'));
-        const ya = pa ? pa.y : 9999;
-        const yb = pb ? pb.y : 9999;
-        if (ya !== yb) return ya - yb;
-        return a.data('label').localeCompare(b.data('label'));
-      });
-
-      // Position with spacing, trying to align near parent Y
-      let nextY = TOP_PAD;
-      for (const n of col) {
-        const parentPos = positions.get(n.data('hParent'));
-        const targetY = parentPos ? parentPos.y : nextY;
-        const y = Math.max(nextY, targetY);
-        positions.set(n.id(), { x, y });
-        nextY = y + ROW_HEIGHT;
-      }
-    }
-  }
-
-  // Animate nodes to their new positions
-  const animPromises = [];
-  positions.forEach((pos, id) => {
-    const node = cy.getElementById(id);
-    if (node.length) {
-      animPromises.push(
-        node.animation({ position: pos, duration: 500, easing: 'ease-in-out-cubic' }).play().promise()
-      );
-    }
-  });
-
-  Promise.all(animPromises).then(() => {
-    if (callback) callback();
-  });
-}
-
-// ── Interaction ────────────────────────────────────────────────
-
-const detailPanel = document.getElementById('detail-panel');
-const detailContent = document.getElementById('detail-content');
-
-// Single click: toggle expand/collapse + show detail
-cy.on('tap', 'node', function(evt) {
-  const node = evt.target;
-  const nodeId = node.id();
-  const childCount = node.data('childCount') || 0;
-
-  if (childCount > 0) {
-    if (expandedNodes.has(nodeId)) {
-      collapseNode(nodeId);
-      breadcrumbTrail = breadcrumbTrail.filter(b => b.id !== nodeId);
-      updateBreadcrumb();
-    } else {
-      expandNode(nodeId);
-
-      // Add to breadcrumb
-      const existing = breadcrumbTrail.find(b => b.id === nodeId);
-      if (!existing) {
-        breadcrumbTrail.push({
-          id: nodeId,
-          label: node.data('label'),
-          type: node.data('nodeType'),
+  if (state.capabilityMembers.size > 0) {
+    lines.push('');
+    lines.push('  %% Capability boundary groupings');
+
+    for (const [capabilityUid, members] of Array.from(state.capabilityMembers.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
+      const capabilityNode = state.nodesByUid.get(capabilityUid);
+      if (!capabilityNode) continue;
+
+      const subgraphId = `sg_${capabilityNode.id.replace(/[^A-Za-z0-9_]/g, '_')}`;
+      lines.push(`  subgraph ${subgraphId}["${escapeMermaidLabel(capabilityNode.label)} scope"]`);
+
+      const memberUids = Array.from(members)
+        .sort((uidA, uidB) => {
+          const aNode = state.nodesByUid.get(uidA);
+          const bNode = state.nodesByUid.get(uidB);
+          return aNode.label.localeCompare(bNode.label);
         });
-        updateBreadcrumb();
+
+      for (const memberUid of memberUids) {
+        lines.push(`    ${memberUid}`);
       }
+
+      lines.push('  end');
     }
   }
 
-  // Show detail and highlight after expansion state changes.
-  showDetail(node);
-  highlightNode(node);
-});
+  if (edges.length > 0) {
+    lines.push('');
+    lines.push('  %% Traceability links');
 
-// Double click: collapse
-cy.on('dbltap', 'node', function(evt) {
-  const nodeId = evt.target.id();
-  if (expandedNodes.has(nodeId)) {
-    collapseNode(nodeId);
-    breadcrumbTrail = breadcrumbTrail.filter(b => b.id !== nodeId);
-    updateBreadcrumb();
-  }
-});
-
-// Click background: clear highlight
-cy.on('tap', function(evt) {
-  if (evt.target === cy) {
-    clearHighlight();
-    closePanel();
-  }
-});
-
-function highlightNode(node) {
-  clearHighlight();
-  const visible = cy.elements(':visible');
-  visible.addClass('faded');
-  node.removeClass('faded').addClass('highlighted');
-
-  // Un-fade connected visible nodes
-  const connectedEdges = node.connectedEdges(':visible');
-  connectedEdges.removeClass('faded');
-  connectedEdges.connectedNodes(':visible').removeClass('faded');
-}
-
-function clearHighlight() {
-  cy.elements().removeClass('faded highlighted');
-}
-
-function showDetail(node) {
-  const data = node.data();
-  const type = data.nodeType;
-  const colors = TYPE_COLORS[type] || { bg: '#484f58', text: '#fff' };
-
-  const incoming = node.incomers('edge:visible').map(e => ({
-    id: e.source().id(), label: e.source().data('label'),
-    type: e.source().data('nodeType'), rel: e.data('label'),
-  }));
-  const outgoing = node.outgoers('edge:visible').map(e => ({
-    id: e.target().id(), label: e.target().data('label'),
-    type: e.target().data('nodeType'), rel: e.data('label'),
-  }));
-
-  const childCount = data.childCount || 0;
-  const isExpanded = expandedNodes.has(node.id());
-
-  let html = '<span class="type-badge" style="background:' + colors.bg + ';color:' + colors.text + '">' + type + '</span>';
-  html += '<h2>' + data.label + '</h2>';
-
-  html += '<div class="meta">';
-  if (data.file) html += '<strong>File:</strong> ' + data.file + '<br>';
-  if (data.operationId) html += '<strong>Operation:</strong> ' + data.operationId + '<br>';
-  if (data.summary) html += '<strong>Summary:</strong> ' + data.summary + '<br>';
-  if (data.tag) html += '<strong>Tag:</strong> ' + data.tag + '<br>';
-  if (data.entity) html += '<strong>Entity:</strong> ' + data.entity + '<br>';
-  if (data.attrCount) html += '<strong>Attributes:</strong> ' + data.attrCount + '<br>';
-  if (data.ruleCount) html += '<strong>Rules:</strong> ' + data.ruleCount + '<br>';
-  if (data.scenarioCount) html += '<strong>Scenarios:</strong> ' + data.scenarioCount + '<br>';
-  if (data.stateCount) html += '<strong>States:</strong> ' + data.stateCount + '<br>';
-  if (data.transitionCount) html += '<strong>Transitions:</strong> ' + data.transitionCount + '<br>';
-  if (data.stepCount) html += '<strong>Steps:</strong> ' + data.stepCount + '<br>';
-  html += '</div>';
-
-  // Expand/collapse button
-  if (childCount > 0) {
-    if (isExpanded) {
-      html += '<button class="toolbar-btn" style="margin-bottom:12px;width:100%" onclick="collapseNode(\\'' + node.id().replace(/'/g, "\\\\'") + '\\')">▼ Collapse ' + childCount + ' children</button>';
-    } else {
-      html += '<button class="toolbar-btn" style="margin-bottom:12px;width:100%;background:#1f6feb;border-color:#1f6feb;color:#fff" onclick="expandAndFocus(\\'' + node.id().replace(/'/g, "\\\\'") + '\\')">▶ Expand ' + childCount + ' children</button>';
+    for (const edge of edges) {
+      const connector = edge.style === 'dashed' ? '-.->' : '-->';
+      lines.push(`  ${edge.source} ${connector} ${edge.target}`);
     }
   }
 
-  html += '<div class="connections">';
-  if (incoming.length > 0) {
-    html += '<h3>← Referenced by</h3><ul>';
-    for (const c of incoming) {
-      html += '<li onclick="focusNode(\\'' + c.id.replace(/'/g, "\\\\'") + '\\')">' + c.label + ' <span class="conn-type">(' + c.rel + ')</span></li>';
-    }
-    html += '</ul>';
+  const classDefs = typeClassDefs();
+  lines.push('');
+  lines.push('  %% Styles');
+  for (const [type, definition] of Object.entries(classDefs)) {
+    lines.push(`  classDef ${type.replace(/-/g, '_')} ${definition}`);
   }
-  if (outgoing.length > 0) {
-    html += '<h3>→ References</h3><ul>';
-    for (const c of outgoing) {
-      html += '<li onclick="focusNode(\\'' + c.id.replace(/'/g, "\\\\'") + '\\')">' + c.label + ' <span class="conn-type">(' + c.rel + ')</span></li>';
-    }
-    html += '</ul>';
-  }
-  html += '</div>';
+  lines.push('  classDef orphan fill:#fee2e2,stroke:#dc2626,color:#7f1d1d,stroke-width:3px');
 
-  detailContent.innerHTML = html;
-  detailPanel.classList.add('open');
-  document.getElementById('stats').classList.add('with-panel');
-}
-
-function closePanel() {
-  detailPanel.classList.remove('open');
-  document.getElementById('stats').classList.remove('with-panel');
-}
-
-document.getElementById('close-btn').addEventListener('click', () => {
-  clearHighlight();
-  closePanel();
-});
-
-function focusNode(id) {
-  const node = cy.getElementById(id);
-  if (!node.length) return;
-
-  // Make sure it's visible
-  if (node.style('display') === 'none') {
-    showNode(id);
-    showEdgesBetweenVisible();
-    runLayout(() => {
-      cy.animate({ center: { eles: node }, zoom: 1.2 }, { duration: 400 });
-      setTimeout(() => { showDetail(node); highlightNode(node); }, 450);
-    });
-  } else {
-    cy.animate({ center: { eles: node }, zoom: 1.2 }, { duration: 400 });
-    setTimeout(() => { showDetail(node); highlightNode(node); }, 450);
-  }
-}
-
-function expandAndFocus(id) {
-  expandNode(id);
-  breadcrumbTrail.push({
-    id, label: cy.getElementById(id).data('label'),
-    type: cy.getElementById(id).data('nodeType'),
-  });
-  updateBreadcrumb();
-}
-
-// ── Breadcrumb ─────────────────────────────────────────────────
-
-function updateBreadcrumb() {
-  const el = document.getElementById('breadcrumb');
-  let html = '<span class="crumb" onclick="resetView()">⌂ All Personas</span>';
-
-  for (let i = 0; i < breadcrumbTrail.length; i++) {
-    const b = breadcrumbTrail[i];
-    const isLast = i === breadcrumbTrail.length - 1;
-    html += '<span class="crumb-sep">›</span>';
-    html += '<span class="crumb' + (isLast ? ' active' : '') + '" onclick="navigateBreadcrumb(' + i + ')">' + b.label + '</span>';
+  const typeToNodes = new Map();
+  for (const node of nodes) {
+    if (!typeToNodes.has(node.type)) typeToNodes.set(node.type, []);
+    typeToNodes.get(node.type).push(node.uid);
   }
 
-  el.innerHTML = html;
-}
-
-function navigateBreadcrumb(index) {
-  // Collapse everything after this index
-  const toCollapse = breadcrumbTrail.slice(index + 1).reverse();
-  for (const b of toCollapse) {
-    collapseNode(b.id);
+  for (const [type, uids] of typeToNodes.entries()) {
+    if (uids.length === 0) continue;
+    const className = type.replace(/-/g, '_');
+    lines.push(`  class ${uids.join(',')} ${className}`);
   }
-  breadcrumbTrail = breadcrumbTrail.slice(0, index + 1);
-  updateBreadcrumb();
 
-  // Focus on the node
-  const nodeId = breadcrumbTrail[index].id;
-  const node = cy.getElementById(nodeId);
-  if (node.length) {
-    cy.animate({ center: { eles: node }, zoom: 1 }, { duration: 400 });
-    setTimeout(() => { showDetail(node); highlightNode(node); }, 450);
+  if (orphanSet.size > 0) {
+    lines.push(`  class ${Array.from(orphanSet).sort().join(',')} orphan`);
   }
+
+  return {
+    mermaid: lines.join('\n'),
+    orphanUids: Array.from(orphanSet),
+  };
 }
 
-// ── Toolbar ────────────────────────────────────────────────────
-
-function resetView() {
-  closePanel();
-  clearHighlight();
-  showPersonas();
+function toJsonGraph(state, renderResult) {
+  return {
+    nodes: Array.from(state.nodesByUid.values()).map((node) => ({
+      uid: node.uid,
+      id: node.id,
+      type: node.type,
+      label: node.label,
+      path: node.path,
+      orphan: renderResult.orphanUids.includes(node.uid),
+    })),
+    edges: Array.from(state.edgesByKey.values()),
+    capabilities: Array.from(state.capabilityMembers.entries()).map(([capabilityUid, members]) => ({
+      capabilityUid,
+      members: Array.from(members),
+    })),
+    warnings: state.warnings,
+  };
 }
 
-function showAll() {
-  showAllMode = true;
-  expandedNodes.clear();
-  breadcrumbTrail = [];
-  cy.elements().style('display', 'element');
-  cy.nodes().forEach(n => visibleNodes.add(n.id()));
-  showEdgesBetweenVisible();
-  runLayout(() => {
-    cy.fit(cy.elements(), 40);
-    updateColumnHeaders();
-  });
-  updateBreadcrumb();
-  updateStats();
+function buildGraph(specsDir) {
+  const state = createGraphState();
+  state.specRootPrefix = toPosix(path.relative(process.cwd(), specsDir));
+
+  registerArtifactsFromFrontMatter(state, specsDir);
+  registerContractsFromOpenApi(state, specsDir);
+  addArtifactEdges(state);
+  addCapabilityScope(state);
+
+  return state;
 }
-
-function adjustSpacing(delta) {
-  COL_WIDTH = Math.max(180, Math.min(500, COL_WIDTH + delta));
-  ROW_HEIGHT = Math.max(50, Math.min(120, ROW_HEIGHT + Math.round(delta / 3)));
-  runLayout(() => {
-    cy.fit(cy.elements(':visible'), 60);
-    updateColumnHeaders();
-  });
-}
-
-// ── Stats ──────────────────────────────────────────────────────
-
-function updateStats() {
-  const total = cy.nodes().length;
-  const visible = cy.nodes(':visible').length;
-  const visEdges = cy.edges(':visible').length;
-  document.getElementById('stats').textContent =
-    visible + ' of ' + total + ' specs · ' + visEdges + ' links';
-}
-
-// ── Hint ───────────────────────────────────────────────────────
-
-function showHint(text) {
-  const el = document.getElementById('hint');
-  el.textContent = text;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 3000);
-}
-
-// ── Column headers ─────────────────────────────────────────────
-
-const COL_LABELS = {
-  0: 'Personas',
-  1: 'Journeys',
-  2: 'Stories',
-  3: 'Features / Contracts / Models',
-  4: 'Fixtures / Lifecycles',
-};
-
-function updateColumnHeaders() {
-  const container = document.getElementById('column-headers');
-  container.innerHTML = '';
-
-  // Determine which depth columns are currently visible
-  const activeDepths = new Set();
-  cy.nodes(':visible').forEach(n => {
-    activeDepths.add(n.data('depth') ?? 0);
-  });
-
-  // Get the current pan/zoom to convert model coords → screen coords
-  const pan = cy.pan();
-  const zoom = cy.zoom();
-
-  for (const depth of activeDepths) {
-    const screenX = LEFT_PAD * zoom + pan.x + depth * COL_WIDTH * zoom;
-    const label = COL_LABELS[depth] || ('Depth ' + depth);
-
-    const header = document.createElement('div');
-    header.className = 'col-header';
-    header.style.left = screenX + 'px';
-    header.textContent = label;
-    container.appendChild(header);
-  }
-}
-
-// Update headers on pan/zoom
-cy.on('pan zoom', function() {
-  updateColumnHeaders();
-});
-
-// ── Boot ───────────────────────────────────────────────────────
-
-showPersonas();
-
-</script>
-</body>
-</html>`;
-}
-
-// ── Main ──────────────────────────────────────────────────────────
 
 function main() {
-  const graph = buildGraph();
-  const hierarchy = computeHierarchy(graph);
-  const elements = toCytoscapeElements(graph, hierarchy);
+  let args;
+  try {
+    args = parseArgs(process.argv.slice(2));
+  } catch (error) {
+    process.stderr.write(`Error: ${error.message}\n`);
+    process.stderr.write('Run with --help for usage.\n');
+    process.exit(1);
+  }
 
-  console.log(`\nGenerating HTML...`);
-  const html = generateHtml(elements);
-  fs.writeFileSync(OUTPUT_FILE, html, 'utf8');
-  console.log(`\n✅ Written to ${OUTPUT_FILE}`);
-  console.log(`   Open in browser: open ${OUTPUT_FILE}`);
+  if (args.help) {
+    printHelp();
+    return;
+  }
+
+  if (!fs.existsSync(args.specsDir)) {
+    process.stderr.write(`Error: specs directory not found: ${args.specsDir}\n`);
+    process.exit(1);
+  }
+
+  const graphState = buildGraph(args.specsDir);
+  const renderResult = renderMermaid(graphState);
+
+  if (args.format === 'json') {
+    process.stdout.write(`${JSON.stringify(toJsonGraph(graphState, renderResult), null, 2)}\n`);
+  } else {
+    process.stdout.write(`${renderResult.mermaid}\n`);
+  }
+
+  if (graphState.warnings.length > 0) {
+    for (const warning of graphState.warnings) {
+      process.stderr.write(`Warning: ${warning}\n`);
+    }
+  }
 }
 
 main();

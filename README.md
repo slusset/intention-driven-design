@@ -23,7 +23,7 @@ The result is a framework where AI agents can autonomously implement, verify, an
 │                  Domain Models                               │
 │                  (concepts, rules, lifecycles)               │
 │                                           /domain-modeling   │
-├──────────────────────────────────────────────────────────────┤
+├─────────────────────────────────────────────────────────────┤
 │                     CONTRACT LAYER                           │
 │   Features ◀── Contracts ──▶ Fixtures                        │
 │   (Gherkin)    (OpenAPI)     (test data)                     │
@@ -38,7 +38,7 @@ The result is a framework where AI agents can autonomously implement, verify, an
 │   Unit Tests ── Integration ── E2E Journey Tests             │
 │   (domain)      (contract)     (experience)                  │
 │                                     /e2e-journey-testing     │
-├──────────────────────────────────────────────────────────────┤
+├─────────────────────────────────────────────────────────────┤
 │                   CERTIFICATION LAYER                        │
 │   Evidence tied to intent ── published before merge          │
 │                                                              │
@@ -75,6 +75,20 @@ IDD breaks this into a traceable chain:
 Every artifact in the chain references the one above it. An agent — or a human — can trace any line of code back to the persona goal that motivated it.
 
 See [`examples/`](specs/) for a complete working fixture set of these artifact types, wired for tooling validation.
+
+## Visualizing the spec graph
+
+Generate a Mermaid traceability graph from front-matter metadata:
+
+```bash
+node tools/graph-generation/generate-spec-graph.js specs --format mermaid > specs/GRAPH.md
+```
+
+To inspect this repository's example fixtures:
+
+```bash
+node tools/graph-generation/generate-spec-graph.js examples --format mermaid
+```
 
 ## Core principles
 
@@ -153,7 +167,8 @@ skills/                      IDD methodology skills
 tools/                       Build, link, and validation utilities
 ├── build.sh                 Package plugin zip for distribution
 ├── link-skills.sh           Symlink skills into agent runtimes
-├── generate-spec-graph.js   Generate interactive spec traceability graph
+├── graph-generation/
+│   └── generate-spec-graph.js  Generate Mermaid spec traceability graph
 └── check-traceability.js    Validate cross-references between spec artifacts
 ```
 
