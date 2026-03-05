@@ -74,6 +74,8 @@ IDD breaks this into a traceable chain:
 
 Every artifact in the chain references the one above it. An agent — or a human — can trace any line of code back to the persona goal that motivated it.
 
+See [`examples/`](examples/) for a complete working fixture set of these artifact types, wired for tooling validation.
+
 ## Core principles
 
 1. **Intent precedes code.** No implementation without an explicit intent artifact.
