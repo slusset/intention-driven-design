@@ -28,7 +28,6 @@ const path = require('path');
 const yaml = require('js-yaml');
 const {
   parseFrontMatter,
-  extractRefs,
   findFiles,
   fileExists,
   formatResults,
@@ -49,6 +48,20 @@ for (const arg of args) {
 
 if (!specsDir) {
   specsDir = path.join(process.cwd(), 'specs');
+}
+
+const rootPrefix = path.relative(process.cwd(), specsDir).replace(/\\/g, '/');
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function isScopedRef(ref) {
+  return typeof ref === 'string' && (rootPrefix === '' || ref.startsWith(`${rootPrefix}/`));
+}
+
+function fileExistsIfScoped(ref) {
+  return !isScopedRef(ref) || fileExists(ref);
 }
 
 const results = {
@@ -73,11 +86,11 @@ function checkFeatureFiles() {
     let contractFound = false;
 
     if (parsed.frontMatter) {
-      // Front-matter path: # story: specs/stories/...
+      // Front-matter path: # story: <root>/stories/...
       const story = parsed.frontMatter.story;
       if (story) {
         storyFound = true;
-        if (story.startsWith('specs/') && !fileExists(story)) {
+        if (!fileExistsIfScoped(story)) {
           results.errors.push(`${relativePath}: Referenced story not found: ${story}`);
         }
       }
@@ -85,7 +98,7 @@ function checkFeatureFiles() {
       const journey = parsed.frontMatter.journey;
       if (journey) {
         journeyFound = true;
-        if (journey.startsWith('specs/') && !fileExists(journey)) {
+        if (!fileExistsIfScoped(journey)) {
           results.errors.push(`${relativePath}: Referenced journey not found: ${journey}`);
         }
       }
@@ -98,20 +111,20 @@ function checkFeatureFiles() {
 
     // Fall back to legacy patterns if front-matter didn't provide the ref
     if (!storyFound) {
-      const storyMatch = content.match(/# [Ss]tory:\s*(specs\/stories\/[^\s]+)/);
+      const storyMatch = content.match(new RegExp(`# [Ss]tory:\\s*(${escapeRegExp(rootPrefix)}\\/stories\\/[^\\s]+)`));
       if (storyMatch) {
         storyFound = true;
-        if (!fileExists(storyMatch[1])) {
+        if (!fileExistsIfScoped(storyMatch[1])) {
           results.errors.push(`${relativePath}: Referenced story not found: ${storyMatch[1]}`);
         }
       }
     }
 
     if (!journeyFound) {
-      const journeyMatch = content.match(/# [Jj]ourney:\s*(specs\/journeys\/[^\s]+)/);
+      const journeyMatch = content.match(new RegExp(`# [Jj]ourney:\\s*(${escapeRegExp(rootPrefix)}\\/journeys\\/[^\\s]+)`));
       if (journeyMatch) {
         journeyFound = true;
-        if (!fileExists(journeyMatch[1])) {
+        if (!fileExistsIfScoped(journeyMatch[1])) {
           results.errors.push(`${relativePath}: Referenced journey not found: ${journeyMatch[1]}`);
         }
       }
@@ -139,68 +152,73 @@ function checkFeatureFiles() {
 
 // ── OpenAPI contract ──────────────────────────────────────────────────
 function checkOpenAPIContract() {
-  const apiFile = path.join(specsDir, 'contracts/openapi/api.yaml');
+  const openApiDir = path.join(specsDir, 'contracts/openapi');
+  const apiFiles = findFiles(openApiDir, /\.ya?ml$/);
 
-  if (!fs.existsSync(apiFile)) {
+  if (apiFiles.length === 0) {
     results.info.push('OpenAPI contract not found, skipping');
-    return;
-  }
-
-  let api;
-  try {
-    const content = fs.readFileSync(apiFile, 'utf8');
-    api = yaml.load(content);
-  } catch (e) {
-    results.errors.push(`Failed to parse OpenAPI spec: ${e.message}`);
-    return;
-  }
-
-  if (!api.paths) {
-    results.info.push('OpenAPI spec has no paths defined');
     return;
   }
 
   let operationCount = 0;
 
-  for (const [pathKey, pathItem] of Object.entries(api.paths)) {
-    // Skip $ref paths (they'll be validated when resolved)
-    if (pathItem.$ref) continue;
+  for (const apiFile of apiFiles) {
+    let api;
+    let contractLabel = path.relative(process.cwd(), apiFile);
 
-    for (const method of ['get', 'post', 'put', 'patch', 'delete']) {
-      const operation = pathItem[method];
-      if (!operation) continue;
+    try {
+      const content = fs.readFileSync(apiFile, 'utf8');
+      api = yaml.load(content);
+    } catch (e) {
+      results.errors.push(`${contractLabel}: Failed to parse OpenAPI spec: ${e.message}`);
+      continue;
+    }
 
-      operationCount++;
-      const opId = operation.operationId || `${method.toUpperCase()} ${pathKey}`;
+    if (!api || !api.paths) {
+      results.info.push(`${contractLabel}: OpenAPI spec has no paths defined`);
+      continue;
+    }
 
-      // Check for x-story
-      if (!operation['x-story']) {
-        results.warnings.push(`Operation ${opId}: Missing x-story extension`);
-      }
+    for (const [pathKey, pathItem] of Object.entries(api.paths)) {
+      // Skip $ref paths (they'll be validated when resolved)
+      if (pathItem.$ref) continue;
 
-      // Check for x-feature
-      if (!operation['x-feature']) {
-        results.warnings.push(`Operation ${opId}: Missing x-feature extension`);
-      } else if (!fileExists(operation['x-feature'])) {
-        results.errors.push(`Operation ${opId}: Referenced feature not found: ${operation['x-feature']}`);
-      }
+      for (const method of ['get', 'post', 'put', 'patch', 'delete']) {
+        const operation = pathItem[method];
+        if (!operation) continue;
 
-      // Check for x-journey (new — from front-matter conventions)
-      if (!operation['x-journey']) {
-        results.info.push(`Operation ${opId}: No x-journey extension (optional)`);
-      } else if (operation['x-journey'].startsWith('specs/') && !fileExists(operation['x-journey'])) {
-        results.errors.push(`Operation ${opId}: Referenced journey not found: ${operation['x-journey']}`);
+        operationCount++;
+        const opId = operation.operationId || `${method.toUpperCase()} ${pathKey}`;
+
+        // Check for x-story
+        if (!operation['x-story']) {
+          results.warnings.push(`${contractLabel}: Operation ${opId}: Missing x-story extension`);
+        }
+
+        // Check for x-feature
+        if (!operation['x-feature']) {
+          results.warnings.push(`${contractLabel}: Operation ${opId}: Missing x-feature extension`);
+        } else if (!fileExistsIfScoped(operation['x-feature'])) {
+          results.errors.push(`${contractLabel}: Operation ${opId}: Referenced feature not found: ${operation['x-feature']}`);
+        }
+
+        // Check for x-journey (new — from front-matter conventions)
+        if (!operation['x-journey']) {
+          results.info.push(`${contractLabel}: Operation ${opId}: No x-journey extension (optional)`);
+        } else if (!fileExistsIfScoped(operation['x-journey'])) {
+          results.errors.push(`${contractLabel}: Operation ${opId}: Referenced journey not found: ${operation['x-journey']}`);
+        }
       }
     }
   }
 
-  results.info.push(`Checked ${operationCount} API operation(s)`);
+  results.info.push(`Checked ${operationCount} API operation(s) across ${apiFiles.length} contract file(s)`);
 }
 
 // ── Journey maps ──────────────────────────────────────────────────────
 function checkJourneyMaps() {
   const mapsDir = path.join(specsDir, 'journey-maps');
-  const maps = findFiles(mapsDir, /\.map\.ya?ml$/);
+  const maps = findFiles(mapsDir, /\.(?:map|journey-map)\.ya?ml$/);
 
   for (const mapFile of maps) {
     const relativePath = path.relative(process.cwd(), mapFile);
@@ -222,11 +240,11 @@ function checkJourneyMaps() {
       journeyRef = map.sources.journey;
     } else if (map.journey) {
       // Legacy: journey field is a slug, not a full path
-      journeyRef = `specs/journeys/${map.journey}.md`;
+      journeyRef = `${rootPrefix}/journeys/${map.journey}.md`;
     }
 
     if (journeyRef) {
-      if (!fileExists(journeyRef)) {
+      if (!fileExistsIfScoped(journeyRef)) {
         results.errors.push(`${relativePath}: Referenced journey not found: ${journeyRef}`);
       }
     } else {
@@ -236,7 +254,7 @@ function checkJourneyMaps() {
     // Check fixture references
     if (map.fixtures) {
       for (const [name, fixture] of Object.entries(map.fixtures)) {
-        if (fixture && fixture.ref && !fileExists(fixture.ref)) {
+        if (fixture && fixture.ref && !fileExistsIfScoped(fixture.ref)) {
           results.errors.push(`${relativePath}: Fixture "${name}" references missing file: ${fixture.ref}`);
         }
       }
@@ -245,7 +263,7 @@ function checkJourneyMaps() {
     // Check story references in sources block
     if (map.sources && map.sources.stories) {
       for (const storyRef of map.sources.stories) {
-        if (typeof storyRef === 'string' && !fileExists(storyRef)) {
+        if (!fileExistsIfScoped(storyRef)) {
           results.errors.push(`${relativePath}: Referenced story not found: ${storyRef}`);
         }
       }
@@ -254,7 +272,7 @@ function checkJourneyMaps() {
     // Check feature references in sources block
     if (map.sources && map.sources.features) {
       for (const featureRef of map.sources.features) {
-        if (typeof featureRef === 'string' && !fileExists(featureRef)) {
+        if (!fileExistsIfScoped(featureRef)) {
           results.errors.push(`${relativePath}: Referenced feature not found: ${featureRef}`);
         }
       }
@@ -285,7 +303,7 @@ function checkModels() {
     if (model.sources) {
       if (model.sources.stories) {
         for (const storyRef of model.sources.stories) {
-          if (typeof storyRef === 'string' && !fileExists(storyRef)) {
+          if (!fileExistsIfScoped(storyRef)) {
             results.errors.push(`${relativePath}: Referenced story not found: ${storyRef}`);
           }
         }
@@ -293,7 +311,7 @@ function checkModels() {
 
       if (model.sources.journeys) {
         for (const journeyRef of model.sources.journeys) {
-          if (typeof journeyRef === 'string' && !fileExists(journeyRef)) {
+          if (!fileExistsIfScoped(journeyRef)) {
             results.errors.push(`${relativePath}: Referenced journey not found: ${journeyRef}`);
           }
         }
@@ -331,14 +349,14 @@ function checkStories() {
 
       if (refs.journey) {
         journeyFound = true;
-        if (typeof refs.journey === 'string' && refs.journey.startsWith('specs/') && !fileExists(refs.journey)) {
+        if (!fileExistsIfScoped(refs.journey)) {
           results.errors.push(`${relativePath}: Referenced journey not found: ${refs.journey}`);
         }
       }
 
       if (refs.persona) {
         personaFound = true;
-        if (typeof refs.persona === 'string' && refs.persona.startsWith('specs/') && !fileExists(refs.persona)) {
+        if (!fileExistsIfScoped(refs.persona)) {
           results.errors.push(`${relativePath}: Referenced persona not found: ${refs.persona}`);
         }
       }
@@ -346,15 +364,15 @@ function checkStories() {
 
     // Fall back to legacy patterns
     if (!journeyFound) {
-      const journeyMatch = content.match(/[Jj]ourney:\s*(?:specs\/journeys\/)?([^\s\n]+)/);
+      const journeyMatch = content.match(new RegExp(`[Jj]ourney:\\s*(?:${escapeRegExp(rootPrefix)}\\/journeys\\/)?([^\\s\\n]+)`));
       if (journeyMatch) {
         journeyFound = true;
         const ref = journeyMatch[1];
         // Could be a full path or just a slug
-        const journeyPath = ref.startsWith('specs/')
+        const journeyPath = ref.startsWith(`${rootPrefix}/`)
           ? ref
-          : `specs/journeys/${ref}${ref.endsWith('.md') ? '' : '.md'}`;
-        if (!fileExists(journeyPath)) {
+          : `${rootPrefix}/journeys/${ref}${ref.endsWith('.md') ? '' : '.md'}`;
+        if (!fileExistsIfScoped(journeyPath)) {
           results.warnings.push(`${relativePath}: Referenced journey may not exist: ${ref}`);
         }
       }
@@ -366,7 +384,7 @@ function checkStories() {
 
     if (!personaFound) {
       // Check legacy pattern
-      const personaMatch = content.match(/[Pp]ersona:\s*(?:specs\/personas\/)?([^\s\n]+)/);
+      const personaMatch = content.match(new RegExp(`[Pp]ersona:\\s*(?:${escapeRegExp(rootPrefix)}\\/personas\\/)?([^\\s\\n]+)`));
       if (!personaMatch) {
         results.info.push(`${relativePath}: No persona reference found (optional)`);
       }
@@ -379,7 +397,7 @@ function checkStories() {
 // ── Fixtures ──────────────────────────────────────────────────────────
 function checkFixtures() {
   const fixturesDir = path.join(specsDir, 'fixtures');
-  const fixtures = findFiles(fixturesDir, /\.json$/);
+  const fixtures = findFiles(fixturesDir, /\.(?:json|fixture\.ya?ml)$/);
 
   for (const fixtureFile of fixtures) {
     const relativePath = path.relative(process.cwd(), fixtureFile);
@@ -395,7 +413,7 @@ function checkFixtures() {
     const parsed = parseFrontMatter(fixtureFile, content);
 
     if (!parsed.frontMatter) {
-      results.warnings.push(`${relativePath}: Missing _meta block`);
+      results.warnings.push(`${relativePath}: Missing fixture metadata`);
       continue;
     }
 
@@ -403,20 +421,20 @@ function checkFixtures() {
 
     // Check story reference
     if (meta.story) {
-      if (typeof meta.story === 'string' && meta.story.startsWith('specs/') && !fileExists(meta.story)) {
+      if (!fileExistsIfScoped(meta.story)) {
         results.errors.push(`${relativePath}: Referenced story not found: ${meta.story}`);
       }
     } else {
-      results.warnings.push(`${relativePath}: Missing _meta.story reference`);
+      results.warnings.push(`${relativePath}: Missing story reference`);
     }
 
     // Check feature reference
     if (meta.feature) {
-      if (typeof meta.feature === 'string' && meta.feature.startsWith('specs/') && !fileExists(meta.feature)) {
+      if (!fileExistsIfScoped(meta.feature)) {
         results.errors.push(`${relativePath}: Referenced feature not found: ${meta.feature}`);
       }
     } else {
-      results.info.push(`${relativePath}: No _meta.feature reference (optional)`);
+      results.info.push(`${relativePath}: No feature reference (optional)`);
     }
   }
 
@@ -458,21 +476,21 @@ function checkJourneys() {
     if (parsed.frontMatter && parsed.frontMatter.refs && parsed.frontMatter.refs.persona) {
       personaFound = true;
       const personaRef = parsed.frontMatter.refs.persona;
-      if (typeof personaRef === 'string' && personaRef.startsWith('specs/') && !fileExists(personaRef)) {
+      if (!fileExistsIfScoped(personaRef)) {
         results.errors.push(`${relativePath}: Referenced persona not found: ${personaRef}`);
       }
     }
 
     if (!personaFound) {
       // Legacy: check for inline persona reference
-      const personaMatch = content.match(/[Pp]ersona:\s*(?:specs\/personas\/)?([^\s\n]+)/);
+      const personaMatch = content.match(new RegExp(`[Pp]ersona:\\s*(?:${escapeRegExp(rootPrefix)}\\/personas\\/)?([^\\s\\n]+)`));
       if (personaMatch) {
         personaFound = true;
         const ref = personaMatch[1];
-        const personaPath = ref.startsWith('specs/')
+        const personaPath = ref.startsWith(`${rootPrefix}/`)
           ? ref
-          : `specs/personas/${ref}${ref.endsWith('.md') ? '' : '.md'}`;
-        if (!fileExists(personaPath)) {
+          : `${rootPrefix}/personas/${ref}${ref.endsWith('.md') ? '' : '.md'}`;
+        if (!fileExistsIfScoped(personaPath)) {
           results.warnings.push(`${relativePath}: Referenced persona may not exist: ${ref}`);
         }
       }
