@@ -55,22 +55,27 @@ if (!specsDir) {
   specsDir = path.join(process.cwd(), 'specs');
 }
 
+const scopeRoot = path.relative(process.cwd(), specsDir).replace(/\\/g, '/');
+const normalizedScopeRoot = scopeRoot === '' ? 'specs' : scopeRoot;
+
 // ── File patterns that should appear in capability scope ──────────────
 // Not all spec files need to be in scope — personas and journeys are
 // referenced by capabilities but checking them is optional.
 // The key artifacts that MUST be in scope are features, contracts, models,
 // and stories.
-const SCOPED_PATTERNS = [
-  /specs\/features\/.*\.feature$/,
-  /specs\/stories\/.*\.md$/,
-  /specs\/models\/.*\.model\.ya?ml$/,
-  /specs\/models\/.*\.lifecycle\.ya?ml$/,
-  /specs\/contracts\/.*\.ya?ml$/,
-];
-
 function shouldBeScoped(filePath) {
   const normalized = filePath.replace(/\\/g, '/');
-  return SCOPED_PATTERNS.some(pattern => pattern.test(normalized));
+  return (
+    normalized.startsWith(`${normalizedScopeRoot}/features/`) && /\.feature$/.test(normalized)
+  ) || (
+    normalized.startsWith(`${normalizedScopeRoot}/stories/`) && /\.md$/.test(normalized)
+  ) || (
+    normalized.startsWith(`${normalizedScopeRoot}/models/`) && /\.model\.ya?ml$/.test(normalized)
+  ) || (
+    normalized.startsWith(`${normalizedScopeRoot}/models/`) && /\.lifecycle\.ya?ml$/.test(normalized)
+  ) || (
+    normalized.startsWith(`${normalizedScopeRoot}/contracts/`) && /\.ya?ml$/.test(normalized)
+  );
 }
 
 // ── Load all capability files ─────────────────────────────────────────
@@ -160,7 +165,7 @@ function main() {
   const capabilities = loadCapabilities();
 
   if (capabilities.length === 0) {
-    results.info.push('No capability files found in specs/capabilities/');
+    results.info.push(`No capability files found in ${normalizedScopeRoot}/capabilities/`);
     results.info.push('Scope checking skipped — create capability files to enable');
     outputResults(results);
     process.exit(0);
