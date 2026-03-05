@@ -1,0 +1,30 @@
+id: account
+type: model
+entity: Account
+aggregate: AccountAggregate
+sources:
+  stories:
+    - examples/stories/mobile-signup.story.md
+    - examples/stories/quick-start-audit.story.md
+  journeys:
+    - examples/journeys/trade-show-signup.journey.md
+fields:
+  accountId:
+    type: string
+    constraints:
+      - non-empty
+      - immutable
+  email:
+    type: string
+    constraints:
+      - valid-email-format
+      - unique
+  status:
+    type: string
+    values:
+      - pending
+      - active
+rules:
+  - id: account-activates-on-signup
+    when: signup-submitted
+    then: status=active

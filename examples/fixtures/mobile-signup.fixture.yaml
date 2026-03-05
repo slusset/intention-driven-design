@@ -1,0 +1,19 @@
+id: mobile-signup-happy-path
+type: fixture
+story: examples/stories/mobile-signup.story.md
+feature: examples/features/mobile-signup.feature
+scenario: Successful mobile signup
+request:
+  method: POST
+  path: /accounts
+  body:
+    email: alex.prospect@example.com
+    boothCode: CHI-2026
+response:
+  status: 201
+  body:
+    accountId: acct_001
+    status: active
+    nextAction:
+      label: Start first audit
+      href: /accounts/acct_001/audits/new

@@ -72,8 +72,9 @@ function collectFiles() {
     /\.feature$/,
     /\.model\.ya?ml$/,
     /\.lifecycle\.ya?ml$/,
-    /\.map\.ya?ml$/,
+    /\.(?:map|journey-map)\.ya?ml$/,
     /\.capability\.ya?ml$/,
+    /\.fixture\.ya?ml$/,
     /\.json$/,
   ];
 
