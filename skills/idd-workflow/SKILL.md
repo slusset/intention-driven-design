@@ -16,6 +16,24 @@ allowed-tools:
 
 This project follows **Intention-Driven Development**. We start with human needs and work down to code, maintaining traceability at every step. The narrative, model, and contract layers are stack-agnostic — implementation skills can be swapped for any technology.
 
+## Mandatory Preflight: Repo Overlay
+
+Before applying any workflow step, load repo-specific constraints from the repository overlay.
+
+1. Resolve overlay path in this order:
+   - Path explicitly declared in `AGENTS.md` (for example: `Repo overlay: specs/skills/repo-overlay.md`)
+   - Fallback default: `specs/skills/repo-overlay.md`
+2. Read overlay content before selecting or invoking downstream skills.
+3. If overlay is missing, surface this immediately as a blocking setup issue.
+   - Do not silently continue as if no repo constraints exist.
+   - Report which path was attempted.
+   - Ask for either:
+     - creation/restoration of the overlay, or
+     - explicit user override to proceed without overlay.
+4. Carry overlay constraints forward into all downstream skill prompts (architecture, tests, certification, CI expectations).
+
+This preflight is required for reliable orchestration and prevents architecture/test-policy drift.
+
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
 │                         NARRATIVE LAYER                                   │
@@ -110,6 +128,12 @@ This project follows **Intention-Driven Development**. We start with human needs
 ### Starting a New Capability
 
 ```
+0. Repo preflight (required)
+   ├── Load AGENTS.md in target repo
+   ├── Resolve and load repo overlay (see Mandatory Preflight)
+   ├── If missing, surface immediately and block by default
+   └── Output: loaded repo constraints (or explicit override)
+
 1. /solution-narrative
    ├── Create or review persona
    ├── Map the user journey
@@ -155,6 +179,10 @@ This project follows **Intention-Driven Development**. We start with human needs
 ### Modifying Existing Features
 
 ```
+0. Repo preflight (required)
+   ├── Load AGENTS.md + repo overlay
+   └── Apply repo constraints to all downstream changes
+
 1. Identify the change scope:
    - UI only? → Frontend architecture skill
    - API change? → /behavior-contract first, then both architecture skills
@@ -198,6 +226,7 @@ Bug fixes follow the Fix Forward principle (C13): fix the spec first, then the c
 ```
 
 **Never fix code without updating the spec.** Fixing code without updating specs is drift — the single most common way systems lose alignment with their intent.
+Always apply repo overlay constraints while fixing forward (for example, architecture boundaries and test pyramid policy).
 
 ## Artifact Locations
 
@@ -271,6 +300,9 @@ A: It should:
 **Q: Can I skip the narrative layer for small changes?**
 A: For pure bug fixes or minor UI tweaks, yes. For anything that changes behavior, no — update the spec first. When in doubt, ask: "Would someone need to update the feature file for this?"
 
+**Q: What if the repo overlay file is missing?**
+A: Treat it as a blocking preflight issue. Surface it immediately with attempted path(s), and request either overlay creation or an explicit user override to proceed without repo-specific constraints.
+
 **Q: What technology stacks does IDD support?**
 A: The narrative, model, and contract layers are completely stack-agnostic. Implementation skills are interchangeable — add or swap skills for any backend/frontend framework. The `specs/` directory is portable across any technology choice.
 
@@ -310,3 +342,17 @@ solution-narrative              ← Stack-agnostic
 - **CI workflow**: `.github/workflows/idd-check.yml`
 - **Process questions**: This guide (`/idd-workflow`)
 - **Specific patterns**: Each skill has templates and examples
+
+## Orchestrator Handoff Contract
+
+When this meta-skill is used by an orchestrator, include these fields in the handoff prompt/context:
+
+- `repo_root`
+- `agents_file` (resolved path)
+- `repo_overlay_path` (resolved path)
+- `repo_overlay_status` (`loaded` or `missing`)
+- `repo_overlay_constraints` (summary bullets when loaded)
+- `skills_selected` (ordered list for this task)
+- `blocking_issues` (must include missing overlay when applicable)
+
+If `repo_overlay_status=missing`, default recommendation is to halt orchestration until resolved unless user explicitly overrides.
