@@ -173,7 +173,7 @@ function parseFrontMatter(filePath, content) {
   const ext = path.extname(filePath).toLowerCase();
 
   if (ext === '.md') {
-    return parseMarkdownFrontMatter8content);
+    return parseMarkdownFrontMatter(content);
   }
 
   if (ext === '.feature') {
