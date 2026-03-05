@@ -176,12 +176,14 @@ certify:
 
     - name: Generate evidence manifest
       run: |
-        # Script that reads test results + specs/ references
-        # and produces evidence.yaml
-        python tools/generate-evidence.py \
+        # Tool that reads capability scope + available reports
+        # and scaffolds evidence.yaml
+        node tools/generate-evidence.js \
           --capability ${{ env.CAPABILITY }} \
-          --specs-dir specs/ \
-          --reports-dir certification/${{ env.CAPABILITY }}/reports/
+          --reports-dir certification/${{ env.CAPABILITY }}/reports/ \
+          --output certification/${{ env.CAPABILITY }}/evidence.yaml \
+          --certified-by CI \
+          --write
 
     - name: Verify traceability
       run: |
@@ -195,12 +197,14 @@ certify:
         git commit -m "cert: ${{ env.CAPABILITY }} evidence"
 ```
 
+The current `generate-evidence.js` tool is a scaffold generator, not full certification automation. It can derive capability-scoped links and seed the manifest from available reports, but some fields still require human review or a later validator pass.
+
 ## Manual certification (for early adoption)
 
 If CI automation isn't set up yet, create the evidence manifest by hand:
 
 1. Run tests and collect results.
-2. Create `certification/{capability}/evidence.yaml` using the template above.
+2. Generate a starting manifest with `node tools/generate-evidence.js --capability specs/capabilities/{capability}.capability.yaml --write` or create `certification/{capability}/evidence.yaml` by hand using the template above.
 3. Fill in test counts from actual results.
 4. Verify traceability manually: check that every story has features, every feature has tests.
 5. Document gaps honestly.
