@@ -64,6 +64,7 @@ const SCOPED_PATTERNS = [
   /specs\/features\/.*\.feature$/,
   /specs\/stories\/.*\.md$/,
   /specs\/models\/.*\.model\.ya?ml$/,
+  /specs\/models\/.*\.lifecycle\.ya?ml$/,
   /specs\/contracts\/.*\.ya?ml$/,
 ];
 
@@ -133,6 +134,7 @@ function collectFiles() {
   const patterns = [
     /\.feature$/,
     /\.model\.ya?ml$/,
+    /\.lifecycle\.ya?ml$/,
     /\.ya?ml$/,  // for contracts
     /\.md$/,     // for stories
   ];
