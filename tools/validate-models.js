@@ -1,97 +1,124 @@
 #!/usr/bin/env node
 
 /**
- * Validates domain model YAML files against the expected schema.
+ * Validates domain model files for structural compliance.
  *
- * Usage: node tools/validate-models.js
+ * Usage:
+ *   node tools/validate-models.js [specs-dir]
+ *   node tools/validate-models.js --files specs/models/account.model.yaml
  *
- * Expects models in: specs/models/**\/*.model.yaml and *.lifecycle.yaml
+ * Options:
+ *   --files <paths...>  Validate only specific model/lifecycle files
+ *   --json              Output results as JSON
+ *   --strict            Treat warnings as errors
  */
 
 const fs = require('fs');
 const path = require('path');
-const yaml = require('js-yaml');
+const { findFiles, formatResults, parseFrontMatter } = require('./lib/parse-front-matter');
 
-const MODELS_DIR = path.join(process.cwd(), 'specs/models');
+const args = process.argv.slice(2);
+let specsDir = null;
+let specificFiles = null;
+let jsonOutput = false;
+let strict = false;
 
-// Valid attribute types for models
+for (let i = 0; i < args.length; i += 1) {
+  if (args[i] === '--files') {
+    specificFiles = [];
+    i += 1;
+    while (i < args.length && !args[i].startsWith('--')) {
+      specificFiles.push(args[i]);
+      i += 1;
+    }
+    i -= 1;
+  } else if (args[i] === '--json') {
+    jsonOutput = true;
+  } else if (args[i] === '--strict') {
+    strict = true;
+  } else if (!args[i].startsWith('--')) {
+    specsDir = path.resolve(args[i]);
+  }
+}
+
+if (!specsDir) {
+  specsDir = path.join(process.cwd(), 'specs');
+}
+
+const MODELS_DIR = path.join(specsDir, 'models');
+
 const VALID_TYPES = [
   'string', 'number', 'integer', 'boolean', 'datetime', 'date', 'time',
-  'enum', 'array', 'object', 'uuid', 'ulid', 'email', 'url', 'uri'
+  'enum', 'array', 'object', 'uuid', 'ulid', 'email', 'url', 'uri',
 ];
 
-// Valid relationship types
 const VALID_RELATIONSHIP_TYPES = [
-  'belongs-to', 'has-one', 'has-many', 'many-to-many'
+  'belongs-to', 'has-one', 'has-many', 'many-to-many',
 ];
 
-function findModelFiles(dir) {
-  const files = [];
+function isModelFile(filePath) {
+  return /\.(model|lifecycle)\.ya?ml$/i.test(filePath);
+}
 
-  if (!fs.existsSync(dir)) {
-    return files;
-  }
-
-  function walk(currentDir) {
-    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.join(currentDir, entry.name);
-
-      if (entry.isDirectory()) {
-        walk(fullPath);
-      } else if (entry.name.endsWith('.model.yaml') || entry.name.endsWith('.lifecycle.yaml')) {
-        files.push(fullPath);
+function collectModelFiles() {
+  if (specificFiles) {
+    const files = new Set();
+    for (const input of specificFiles) {
+      const resolved = path.resolve(input);
+      if (!fs.existsSync(resolved) || !isModelFile(resolved)) {
+        continue;
       }
+      files.add(resolved);
     }
+    return Array.from(files);
   }
 
-  walk(dir);
-  return files;
+  return findFiles(MODELS_DIR, /\.(model|lifecycle)\.ya?ml$/i);
 }
 
 function validateModelFile(filePath) {
   const errors = [];
   const warnings = [];
-  const isLifecycle = filePath.endsWith('.lifecycle.yaml');
+  const isLifecycle = /\.lifecycle\.ya?ml$/i.test(filePath);
 
   let content;
   try {
     content = fs.readFileSync(filePath, 'utf8');
-  } catch (e) {
-    return { errors: [`Cannot read file: ${e.message}`], warnings: [] };
+  } catch (error) {
+    return { errors: [`Cannot read file: ${error.message}`], warnings: [] };
   }
 
-  let model;
-  try {
-    model = yaml.load(content);
-  } catch (e) {
-    return { errors: [`Invalid YAML: ${e.message}`], warnings: [] };
+  const parsed = parseFrontMatter(filePath, content);
+  if (parsed.parseError) {
+    return { errors: [`Invalid YAML: ${parsed.parseError}`], warnings: [] };
+  }
+
+  const model = parsed.body;
+
+  if (!model || typeof model !== 'object') {
+    return { errors: ['YAML root must be an object'], warnings };
   }
 
   if (isLifecycle) {
-    return validateLifecycle(model, filePath, errors, warnings);
-  } else {
-    return validateEntityModel(model, filePath, errors, warnings);
+    return validateLifecycle(model, errors, warnings);
   }
+
+  return validateEntityModel(model, errors, warnings);
 }
 
-function validateEntityModel(model, filePath, errors, warnings) {
-  // Check for entity or value_object
+function validateEntityModel(model, errors, warnings) {
   if (!model.entity && !model.value_object) {
     errors.push('Model must have "entity" or "value_object" field');
     return { errors, warnings };
   }
 
-  const isEntity = !!model.entity;
+  const isEntity = Boolean(model.entity);
 
-  // Check required fields for entities
   if (isEntity) {
     if (!model.description) {
       warnings.push('Entity should have a description');
     }
 
-    // Check identity
     if (!model.identity) {
       warnings.push('Entity should define identity field');
     } else {
@@ -103,25 +130,32 @@ function validateEntityModel(model, filePath, errors, warnings) {
       }
     }
 
-    // Check attributes
-    if (model.attributes) {
+    if (model.attributes && typeof model.attributes === 'object') {
       for (const [attrName, attr] of Object.entries(model.attributes)) {
+        if (!attr || typeof attr !== 'object') {
+          errors.push(`Attribute "${attrName}" must be an object`);
+          continue;
+        }
+
         if (!attr.type) {
           errors.push(`Attribute "${attrName}" missing type`);
         } else if (!VALID_TYPES.includes(attr.type)) {
           warnings.push(`Attribute "${attrName}" has unknown type: ${attr.type}`);
         }
 
-        // Check camelCase
         if (!/^[a-z][a-zA-Z0-9]*$/.test(attrName)) {
           warnings.push(`Attribute "${attrName}" should be camelCase`);
         }
       }
     }
 
-    // Check relationships
-    if (model.relationships) {
+    if (model.relationships && typeof model.relationships === 'object') {
       for (const [relName, rel] of Object.entries(model.relationships)) {
+        if (!rel || typeof rel !== 'object') {
+          errors.push(`Relationship "${relName}" must be an object`);
+          continue;
+        }
+
         if (!rel.type) {
           errors.push(`Relationship "${relName}" missing type`);
         } else if (!VALID_RELATIONSHIP_TYPES.includes(rel.type)) {
@@ -134,9 +168,12 @@ function validateEntityModel(model, filePath, errors, warnings) {
       }
     }
 
-    // Check rules have IDs
-    if (model.rules && Array.isArray(model.rules)) {
+    if (Array.isArray(model.rules)) {
       for (const rule of model.rules) {
+        if (!rule || typeof rule !== 'object') {
+          warnings.push('Business rule entry should be an object');
+          continue;
+        }
         if (!rule.id) {
           warnings.push('Business rule should have an id');
         }
@@ -146,23 +183,17 @@ function validateEntityModel(model, filePath, errors, warnings) {
       }
     }
 
-    // Check sources
     if (!model.sources || (!model.sources.stories && !model.sources.journeys)) {
       warnings.push('Entity should reference source stories or journeys');
     }
-  }
-
-  // Value object validation
-  if (!isEntity) {
-    if (!model.type) {
-      errors.push('Value object must have a type');
-    }
+  } else if (!model.type) {
+    errors.push('Value object must have a type');
   }
 
   return { errors, warnings };
 }
 
-function validateLifecycle(model, filePath, errors, warnings) {
+function validateLifecycle(model, errors, warnings) {
   if (!model.entity) {
     errors.push('Lifecycle must specify entity');
   }
@@ -178,37 +209,37 @@ function validateLifecycle(model, filePath, errors, warnings) {
 
   const stateNames = Object.keys(model.states);
 
-  // Check initial state exists
   if (model.initial_state && !stateNames.includes(model.initial_state)) {
     errors.push(`Initial state "${model.initial_state}" not found in states`);
   }
 
-  // Check at least one terminal state
-  const hasTerminal = Object.values(model.states).some(s => s.terminal === true);
+  const hasTerminal = Object.values(model.states).some((state) => state && state.terminal === true);
   if (!hasTerminal) {
     warnings.push('Lifecycle should have at least one terminal state');
   }
 
-  // Check transitions
-  if (model.transitions) {
-    for (const [transName, trans] of Object.entries(model.transitions)) {
-      if (transName.startsWith('_')) continue; // Skip _invalid etc.
-
-      if (!trans.from) {
-        errors.push(`Transition "${transName}" missing "from" state`);
-      } else if (!stateNames.includes(trans.from)) {
-        errors.push(`Transition "${transName}" references unknown "from" state: ${trans.from}`);
+  if (model.transitions && typeof model.transitions === 'object') {
+    for (const [transitionName, transition] of Object.entries(model.transitions)) {
+      if (transitionName.startsWith('_')) continue;
+      if (!transition || typeof transition !== 'object') {
+        errors.push(`Transition "${transitionName}" must be an object`);
+        continue;
       }
 
-      if (!trans.to) {
-        errors.push(`Transition "${transName}" missing "to" state`);
-      } else if (!stateNames.includes(trans.to)) {
-        errors.push(`Transition "${transName}" references unknown "to" state: ${trans.to}`);
+      if (!transition.from) {
+        errors.push(`Transition "${transitionName}" missing "from" state`);
+      } else if (!stateNames.includes(transition.from)) {
+        errors.push(`Transition "${transitionName}" references unknown "from" state: ${transition.from}`);
       }
 
-      // Check transitions from terminal states
-      if (trans.from && model.states[trans.from]?.terminal) {
-        warnings.push(`Transition "${transName}" originates from terminal state "${trans.from}"`);
+      if (!transition.to) {
+        errors.push(`Transition "${transitionName}" missing "to" state`);
+      } else if (!stateNames.includes(transition.to)) {
+        errors.push(`Transition "${transitionName}" references unknown "to" state: ${transition.to}`);
+      }
+
+      if (transition.from && model.states[transition.from] && model.states[transition.from].terminal) {
+        warnings.push(`Transition "${transitionName}" originates from terminal state "${transition.from}"`);
       }
     }
   }
@@ -216,53 +247,52 @@ function validateLifecycle(model, filePath, errors, warnings) {
   return { errors, warnings };
 }
 
-function main() {
-  console.log('Validating domain models...\n');
-
-  const modelFiles = findModelFiles(MODELS_DIR);
-
-  if (modelFiles.length === 0) {
-    console.log('No model files found.');
-    process.exit(0);
+function outputResults(results) {
+  if (jsonOutput) {
+    process.stdout.write(`${JSON.stringify(results, null, 2)}\n`);
+    return;
   }
 
-  let hasErrors = false;
-  let hasWarnings = false;
+  process.stdout.write('Validating domain models...\n\n');
+  process.stdout.write(`${formatResults(results)}\n`);
+}
+
+function main() {
+  const results = { errors: [], warnings: [], info: [] };
+  const modelFiles = collectModelFiles();
+
+  if (modelFiles.length === 0) {
+    results.info.push('No model files found to validate');
+    outputResults(results);
+    process.exit(0);
+  }
 
   for (const modelFile of modelFiles) {
     const relativePath = path.relative(process.cwd(), modelFile);
     const { errors, warnings } = validateModelFile(modelFile);
 
-    if (errors.length > 0) {
-      console.log(`❌ ${relativePath}`);
-      errors.forEach(e => console.log(`   ERROR: ${e}`));
-      hasErrors = true;
-    } else if (warnings.length > 0) {
-      console.log(`⚠️  ${relativePath}`);
-      warnings.forEach(w => console.log(`   WARN: ${w}`));
-      hasWarnings = true;
-    } else {
-      console.log(`✅ ${relativePath}`);
+    for (const error of errors) {
+      results.errors.push(`${relativePath}: ${error}`);
     }
 
-    if (errors.length > 0 || warnings.length > 0) {
-      console.log('');
+    for (const warning of warnings) {
+      results.warnings.push(`${relativePath}: ${warning}`);
+    }
+
+    if (errors.length === 0 && warnings.length === 0) {
+      results.info.push(`${relativePath}: valid`);
     }
   }
 
-  console.log('\n---');
-  console.log(`Validated ${modelFiles.length} model file(s)`);
+  results.info.push(`Validated ${modelFiles.length} model file(s)`);
 
-  if (hasErrors) {
-    console.log('Some models have errors.');
-    process.exit(1);
-  } else if (hasWarnings) {
-    console.log('Validation passed with warnings.');
-    process.exit(0);
-  } else {
-    console.log('All models valid.');
-    process.exit(0);
+  if (strict && results.warnings.length > 0) {
+    results.errors.push(...results.warnings.map((warning) => `${warning} (strict mode)`));
+    results.warnings = [];
   }
+
+  outputResults(results);
+  process.exit(results.errors.length > 0 ? 1 : 0);
 }
 
 main();

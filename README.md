@@ -167,9 +167,34 @@ skills/                      IDD methodology skills
 tools/                       Build, link, and validation utilities
 ├── build.sh                 Package plugin zip for distribution
 ├── link-skills.sh           Symlink skills into agent runtimes
+├── validate-front-matter.js Validate required/recommended metadata fields
+├── validate-traceability.js Validate cross-artifact reference integrity
+├── validate-capability-scope.js Validate capability scope coverage
+├── validate-fixtures.js     Validate fixtures against OpenAPI request/response schemas
+├── validate-models.js       Validate model/lifecycle structural rules
+├── validate-journey-maps.js Validate journey map structural rules
 ├── graph-generation/
 │   └── generate-spec-graph.js  Generate Mermaid spec traceability graph
-└── check-traceability.js    Validate cross-references between spec artifacts
+└── lib/                     Shared parsing and formatting helpers
+```
+
+## Validation Suite
+
+The repository uses a unified validator naming convention: `tools/validate-*.js`.
+
+Common CLI options:
+- `[specs-dir]` optional positional root (defaults to `specs/`)
+- `--files <paths...>` limit checks to specific files
+- `--json` machine-readable output for CI aggregation
+
+Examples:
+```bash
+node tools/validate-front-matter.js --json
+node tools/validate-traceability.js --json --files specs/features/mobile-signup.feature
+node tools/validate-capability-scope.js --json --files specs/stories/mobile-signup.story.md
+node tools/validate-fixtures.js --json
+node tools/validate-models.js --json --strict
+node tools/validate-journey-maps.js --json
 ```
 
 ## How concepts and skills relate

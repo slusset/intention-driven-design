@@ -1,31 +1,29 @@
-# IDD Compliance Check
-#
-# Runs deterministic traceability and front-matter checks on every PR.
-# This is Layer 1 of the PR review skill — fast, no LLM, runs in CI.
-#
-# Layer 2 (semantic review via Claude) is triggered separately by label
-# or comment. See skills/pr-review/SKILL.md for full architecture.
-
 name: IDD Compliance
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-      # Only run when spec, contract, model, or implementation files change
       - 'specs/**'
       - 'backend/src/**'
       - 'frontend/src/**'
       - 'certification/**'
-      - 'tools/check-*.js'
+      - 'tools/**/*.js'
+      - '.github/workflows/idd-check.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'specs/**'
+      - 'tools/**/*.js'
+      - '.github/workflows/idd-check.yml'
 
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
-  traceability:
-    name: Traceability & Front-Matter
+  validate:
+    name: IDD Validation Suite
     runs-on: ubuntu-latest
 
     steps:
@@ -37,266 +35,282 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
+      - name: Install tool dependencies
         run: |
           cd tools
-          npm install js-yaml 2>/dev/null || npm init -y && npm install js-yaml
+          npm ci
+          cd ..
+          npm install -g @stoplight/spectral-cli gherkin-lint
 
-      # ── Check 1: Traceability links ──────────────────────────────
-      - name: Check traceability links
+      - name: Gather changed specs
+        id: changed_specs
+        run: |
+          set +e
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- 'specs/**' > /tmp/changed-specs.txt
+            COUNT=$(grep -c . /tmp/changed-specs.txt || true)
+          else
+            : > /tmp/changed-specs.txt
+            COUNT=0
+          fi
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Run traceability validator
         id: traceability
         continue-on-error: true
         run: |
           set +e
-          OUTPUT=$(node tools/check-traceability.js 2>&1)
+          node tools/validate-traceability.js --json > /tmp/traceability.json
           EXIT_CODE=$?
-          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          node -e 'const fs=require("fs"); const p=process.argv[1]; let r={errors:[],warnings:[],info:[]}; try{r=JSON.parse(fs.readFileSync(p,"utf8"));}catch(e){r.errors=[`Failed to parse output: ${e.message}`];} console.log(`errors=${(r.errors||[]).length}`); console.log(`warnings=${(r.warnings||[]).length}`);' /tmp/traceability.json >> "$GITHUB_OUTPUT"
+          exit 0
 
-          # Save full output for the comment
-          echo "$OUTPUT" > /tmp/traceability-output.txt
-
-          # Extract counts from output
-          ERRORS=$(echo "$OUTPUT" | grep -oP 'Errors: \K\d+' || echo "0")
-          WARNINGS=$(echo "$OUTPUT" | grep -oP 'Warnings: \K\d+' || echo "0")
-          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
-          echo "warnings=$WARNINGS" >> $GITHUB_OUTPUT
-
-          exit 0  # Don't fail the step; we'll report in the comment
-
-      # ── Check 2: Front-matter presence ───────────────────────────
-      - name: Check front-matter on changed specs
+      - name: Run front-matter validator
         id: frontmatter
         continue-on-error: true
         run: |
           set +e
-          ERRORS=0
-          WARNINGS=0
-          DETAILS=""
-
-          # Get list of changed spec files in this PR
-          CHANGED_SPECS=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- 'specs/' 2>/dev/null || echo "")
-
-          if [ -z "$CHANGED_SPECS" ]; then
-            echo "No spec files changed"
-            echo "errors=0" >> $GITHUB_OUTPUT
-            echo "warnings=0" >> $GITHUB_OUTPUT
-            echo "checked=0" >> $GITHUB_OUTPUT
-            exit 0
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ steps.changed_specs.outputs.count }}" -gt 0 ]; then
+            FILES=$(tr '\n' ' ' < /tmp/changed-specs.txt)
+            node tools/validate-front-matter.js --json --files $FILES > /tmp/frontmatter.json
+            EXIT_CODE=$?
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            printf '%s\n' '{"errors":[],"warnings":[],"info":["No spec files changed"]}' > /tmp/frontmatter.json
+            EXIT_CODE=0
+          else
+            node tools/validate-front-matter.js --json > /tmp/frontmatter.json
+            EXIT_CODE=$?
           fi
 
-          CHECKED=0
-
-          for FILE in $CHANGED_SPECS; do
-            if [ ! -f "$FILE" ]; then
-              continue
-            fi
-
-            CHECKED=$((CHECKED + 1))
-
-            case "$FILE" in
-              specs/personas/*.md)
-                # Check for id and type in YAML front-matter
-                if ! head -20 "$FILE" | grep -q "^id:"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`id\` in front-matter"
-                fi
-                if ! head -20 "$FILE" | grep -q "^type: persona"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`type: persona\` in front-matter"
-                fi
-                ;;
-
-              specs/journeys/*.md)
-                if ! head -20 "$FILE" | grep -q "^id:"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`id\` in front-matter"
-                fi
-                if ! head -20 "$FILE" | grep -q "^type: journey"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`type: journey\` in front-matter"
-                fi
-                ;;
-
-              specs/stories/**/*.md | specs/stories/*.md)
-                if ! head -20 "$FILE" | grep -q "^id:"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`id\` in front-matter"
-                fi
-                if ! head -20 "$FILE" | grep -q "^type: story"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`type: story\` in front-matter"
-                fi
-                ;;
-
-              specs/features/**/*.feature | specs/features/*.feature)
-                if ! head -10 "$FILE" | grep -q "^# id:"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`# id:\` comment header"
-                fi
-                if ! head -10 "$FILE" | grep -q "^# type: feature"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`# type: feature\` comment header"
-                fi
-                if ! head -10 "$FILE" | grep -q "^# story:"; then
-                  WARNINGS=$((WARNINGS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`# story:\` reference (warning)"
-                fi
-                ;;
-
-              specs/models/**/*.model.yaml | specs/models/**/*.model.yml)
-                if ! head -5 "$FILE" | grep -q "^id:"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`id\` field"
-                fi
-                if ! head -5 "$FILE" | grep -q "^type: model"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`type: model\` field"
-                fi
-                ;;
-
-              specs/capabilities/*.capability.yaml | specs/capabilities/*.capability.yml)
-                if ! head -5 "$FILE" | grep -q "^id:"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`id\` field"
-                fi
-                if ! head -5 "$FILE" | grep -q "^type: capability"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`type: capability\` field"
-                fi
-                if ! grep -q "^scope:" "$FILE"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`scope\` block"
-                fi
-                ;;
-
-              specs/journey-maps/*.map.yaml | specs/journey-maps/*.map.yml)
-                if ! head -5 "$FILE" | grep -q "^id:"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`id\` field"
-                fi
-                if ! head -5 "$FILE" | grep -q "^type: journey-map"; then
-                  ERRORS=$((ERRORS + 1))
-                  DETAILS="$DETAILS\n  - \`$FILE\`: Missing \`type: journey-map\` field"
-                fi
-                ;;
-            esac
-          done
-
-          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
-          echo "warnings=$WARNINGS" >> $GITHUB_OUTPUT
-          echo "checked=$CHECKED" >> $GITHUB_OUTPUT
-
-          # Save details for comment
-          echo -e "$DETAILS" > /tmp/frontmatter-details.txt
-
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          node -e 'const fs=require("fs"); const p=process.argv[1]; let r={errors:[],warnings:[],info:[]}; try{r=JSON.parse(fs.readFileSync(p,"utf8"));}catch(e){r.errors=[`Failed to parse output: ${e.message}`];} console.log(`errors=${(r.errors||[]).length}`); console.log(`warnings=${(r.warnings||[]).length}`);' /tmp/frontmatter.json >> "$GITHUB_OUTPUT"
           exit 0
 
-      # ── Check 3: Spec-before-code warning ────────────────────────
-      - name: Check spec-before-code
-        id: specbeforecode
+      - name: Run capability scope validator
+        id: capability_scope
+        continue-on-error: true
         run: |
           set +e
-
-          # Files changed in implementation
-          IMPL_CHANGES=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- 'backend/src/' 'frontend/src/' 2>/dev/null | wc -l | tr -d ' ')
-
-          # Files changed in specs
-          SPEC_CHANGES=$(git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- 'specs/' 2>/dev/null | wc -l | tr -d ' ')
-
-          echo "impl_changes=$IMPL_CHANGES" >> $GITHUB_OUTPUT
-          echo "spec_changes=$SPEC_CHANGES" >> $GITHUB_OUTPUT
-
-          if [ "$IMPL_CHANGES" -gt "0" ] && [ "$SPEC_CHANGES" -eq "0" ]; then
-            echo "warning=true" >> $GITHUB_OUTPUT
-            # List the impl files for the comment
-            git diff --name-only --diff-filter=ACMR origin/${{ github.base_ref }}...HEAD -- 'backend/src/' 'frontend/src/' > /tmp/impl-files.txt 2>/dev/null
+          if [ "${{ github.event_name }}" = "pull_request" ] && [ "${{ steps.changed_specs.outputs.count }}" -gt 0 ]; then
+            FILES=$(tr '\n' ' ' < /tmp/changed-specs.txt)
+            node tools/validate-capability-scope.js --json --files $FILES > /tmp/capability-scope.json
+            EXIT_CODE=$?
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            printf '%s\n' '{"errors":[],"warnings":[],"info":["No spec files changed"]}' > /tmp/capability-scope.json
+            EXIT_CODE=0
           else
-            echo "warning=false" >> $GITHUB_OUTPUT
+            node tools/validate-capability-scope.js --json > /tmp/capability-scope.json
+            EXIT_CODE=$?
           fi
 
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          node -e 'const fs=require("fs"); const p=process.argv[1]; let r={errors:[],warnings:[],info:[]}; try{r=JSON.parse(fs.readFileSync(p,"utf8"));}catch(e){r.errors=[`Failed to parse output: ${e.message}`];} console.log(`errors=${(r.errors||[]).length}`); console.log(`warnings=${(r.warnings||[]).length}`);' /tmp/capability-scope.json >> "$GITHUB_OUTPUT"
           exit 0
 
-      # ── Post results as PR comment ───────────────────────────────
+      - name: Run fixture schema validator
+        id: fixtures
+        continue-on-error: true
+        run: |
+          set +e
+          node tools/validate-fixtures.js --json > /tmp/fixtures.json
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          node -e 'const fs=require("fs"); const p=process.argv[1]; let r={errors:[],warnings:[],info:[]}; try{r=JSON.parse(fs.readFileSync(p,"utf8"));}catch(e){r.errors=[`Failed to parse output: ${e.message}`];} console.log(`errors=${(r.errors||[]).length}`); console.log(`warnings=${(r.warnings||[]).length}`);' /tmp/fixtures.json >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Run model validator
+        id: models
+        continue-on-error: true
+        run: |
+          set +e
+          node tools/validate-models.js --json > /tmp/models.json
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          node -e 'const fs=require("fs"); const p=process.argv[1]; let r={errors:[],warnings:[],info:[]}; try{r=JSON.parse(fs.readFileSync(p,"utf8"));}catch(e){r.errors=[`Failed to parse output: ${e.message}`];} console.log(`errors=${(r.errors||[]).length}`); console.log(`warnings=${(r.warnings||[]).length}`);' /tmp/models.json >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Run journey map validator
+        id: journey_maps
+        continue-on-error: true
+        run: |
+          set +e
+          node tools/validate-journey-maps.js --json > /tmp/journey-maps.json
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          node -e 'const fs=require("fs"); const p=process.argv[1]; let r={errors:[],warnings:[],info:[]}; try{r=JSON.parse(fs.readFileSync(p,"utf8"));}catch(e){r.errors=[`Failed to parse output: ${e.message}`];} console.log(`errors=${(r.errors||[]).length}`); console.log(`warnings=${(r.warnings||[]).length}`);' /tmp/journey-maps.json >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Run OpenAPI lint
+        id: openapi_lint
+        continue-on-error: true
+        run: |
+          set +e
+          if [ -f specs/contracts/openapi/api.yaml ]; then
+            spectral lint specs/contracts/openapi/api.yaml --ruleset .spectral.yaml > /tmp/openapi-lint.txt 2>&1
+            EXIT_CODE=$?
+            if [ "$EXIT_CODE" -eq 0 ]; then
+              printf '%s\n' '{"errors":[],"warnings":[],"info":["OpenAPI lint passed"]}' > /tmp/openapi.json
+            else
+              node -e 'const fs=require("fs");const lines=fs.readFileSync("/tmp/openapi-lint.txt","utf8").split(/\r?\n/).filter(Boolean).slice(0,20); const out={errors:lines.length?lines:["OpenAPI lint failed"],warnings:[],info:[]}; fs.writeFileSync("/tmp/openapi.json", JSON.stringify(out));'
+            fi
+          else
+            printf '%s\n' '{"errors":[],"warnings":[],"info":["OpenAPI spec not found, skipped"]}' > /tmp/openapi.json
+            EXIT_CODE=0
+          fi
+
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          node -e 'const fs=require("fs"); const p=process.argv[1]; let r={errors:[],warnings:[],info:[]}; try{r=JSON.parse(fs.readFileSync(p,"utf8"));}catch(e){r.errors=[`Failed to parse output: ${e.message}`];} console.log(`errors=${(r.errors||[]).length}`); console.log(`warnings=${(r.warnings||[]).length}`);' /tmp/openapi.json >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Run Gherkin lint
+        id: gherkin_lint
+        continue-on-error: true
+        run: |
+          set +e
+          if [ -d specs/features ]; then
+            gherkin-lint specs/features/**/*.feature > /tmp/gherkin-lint.txt 2>&1
+            EXIT_CODE=$?
+            if [ "$EXIT_CODE" -eq 0 ]; then
+              printf '%s\n' '{"errors":[],"warnings":[],"info":["Gherkin lint passed"]}' > /tmp/gherkin.json
+            else
+              node -e 'const fs=require("fs");const lines=fs.readFileSync("/tmp/gherkin-lint.txt","utf8").split(/\r?\n/).filter(Boolean).slice(0,20); const out={errors:lines.length?lines:["Gherkin lint failed"],warnings:[],info:[]}; fs.writeFileSync("/tmp/gherkin.json", JSON.stringify(out));'
+            fi
+          else
+            printf '%s\n' '{"errors":[],"warnings":[],"info":["Feature directory not found, skipped"]}' > /tmp/gherkin.json
+            EXIT_CODE=0
+          fi
+
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+          node -e 'const fs=require("fs"); const p=process.argv[1]; let r={errors:[],warnings:[],info:[]}; try{r=JSON.parse(fs.readFileSync(p,"utf8"));}catch(e){r.errors=[`Failed to parse output: ${e.message}`];} console.log(`errors=${(r.errors||[]).length}`); console.log(`warnings=${(r.warnings||[]).length}`);' /tmp/gherkin.json >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Check spec-before-code
+        id: specbeforecode
+        if: github.event_name == 'pull_request'
+        run: |
+          set +e
+          IMPL_CHANGES=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- 'backend/src/' 'frontend/src/' 2>/dev/null | wc -l | tr -d ' ')
+          SPEC_CHANGES=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- 'specs/' 2>/dev/null | wc -l | tr -d ' ')
+
+          echo "impl_changes=$IMPL_CHANGES" >> "$GITHUB_OUTPUT"
+          echo "spec_changes=$SPEC_CHANGES" >> "$GITHUB_OUTPUT"
+
+          if [ "$IMPL_CHANGES" -gt "0" ] && [ "$SPEC_CHANGES" -eq "0" ]; then
+            echo "warning=true" >> "$GITHUB_OUTPUT"
+            git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- 'backend/src/' 'frontend/src/' > /tmp/impl-files.txt 2>/dev/null
+          else
+            echo "warning=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Post review comment
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
 
-            // Gather results from previous steps
-            const traceErrors = parseInt('${{ steps.traceability.outputs.errors }}') || 0;
-            const traceWarnings = parseInt('${{ steps.traceability.outputs.warnings }}') || 0;
-            const traceExit = parseInt('${{ steps.traceability.outputs.exit_code }}') || 0;
+            function readJson(path) {
+              try {
+                return JSON.parse(fs.readFileSync(path, 'utf8'));
+              } catch (error) {
+                return { errors: [`Failed to read ${path}: ${error.message}`], warnings: [], info: [] };
+              }
+            }
 
-            const fmErrors = parseInt('${{ steps.frontmatter.outputs.errors }}') || 0;
-            const fmWarnings = parseInt('${{ steps.frontmatter.outputs.warnings }}') || 0;
-            const fmChecked = parseInt('${{ steps.frontmatter.outputs.checked }}') || 0;
+            function summarizeLines(lines, limit = 20) {
+              if (!Array.isArray(lines) || lines.length === 0) return '';
+              const shown = lines.slice(0, limit).map((line) => `- ${line}`).join('\n');
+              const extra = lines.length > limit ? `\n- ...and ${lines.length - limit} more` : '';
+              return `${shown}${extra}`;
+            }
 
-            const implChanges = parseInt('${{ steps.specbeforecode.outputs.impl_changes }}') || 0;
-            const specChanges = parseInt('${{ steps.specbeforecode.outputs.spec_changes }}') || 0;
+            const checks = [
+              { name: 'Traceability', path: '/tmp/traceability.json', exitCode: Number('${{ steps.traceability.outputs.exit_code }}') || 0 },
+              { name: 'Front-Matter', path: '/tmp/frontmatter.json', exitCode: Number('${{ steps.frontmatter.outputs.exit_code }}') || 0 },
+              { name: 'Capability Scope', path: '/tmp/capability-scope.json', exitCode: Number('${{ steps.capability_scope.outputs.exit_code }}') || 0 },
+              { name: 'Fixtures', path: '/tmp/fixtures.json', exitCode: Number('${{ steps.fixtures.outputs.exit_code }}') || 0 },
+              { name: 'Models', path: '/tmp/models.json', exitCode: Number('${{ steps.models.outputs.exit_code }}') || 0 },
+              { name: 'Journey Maps', path: '/tmp/journey-maps.json', exitCode: Number('${{ steps.journey_maps.outputs.exit_code }}') || 0 },
+              { name: 'OpenAPI Lint', path: '/tmp/openapi.json', exitCode: Number('${{ steps.openapi_lint.outputs.exit_code }}') || 0 },
+              { name: 'Gherkin Lint', path: '/tmp/gherkin.json', exitCode: Number('${{ steps.gherkin_lint.outputs.exit_code }}') || 0 },
+            ];
+
+            let body = '## IDD Compliance Review\n\n';
+            let totalErrors = 0;
+            let totalWarnings = 0;
+
+            for (const check of checks) {
+              const data = readJson(check.path);
+              const errors = Array.isArray(data.errors) ? data.errors : [];
+              const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+              const info = Array.isArray(data.info) ? data.info : [];
+
+              totalErrors += errors.length;
+              totalWarnings += warnings.length;
+
+              const icon = check.exitCode === 0 ? '✅' : '❌';
+              body += `### ${check.name} ${icon}\n`;
+              body += `- Errors: ${errors.length}\n`;
+              body += `- Warnings: ${warnings.length}\n`;
+
+              const details = [];
+              const errText = summarizeLines(errors, 20);
+              if (errText) {
+                details.push('**Errors**');
+                details.push(errText);
+              }
+
+              const warnText = summarizeLines(warnings, 20);
+              if (warnText) {
+                details.push('**Warnings**');
+                details.push(warnText);
+              }
+
+              const infoText = summarizeLines(info, 10);
+              if (infoText) {
+                details.push('**Info**');
+                details.push(infoText);
+              }
+
+              if (details.length > 0) {
+                body += '\n<details><summary>Details</summary>\n\n';
+                body += `${details.join('\n\n')}\n`;
+                body += '\n</details>\n';
+              }
+
+              body += '\n';
+            }
+
+            const implChanges = Number('${{ steps.specbeforecode.outputs.impl_changes }}') || 0;
+            const specChanges = Number('${{ steps.specbeforecode.outputs.spec_changes }}') || 0;
             const specWarning = '${{ steps.specbeforecode.outputs.warning }}' === 'true';
 
-            // Build comment
-            let body = '## IDD Compliance Review\n\n';
-
-            // Traceability
-            const traceIcon = traceExit === 0 ? '✅' : '❌';
-            body += `### Traceability ${traceIcon}\n`;
-            if (traceExit === 0) {
-              body += '- All traceability links resolve correctly\n';
-            } else {
-              body += `- ${traceErrors} error(s), ${traceWarnings} warning(s)\n`;
-              try {
-                const details = fs.readFileSync('/tmp/traceability-output.txt', 'utf8');
-                if (details.trim()) {
-                  body += `\n<details><summary>Details</summary>\n\n\`\`\`\n${details}\n\`\`\`\n</details>\n`;
-                }
-              } catch(e) {}
-            }
-            body += '\n';
-
-            // Front-matter
-            if (fmChecked > 0) {
-              const fmIcon = fmErrors === 0 ? '✅' : '❌';
-              body += `### Front-Matter ${fmIcon}\n`;
-              if (fmErrors === 0) {
-                body += `- All ${fmChecked} changed spec file(s) have valid front-matter\n`;
-              } else {
-                body += `- ${fmErrors} error(s), ${fmWarnings} warning(s) in ${fmChecked} file(s)\n`;
-                try {
-                  const details = fs.readFileSync('/tmp/frontmatter-details.txt', 'utf8');
-                  if (details.trim()) {
-                    body += `\n${details.trim()}\n`;
-                  }
-                } catch(e) {}
-              }
-            } else {
-              body += '### Front-Matter ➖\n- No spec files changed\n';
-            }
-            body += '\n';
-
-            // Spec-before-code
             if (specWarning) {
               body += '### Spec-Before-Code ⚠️\n';
               body += `- ${implChanges} implementation file(s) changed without spec updates\n`;
-              body += '- If this changes behavior, update specs first ([C13 Fix Forward](docs/idd/concepts.md))\n';
+              body += '- If behavior changed, update specs first.\n';
               try {
-                const files = fs.readFileSync('/tmp/impl-files.txt', 'utf8');
-                if (files.trim()) {
-                  body += `\n<details><summary>Changed implementation files</summary>\n\n\`\`\`\n${files.trim()}\n\`\`\`\n</details>\n`;
+                const files = fs.readFileSync('/tmp/impl-files.txt', 'utf8').trim();
+                if (files) {
+                  body += '\n<details><summary>Changed implementation files</summary>\n\n';
+                  body += `\n\`\`\`\n${files}\n\`\`\`\n`;
+                  body += '\n</details>\n';
                 }
-              } catch(e) {}
+              } catch (_) {
+                // Ignore.
+              }
+              body += '\n';
             } else if (implChanges > 0) {
               body += '### Spec-Before-Code ✅\n';
-              body += `- ${implChanges} implementation file(s) with ${specChanges} spec file(s) updated\n`;
+              body += `- ${implChanges} implementation file(s) with ${specChanges} spec file(s) updated\n\n`;
             }
-            body += '\n---\n';
-            body += '*Automated by [IDD PR Review](skills/pr-review/SKILL.md) • [What is IDD?](docs/idd/manifesto.md)*\n';
 
-            // Determine overall status
-            const hasFailures = traceExit !== 0 || fmErrors > 0;
+            body += '---\n';
+            body += `Total errors: ${totalErrors}  \\nTotal warnings: ${totalWarnings}\n`;
+            body += '\n*Automated by IDD validation workflow.*\n';
 
-            // Find and update existing comment, or create new one
             const marker = '## IDD Compliance Review';
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
@@ -304,25 +318,39 @@ jobs:
               issue_number: context.issue.number,
             });
 
-            const existing = comments.find(c => c.body && c.body.startsWith(marker));
-
+            const existing = comments.find((comment) => comment.body && comment.body.startsWith(marker));
             if (existing) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 comment_id: existing.id,
-                body: body,
+                body,
               });
             } else {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.issue.number,
-                body: body,
+                body,
               });
             }
 
-            // Fail the job if there are errors
-            if (hasFailures) {
-              core.setFailed(`IDD compliance check failed: ${traceErrors + fmErrors} error(s)`);
-            }
+      - name: Enforce failure status
+        if: always()
+        run: |
+          FAIL_COUNT=0
+          [ "${{ steps.traceability.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
+          [ "${{ steps.frontmatter.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
+          [ "${{ steps.capability_scope.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
+          [ "${{ steps.fixtures.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
+          [ "${{ steps.models.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
+          [ "${{ steps.journey_maps.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
+          [ "${{ steps.openapi_lint.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
+          [ "${{ steps.gherkin_lint.outputs.exit_code }}" != "0" ] && FAIL_COUNT=$((FAIL_COUNT+1))
+
+          if [ "$FAIL_COUNT" -gt 0 ]; then
+            echo "Validation failed in $FAIL_COUNT check(s)."
+            exit 1
+          fi
+
+          echo "All validation checks passed."
