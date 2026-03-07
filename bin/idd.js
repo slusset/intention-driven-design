@@ -133,11 +133,13 @@ function cmdInstallSkills(argv) {
   let target = null;
   let withTechnical = false;
   let useLink = false;
+  let checkOnly = false;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--with-technical') withTechnical = true;
     else if (arg === '--link') useLink = true;
+    else if (arg === '--check') checkOnly = true;
     else if (['claude', 'codex', 'all'].includes(arg)) target = arg;
     else {
       console.error(`Unknown option: ${arg}`);
@@ -146,11 +148,39 @@ function cmdInstallSkills(argv) {
   }
 
   if (!target) {
-    console.log('Usage: idd install-skills <claude|codex|all> [--with-technical] [--link]');
+    console.log('Usage: idd install-skills <claude|codex|all> [--with-technical] [--link] [--check]');
     console.log('\nOptions:');
     console.log('  --with-technical  Include technical-skills (angular, spring-boot, etc.)');
     console.log('  --link            Symlink instead of copy (for development)');
+    console.log('  --check           Check if installed skills are up to date (no changes made)');
     return;
+  }
+
+  // --check mode: compare installed version marker against current package version
+  if (checkOnly) {
+    const targets = target === 'all' ? ['claude', 'codex'] : [target];
+    let stale = false;
+    for (const agent of targets) {
+      const markerPath = path.join(AGENT_DIRS[agent], '.idd-skills-version');
+      if (!fs.existsSync(markerPath)) {
+        console.log(`${agent}: not installed`);
+        stale = true;
+        continue;
+      }
+      try {
+        const marker = JSON.parse(fs.readFileSync(markerPath, 'utf8'));
+        if (marker.version !== pkg.version) {
+          console.log(`${agent}: outdated (installed ${marker.version}, current ${pkg.version})`);
+          stale = true;
+        } else {
+          console.log(`${agent}: up to date (${marker.version})`);
+        }
+      } catch (err) {
+        console.log(`${agent}: corrupt marker file`);
+        stale = true;
+      }
+    }
+    process.exit(stale ? 1 : 0);
   }
 
   const targets = target === 'all' ? ['claude', 'codex'] : [target];
