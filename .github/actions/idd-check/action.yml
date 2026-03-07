@@ -54,7 +54,7 @@ runs:
           cd "${{ github.action_path }}/../../.."
           npm ci
         else
-          npm install idd-toolkit
+          npm install idd-toolkit @stoplight/spectral-cli gherkin-lint
         fi
 
     - name: Gather changed specs
