@@ -222,11 +222,19 @@ function checkOpenAPIContract() {
           results.warnings.push(`${contractLabel}: Operation ${opId}: Missing x-story extension`);
         }
 
-        // Check for x-feature
-        if (!operation['x-feature']) {
+        // Check for x-feature (supports string or array)
+        const rawFeature = operation['x-feature'];
+        const xFeatures = rawFeature
+          ? (Array.isArray(rawFeature) ? rawFeature : [rawFeature])
+          : [];
+        if (xFeatures.length === 0) {
           results.warnings.push(`${contractLabel}: Operation ${opId}: Missing x-feature extension`);
-        } else if (!fileExistsIfScoped(operation['x-feature'])) {
-          results.errors.push(`${contractLabel}: Operation ${opId}: Referenced feature not found: ${operation['x-feature']}`);
+        } else {
+          for (const feat of xFeatures) {
+            if (!fileExistsIfScoped(feat)) {
+              results.errors.push(`${contractLabel}: Operation ${opId}: Referenced feature not found: ${feat}`);
+            }
+          }
         }
 
         // Check for x-journey (new — from front-matter conventions)
