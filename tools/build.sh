@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+echo "DEPRECATED: Use 'npm pack' from the repo root to build a distributable tarball." >&2
+echo "  cd $(dirname "${BASH_SOURCE[0]}")/.. && npm pack" >&2
+echo "" >&2
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$REPO_ROOT/build"
 PLUGIN_NAME="idd-skills"
