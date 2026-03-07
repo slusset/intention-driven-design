@@ -212,12 +212,18 @@ function loadOpenApiOperations(contractPaths) {
         for (const method of ['get', 'post', 'put', 'patch', 'delete']) {
           const operation = pathItem[method];
           if (!operation) continue;
+          // Support x-feature as string or array
+          const rawFeature = operation['x-feature'];
+          const xFeatures = rawFeature
+            ? (Array.isArray(rawFeature) ? rawFeature.map(normalizeRef) : [normalizeRef(rawFeature)])
+            : [];
+
           operations.push({
             method,
             pathKey,
             operationId: operation.operationId || `${method.toUpperCase()} ${pathKey}`,
             xStory: normalizeRef(operation['x-story']),
-            xFeature: normalizeRef(operation['x-feature']),
+            xFeatures,
             xJourney: normalizeRef(operation['x-journey']),
           });
         }
@@ -256,13 +262,13 @@ function computeTraceability(scope) {
     if (!header.story) {
       orphanFeatures += 1;
     }
-    const hasContract = operations.some(operation => operation.xFeature === featurePath);
+    const hasContract = operations.some(operation => operation.xFeatures.includes(featurePath));
     if (hasContract) coveredFeatures += 1;
   }
 
   let orphanEndpoints = 0;
   for (const operation of operations) {
-    if (!operation.xStory || !operation.xFeature) {
+    if (!operation.xStory || operation.xFeatures.length === 0) {
       orphanEndpoints += 1;
     }
   }
