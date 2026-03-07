@@ -112,7 +112,7 @@ runs:
         OPENAPI_RAN=false
         if [ -f "${{ inputs.spectral-ruleset }}" ] && [ -f "$SPECS_DIR/contracts/openapi/api.yaml" ]; then
           OPENAPI_RAN=true
-          npx spectral lint "$SPECS_DIR/contracts/openapi/api.yaml" --ruleset "${{ inputs.spectral-ruleset }}" > /tmp/idd-results/openapi-lint.txt 2>&1
+          npx @stoplight/spectral-cli lint "$SPECS_DIR/contracts/openapi/api.yaml" --ruleset "${{ inputs.spectral-ruleset }}" > /tmp/idd-results/openapi-lint.txt 2>&1
           OPENAPI_EXIT=$?
         fi
         echo "openapi_exit=$OPENAPI_EXIT" >> "$GITHUB_OUTPUT"
