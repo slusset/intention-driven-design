@@ -1,0 +1,40 @@
+id: trade-show-onboarding
+type: model
+aggregate: TradeShowOnboardingAggregate
+description: "Aggregate view of the signup conversation and immediate first-audit handoff."
+sources:
+  stories:
+    - specs/stories/mobile-signup.story.md
+    - specs/stories/quick-start-audit.story.md
+  journeys:
+    - specs/journeys/trade-show-signup.journey.md
+
+entities:
+  account:
+    entity: Account
+    description: "The account created from the trade-show signup flow."
+
+  firstAudit:
+    entity: Audit
+    description: "The first audit started directly after account activation."
+
+value_objects:
+  boothContext:
+    value_object: BoothContext
+    description: "Context carried through the booth conversation."
+    attributes:
+      boothCode:
+        type: string
+        required: true
+      representativeId:
+        type: string
+        required: true
+
+rules:
+  - id: first-audit-requires-active-account
+    description: "A quick-start audit can only begin after the account becomes active."
+    enforced: domain
+
+  - id: booth-context-is-captured-on-signup
+    description: "Each signup retains booth metadata for follow-up and attribution."
+    enforced: domain

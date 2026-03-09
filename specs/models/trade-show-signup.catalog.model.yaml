@@ -1,0 +1,23 @@
+id: trade-show-signup-catalog
+type: model
+catalog: TradeShowSignupCatalog
+description: "Shared catalog of fields reused across the booth signup examples."
+sources:
+  stories:
+    - specs/stories/mobile-signup.story.md
+  journeys:
+    - specs/journeys/trade-show-signup.journey.md
+
+properties:
+  boothCode:
+    type: string
+    required: true
+
+  acquisitionChannel:
+    type: enum
+    required: true
+    values: [qr-code, walk-up]
+
+  consentCapturedAt:
+    type: datetime
+    required: false
