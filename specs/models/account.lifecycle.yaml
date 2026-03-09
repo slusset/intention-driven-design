@@ -1,0 +1,42 @@
+id: account-lifecycle
+type: model
+entity: Account
+description: "State transitions for a trade-show account as signup completes."
+sources:
+  stories:
+    - specs/stories/mobile-signup.story.md
+    - specs/stories/quick-start-audit.story.md
+  journeys:
+    - specs/journeys/trade-show-signup.journey.md
+
+initial_state: initialized
+
+states:
+  initialized:
+    description: "Prospect has opened the flow but has not submitted details."
+    terminal: false
+
+  starting:
+    description: "Signup request is being processed."
+    terminal: false
+
+  active:
+    description: "Account is ready for first-audit actions."
+    terminal: false
+
+  abandoned:
+    description: "Prospect left before completing the signup."
+    terminal: true
+
+transitions:
+  submit_signup:
+    from: [initialized, starting]
+    to: [starting, active]
+    trigger: user
+    description: "The prospect submits or retries the signup form."
+
+  abandon:
+    from: [initialized, starting]
+    to: abandoned
+    trigger: system
+    description: "The flow expires before account activation."

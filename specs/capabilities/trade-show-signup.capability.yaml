@@ -13,6 +13,10 @@ scope:
     - specs/features/mobile-signup.feature
   models:
     - specs/models/account.model.yaml
+    - specs/models/account.lifecycle.yaml
+    - specs/models/trade-show-onboarding.aggregate.model.yaml
+    - specs/models/trade-show-signup.catalog.model.yaml
+    - specs/models/shared-value-objects.model.yaml
   contracts:
     - specs/contracts/openapi/api.yaml
   fixtures:

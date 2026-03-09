@@ -82,8 +82,14 @@ function isScopedRef(ref) {
   return typeof ref === 'string' && (rootPrefix === '' || ref.startsWith(`${rootPrefix}/`));
 }
 
+function normalizeReferencePath(ref) {
+  if (typeof ref !== 'string') return ref;
+  return ref.replace(/\s+\([^)]*\)\s*$/, '');
+}
+
 function fileExistsIfScoped(ref) {
-  return !isScopedRef(ref) || fileExists(ref);
+  const normalizedRef = normalizeReferencePath(ref);
+  return !isScopedRef(normalizedRef) || fileExists(normalizedRef);
 }
 
 function filterFilesBySelection(files) {
