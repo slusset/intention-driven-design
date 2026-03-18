@@ -45,12 +45,6 @@ jobs:
           echo "zip_path=$ZIP_PATH" >> "$GITHUB_OUTPUT"
           echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.build.outputs.zip_name }}
-          path: ${{ steps.build.outputs.zip_path }}
-
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
