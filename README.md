@@ -26,7 +26,7 @@ The result is a framework where AI agents can autonomously implement, verify, an
 ├─────────────────────────────────────────────────────────────┤
 │                     CONTRACT LAYER                           │
 │   Features ◀── Contracts ──▶ Fixtures                        │
-│   (Gherkin)    (OpenAPI)     (test data)                     │
+│   (Gherkin)    (OpenAPI / AsyncAPI / JSON-RPC)               │
 │                                        /behavior-contract    │
 ├──────────────────────────────────────────────────────────────┤
 │                  IMPLEMENTATION LAYER                        │
@@ -66,7 +66,9 @@ IDD breaks this into a traceable chain:
 | Narrative | `specs/stories/onboarding/mobile-signup.md` | Capability: quick mobile account creation |
 | Model | `specs/models/audit/audit.model.yaml` | Concept: Audit entity, states, rules |
 | Contract | `specs/features/onboarding/mobile-signup.feature` | Behavior: Gherkin scenarios |
-| Contract | `specs/contracts/openapi/api.yaml` | API: `POST /accounts`, `POST /audits` |
+| Contract | `specs/contracts/openapi/api.yaml` | HTTP boundary: `POST /accounts`, `POST /audits` |
+| Contract | `specs/contracts/asyncapi/audit-events.yaml` | Event boundary: `publish audits/created` |
+| Contract | `specs/contracts/json-rpc/account-service.yaml` | RPC boundary: `account.getQuickStartPrompt` |
 | Contract | `specs/fixtures/onboarding/mobile-signup.json` | Test data: request/response pairs |
 | Implementation | Backend + Frontend code | Derived from contracts |
 | Validation | `frontend/e2e/journeys/trade-show-signup.spec.ts` | E2E test following the journey |
@@ -94,7 +96,7 @@ node tools/graph-generation/generate-spec-graph.js examples --format mermaid
 
 1. **Intent precedes code.** No implementation without an explicit intent artifact.
 2. **Shared mental models are artifacts, not conversations.** If a concept matters, it has a file.
-3. **Contracts define reality at boundaries.** API contracts are the source of truth, not implementation.
+3. **Contracts define reality at boundaries.** OpenAPI, AsyncAPI, and JSON-RPC contracts are the source of truth, not implementation.
 4. **Assumptions must become executable.** Untested assumptions are technical debt.
 5. **Feedback must be fast, honest, and automated.** Evidence, not confidence theater.
 6. **Human cognition is protected.** Agents handle bookkeeping; humans handle meaning.
@@ -190,7 +192,7 @@ The `idd-workflow` skill should load that overlay before picking backend/fronten
 |-------|---------|------------|
 | **Solution Narrative** | Personas, journeys, stories — the "why" | `/solution-narrative` |
 | **Domain Modeling** | Entities, aggregates, business rules | `/domain-modeling` |
-| **Behavior Contract** | BDD features, OpenAPI contracts, fixtures | `/behavior-contract` |
+| **Behavior Contract** | BDD features, OpenAPI/AsyncAPI/JSON-RPC contracts, fixtures | `/behavior-contract` |
 | **E2E Journey Testing** | Playwright tests from journey maps | `/e2e-journey-testing` |
 | **Certification** | Traceability verification and evidence manifests | `/certification` |
 | **IDD Workflow** | Meta-skill: when to use which skill | `/idd-workflow` |
@@ -227,7 +229,7 @@ docs/idd/                    IDD philosophy and concept library
 skills/                      IDD methodology skills (bundled in package)
 ├── solution-narrative/      Personas, journeys, stories
 ├── domain-modeling/         Entities, aggregates, business rules
-├── behavior-contract/       BDD features, OpenAPI contracts, fixtures
+├── behavior-contract/       BDD features, protocol contracts, fixtures
 ├── e2e-journey-testing/     Playwright journey tests
 ├── certification/           Traceability verification and evidence
 └── idd-workflow/            Meta-skill: when to use which skill
@@ -242,7 +244,8 @@ tools/                       Validators and generators
 ├── validate-front-matter.js Validate required/recommended metadata fields
 ├── validate-traceability.js Validate cross-artifact reference integrity
 ├── validate-capability-scope.js Validate capability scope coverage
-├── validate-fixtures.js     Validate fixtures against OpenAPI request/response schemas
+├── validate-contracts.js    Validate OpenAPI, AsyncAPI, and JSON-RPC contracts
+├── validate-fixtures.js     Validate fixtures against protocol-specific contract schemas
 ├── validate-models.js       Validate model/lifecycle structural rules
 ├── validate-journey-maps.js Validate journey map structural rules
 ├── generate-evidence.js     Scaffold certification evidence manifests
@@ -267,7 +270,7 @@ idd validate traceability front-matter --json
 idd validate fixtures models --strict
 ```
 
-Available validators: `traceability`, `front-matter`, `capability-scope`, `fixtures`, `models`, `journey-maps`, `evidence`.
+Available validators: `contracts`, `traceability`, `front-matter`, `capability-scope`, `fixtures`, `models`, `journey-maps`, `evidence`.
 
 Common CLI options:
 - `--files <paths...>` limit checks to specific files

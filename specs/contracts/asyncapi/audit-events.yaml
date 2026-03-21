@@ -1,0 +1,28 @@
+asyncapi: 2.6.0
+info:
+  title: Trade Show Audit Events
+  version: 1.0.0
+  description: Event contract for quick-start audit orchestration.
+channels:
+  audits/created:
+    publish:
+      operationId: publishAuditCreated
+      summary: Publish a domain event when the first audit is created
+      x-story: specs/stories/quick-start-audit.story.md
+      x-feature: specs/features/quick-start-audit.feature
+      x-journey: specs/journeys/trade-show-signup.journey.md
+      message:
+        name: AuditCreated
+        payload:
+          type: object
+          required: [auditId, accountId, templateId, createdAt]
+          properties:
+            auditId:
+              type: string
+            accountId:
+              type: string
+            templateId:
+              type: string
+            createdAt:
+              type: string
+              format: date-time

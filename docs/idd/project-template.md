@@ -7,7 +7,7 @@
 3. `specs/stories/`
 4. `specs/models/`
 5. `specs/features/` (BDD)
-6. `specs/contracts/openapi/`
+6. `specs/contracts/openapi/`, `specs/contracts/asyncapi/`, and/or `specs/contracts/json-rpc/`
 7. `specs/fixtures/`
 8. `specs/journey-maps/`
 9. `specs/capabilities/` (created as a stub after narrative, finalized after models/contracts/features exist)
@@ -18,7 +18,7 @@
 1. Capture intent in persona + journey + story artifacts.
 2. Create a capability stub with personas, journeys, and stories.
 3. Model domain concepts, rules, and lifecycles.
-4. Convert story acceptance criteria into BDD features + API contracts, then finalize the capability scope with models, features, and contracts.
+4. Convert story acceptance criteria into BDD features + boundary contracts, then finalize the capability scope with models, features, and contracts.
 5. Implement code from contracts and feature expectations.
 6. Produce executable verification: unit, contract, e2e, regression.
 7. Publish evidence under `certification/` before merge (`/certification`).

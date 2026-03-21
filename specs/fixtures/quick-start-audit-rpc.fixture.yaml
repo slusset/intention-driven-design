@@ -1,0 +1,17 @@
+id: quick-start-audit-rpc
+type: fixture
+story: specs/stories/quick-start-audit.story.md
+feature: specs/features/quick-start-audit.feature
+scenario: The confirmation screen loads quick-start guidance
+contract:
+  protocol: json-rpc
+  ref: specs/contracts/json-rpc/account-service.yaml
+  method: account.getQuickStartPrompt
+request:
+  params:
+    accountId: acct_001
+response:
+  result:
+    accountId: acct_001
+    cta: Start first audit
+    recommendedTemplateId: template_trade_show_default

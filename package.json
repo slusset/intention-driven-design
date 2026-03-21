@@ -26,6 +26,9 @@
   "bin": {
     "idd": "./bin/idd.js"
   },
+  "scripts": {
+    "test": "node --test"
+  },
   "files": [
     "bin/",
     "tools/lib/",

@@ -11,6 +11,7 @@ scope:
     - specs/stories/quick-start-audit.story.md
   features:
     - specs/features/mobile-signup.feature
+    - specs/features/quick-start-audit.feature
   models:
     - specs/models/account.model.yaml
     - specs/models/account.lifecycle.yaml
@@ -19,7 +20,11 @@ scope:
     - specs/models/shared-value-objects.model.yaml
   contracts:
     - specs/contracts/openapi/api.yaml
+    - specs/contracts/asyncapi/audit-events.yaml
+    - specs/contracts/json-rpc/account-service.yaml
   fixtures:
     - specs/fixtures/mobile-signup.fixture.yaml
+    - specs/fixtures/quick-start-audit-rpc.fixture.yaml
+    - specs/fixtures/quick-start-audit-event.fixture.yaml
   journey_maps:
     - specs/journey-maps/trade-show-signup.journey-map.yaml

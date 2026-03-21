@@ -41,7 +41,7 @@ paths:
     post:
       operationId: createInitialAudit
       x-story: specs/stories/quick-start-audit.story.md
-      x-feature: specs/features/mobile-signup.feature
+      x-feature: specs/features/quick-start-audit.feature
       x-journey: specs/journeys/trade-show-signup.journey.md
       summary: Create a first audit from quick-start prompt
       parameters:

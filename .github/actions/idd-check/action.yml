@@ -90,7 +90,7 @@ runs:
         # Determine which core checks to run
         CHECKS="${{ inputs.checks }}"
         if [ "$CHECKS" = "all" ]; then
-          CHECKS="traceability front-matter capability-scope fixtures models journey-maps"
+          CHECKS="contracts traceability front-matter capability-scope fixtures models journey-maps"
         fi
 
         # Run each core validator individually, capturing JSON per check
@@ -117,6 +117,8 @@ runs:
         fi
         echo "openapi_exit=$OPENAPI_EXIT" >> "$GITHUB_OUTPUT"
         echo "openapi_ran=$OPENAPI_RAN" >> "$GITHUB_OUTPUT"
+
+        # AsyncAPI and JSON-RPC contract validation is covered by the core "contracts" validator.
 
         # Run Gherkin lint if config and features exist
         GHERKIN_EXIT=0
@@ -163,6 +165,7 @@ runs:
         // ── Pretty names for checks ──
         const LABELS = {
           'traceability': 'Traceability',
+          'contracts': 'Contracts',
           'front-matter': 'Front-Matter',
           'capability-scope': 'Capability Scope',
           'fixtures': 'Fixtures',

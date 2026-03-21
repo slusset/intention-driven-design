@@ -2,7 +2,7 @@
 id: trade-show-signup
 type: journey
 refs:
-  persona: examples/personas/trade-show-prospect.persona.md
+  persona: specs/personas/trade-show-prospect.persona.md
 ---
 
 # Journey: Trade Show Signup

@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const yaml = require('js-yaml');
+const { extractContractOperations, loadContractDocuments } = require('../lib/contracts');
 const {
   getExpectedType,
   parseFrontMatter,
@@ -33,8 +33,6 @@ const NODE_TYPES = new Set([
   'capability',
   'contract',
 ]);
-const OPERATION_METHODS = ['get', 'post', 'put', 'patch', 'delete'];
-
 function parseArgs(argv) {
   const args = {
     specsDir: null,
@@ -134,10 +132,7 @@ function toArray(value) {
 
 function normalizeContractSignature(value) {
   if (!value || typeof value !== 'string') return null;
-  const trimmed = value.trim().replace(/\s+/g, ' ');
-  const match = trimmed.match(/^(GET|POST|PUT|PATCH|DELETE)\s+(.+)$/i);
-  if (!match) return null;
-  return `${match[1].toUpperCase()} ${match[2]}`;
+  return value.trim().replace(/\s+/g, ' ');
 }
 
 function escapeRegExp(value) {
@@ -339,65 +334,53 @@ function registerArtifactsFromFrontMatter(state, specsDir) {
   }
 }
 
-function registerContractsFromOpenApi(state, specsDir) {
-  const contractsDir = path.join(specsDir, 'contracts', 'openapi');
-  const openApiFiles = findFiles(contractsDir, /\.ya?ml$/i);
+function registerContracts(state, specsDir) {
+  const contracts = loadContractDocuments(specsDir, {
+    errors: state.warnings,
+    warnings: state.warnings,
+    info: [],
+  });
 
-  for (const filePath of openApiFiles) {
-    const relativePath = toPosix(path.relative(process.cwd(), filePath));
+  for (const contract of contracts) {
+    const relativePath = toPosix(path.relative(process.cwd(), contract.filePath));
+    const operations = extractContractOperations(contract);
 
-    let doc;
-    try {
-      doc = yaml.load(fs.readFileSync(filePath, 'utf8'));
-    } catch (error) {
-      state.warnings.push(`Failed to parse OpenAPI file ${relativePath}: ${error.message}`);
-      continue;
-    }
+    for (const operation of operations) {
+      const operationKey = operation.operationId
+        || operation.methodName
+        || `${operation.protocol}_${operation.action || operation.method || 'op'}_${operation.channelName || operation.routePath || operation.label}`;
+      const id = operationSlug(operation.protocol, operationKey);
+      const signature = normalizeContractSignature(operation.signature);
+      const uid = addNode(state, {
+        type: 'contract',
+        id,
+        path: `${relativePath}#${signature}`,
+        label: `${operation.protocol}:${operation.label}`,
+        meta: {
+          file: relativePath,
+          signature,
+          operationId: operation.operationId || '',
+        },
+      });
 
-    if (!doc || typeof doc !== 'object' || !doc.paths) {
-      continue;
-    }
+      if (!uid) continue;
 
-    for (const [routePath, pathItem] of Object.entries(doc.paths)) {
-      if (!pathItem || typeof pathItem !== 'object' || pathItem.$ref) {
-        continue;
+      if (signature) {
+        if (!state.contractsBySignature.has(signature)) {
+          state.contractsBySignature.set(signature, new Set());
+        }
+        state.contractsBySignature.get(signature).add(uid);
       }
-
-      for (const method of OPERATION_METHODS) {
-        const operation = pathItem[method];
-        if (!operation || typeof operation !== 'object') {
-          continue;
-        }
-
-        const signature = normalizeContractSignature(`${method.toUpperCase()} ${routePath}`);
-        const id = operationSlug(method, routePath);
-        const uid = addNode(state, {
-          type: 'contract',
-          id,
-          path: `${relativePath}#${method.toUpperCase()} ${routePath}`,
-          label: `contract:${id}`,
-          meta: {
-            file: relativePath,
-            signature,
-            operationId: operation.operationId || '',
-          },
-        });
-
-        if (!uid) continue;
-
-        if (signature) {
-          if (!state.contractsBySignature.has(signature)) {
-            state.contractsBySignature.set(signature, new Set());
-          }
-          state.contractsBySignature.get(signature).add(uid);
-        }
-        if (!state.contractUidsByFile.has(relativePath)) {
-          state.contractUidsByFile.set(relativePath, []);
-        }
-        state.contractUidsByFile.get(relativePath).push(uid);
-
-        addContractReferenceEdges(state, uid, operation, relativePath);
+      if (!state.contractUidsByFile.has(relativePath)) {
+        state.contractUidsByFile.set(relativePath, []);
       }
+      state.contractUidsByFile.get(relativePath).push(uid);
+
+      addContractReferenceEdges(state, uid, {
+        'x-story': operation.storyRefs,
+        'x-feature': operation.featureRefs,
+        'x-journey': operation.journeyRefs,
+      }, relativePath);
     }
   }
 }
@@ -759,7 +742,7 @@ function buildGraph(specsDir) {
   state.specRootPrefix = toPosix(path.relative(process.cwd(), specsDir));
 
   registerArtifactsFromFrontMatter(state, specsDir);
-  registerContractsFromOpenApi(state, specsDir);
+  registerContracts(state, specsDir);
   addArtifactEdges(state);
   addCapabilityScope(state);
 

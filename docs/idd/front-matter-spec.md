@@ -7,7 +7,7 @@ IDD artifacts use five different reference conventions parsed five different way
 | Artifact | Reference mechanism |
 |----------|-------------------|
 | Feature files | `# Story:` / `# Journey:` Gherkin comments |
-| OpenAPI operations | `x-story` / `x-feature` / `x-journey` extensions |
+| Contract operations | `x-story` / `x-feature` / `x-journey` extensions |
 | Fixtures | `_meta.story` / `_meta.feature` JSON blocks |
 | Journey maps | `sources.journey` / `sources.stories` YAML fields |
 | Stories/journeys | `Journey:` / `Persona:` embedded in markdown prose |
@@ -199,7 +199,7 @@ sources:
 
 ## Relationship to capability artifacts
 
-Capabilities are the highest-level grouping artifact. They define the scope of what gets certified. The capability's `scope` block is the authoritative enumeration of which artifacts belong together — it replaces the inline `intent` block that previously lived only in `certification/{capability}/evidence.yaml`.
+Capabilities are the highest-level grouping artifact. They define the scope of what gets certified. The capability's `scope` block is the authoritative enumeration of which artifacts belong together, including OpenAPI, AsyncAPI, and JSON-RPC contracts. It replaces the inline `intent` block that previously lived only in `certification/{capability}/evidence.yaml`.
 
 See `docs/idd/certification-guide.md` for how capabilities relate to certification.
 
