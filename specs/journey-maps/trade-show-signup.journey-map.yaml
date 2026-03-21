@@ -8,9 +8,14 @@ sources:
     - specs/stories/quick-start-audit.story.md
   features:
     - specs/features/mobile-signup.feature
+    - specs/features/quick-start-audit.feature
 fixtures:
   mobile-signup-happy-path:
     ref: specs/fixtures/mobile-signup.fixture.yaml
+  quick-start-audit-rpc:
+    ref: specs/fixtures/quick-start-audit-rpc.fixture.yaml
+  quick-start-audit-event:
+    ref: specs/fixtures/quick-start-audit-event.fixture.yaml
 steps:
   - id: scan-qr
     story: specs/stories/mobile-signup.story.md

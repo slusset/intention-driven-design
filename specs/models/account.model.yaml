@@ -2,13 +2,17 @@ id: account
 type: model
 entity: Account
 aggregate: AccountAggregate
+description: Trade-show signup account state used by onboarding and quick-start audit flows.
+identity:
+  field: accountId
+  type: string
 sources:
   stories:
     - specs/stories/mobile-signup.story.md
     - specs/stories/quick-start-audit.story.md
   journeys:
     - specs/journeys/trade-show-signup.journey.md
-fields:
+attributes:
   accountId:
     type: string
     constraints:
@@ -26,5 +30,6 @@ fields:
       - active
 rules:
   - id: account-activates-on-signup
+    description: A successful mobile signup immediately activates the newly created account.
     when: signup-submitted
     then: status=active

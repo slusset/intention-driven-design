@@ -98,7 +98,13 @@ function parseGherkinFrontMatter(content) {
     if (match) {
       const key = match[1];
       const value = match[2].trim();
-      frontMatter[key] = value;
+      if (frontMatter[key] === undefined) {
+        frontMatter[key] = value;
+      } else if (Array.isArray(frontMatter[key])) {
+        frontMatter[key].push(value);
+      } else {
+        frontMatter[key] = [frontMatter[key], value];
+      }
       lastHeaderLine = i;
     } else if (line.startsWith('#') && lastHeaderLine === -1) {
       // Regular comment before any headers — skip

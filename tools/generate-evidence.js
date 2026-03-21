@@ -34,6 +34,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const { extractContractOperations, parseContractDocument } = require('./lib/contracts');
 const { parseFrontMatter, fileExists, findFiles, formatResults } = require('./lib/parse-front-matter');
 
 const args = process.argv.slice(2);
@@ -198,38 +199,40 @@ function loadFeatureHeaders(featurePaths) {
   return featureHeaders;
 }
 
-function loadOpenApiOperations(contractPaths) {
+function loadContractOperations(contractPaths) {
   const operations = [];
 
   for (const contractPath of contractPaths) {
+    const resolvedPath = path.resolve(contractPath);
+    const relativePath = normalizeRef(contractPath);
+
     try {
-      const api = readYaml(path.resolve(contractPath));
-      if (!api || !api.paths) continue;
+      const document = parseContractDocument(resolvedPath);
+      let protocol = null;
+      if (document && document.openapi) protocol = 'openapi';
+      else if (document && document.asyncapi) protocol = 'asyncapi';
+      else if (document && (document.jsonrpc || document.methods)) protocol = 'json-rpc';
 
-      for (const [pathKey, pathItem] of Object.entries(api.paths)) {
-        if (!pathItem || typeof pathItem !== 'object' || pathItem.$ref) continue;
-
-        for (const method of ['get', 'post', 'put', 'patch', 'delete']) {
-          const operation = pathItem[method];
-          if (!operation) continue;
-          // Support x-feature as string or array
-          const rawFeature = operation['x-feature'];
-          const xFeatures = rawFeature
-            ? (Array.isArray(rawFeature) ? rawFeature.map(normalizeRef) : [normalizeRef(rawFeature)])
-            : [];
-
-          operations.push({
-            method,
-            pathKey,
-            operationId: operation.operationId || `${method.toUpperCase()} ${pathKey}`,
-            xStory: normalizeRef(operation['x-story']),
-            xFeatures,
-            xJourney: normalizeRef(operation['x-journey']),
-          });
-        }
+      if (!protocol) {
+        results.warnings.push(`${contractPath}: Unable to infer contract protocol for evidence generation`);
+        continue;
       }
+
+      const contract = {
+        protocol,
+        filePath: resolvedPath,
+        relativePath,
+        document,
+      };
+
+      operations.push(...extractContractOperations(contract).map(operation => ({
+        signature: operation.signature,
+        xStory: operation.storyRefs[0] || '',
+        xFeatures: operation.featureRefs,
+        xJourney: operation.journeyRefs[0] || '',
+      })));
     } catch (error) {
-      results.errors.push(`${contractPath}: Failed to parse OpenAPI contract: ${error.message}`);
+      results.errors.push(`${contractPath}: Failed to parse contract: ${error.message}`);
     }
   }
 
@@ -244,7 +247,7 @@ function computeTraceability(scope) {
   const journeyMaps = getScopeEntries(scope, 'journeyMaps');
 
   const featureHeaders = loadFeatureHeaders(features);
-  const operations = loadOpenApiOperations(contracts);
+  const operations = loadContractOperations(contracts);
 
   let coveredStories = 0;
   for (const story of stories) {
@@ -302,7 +305,7 @@ function computeTraceability(scope) {
   }
 
   const endpointTraceability = contracts.length > 0
-    ? results.warnings.push('Endpoint-to-test coverage is not fully inferable yet; endpoints_with_tests requires report-aware or test-aware validation')
+    ? results.warnings.push('Contract-operation-to-test coverage is not fully inferable yet; endpoints_with_tests requires report-aware or test-aware validation')
     : null;
   void endpointTraceability;
 

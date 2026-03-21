@@ -1,6 +1,6 @@
 ---
 name: behavior-contract
-description: "Convert solution narratives into BDD feature files and OpenAPI contracts. Use when translating user stories into testable specifications and API definitions. Consumes output from solution-narrative skill, produces artifacts consumed by architecture skills."
+description: "Convert solution narratives into BDD feature files and protocol contracts. Use when translating user stories into testable specifications and API/event/RPC definitions. Consumes output from solution-narrative skill, produces artifacts consumed by architecture skills."
 argument-hint: "[feature-area or story]"
 allowed-tools:
   - Read
@@ -20,7 +20,7 @@ Transform narrative artifacts into executable specifications and API contracts. 
 1. Review journey and story from specs/journeys/ and specs/stories/.
 2. Write Gherkin feature files capturing behavior.
 3. Identify API touchpoints from journey system responses.
-4. Define or update OpenAPI contract.
+4. Define or update the appropriate OpenAPI, AsyncAPI, or JSON-RPC contract.
 5. Create fixtures for test data.
 6. Finalize the capability scope by adding the relevant models, features, and contracts.
 7. Ensure traceability: story → feature → contract → implementation.
@@ -35,12 +35,12 @@ specs/
 │   └── {feature-area}/
 │       └── {feature-name}.feature
 ├── contracts/
-│   └── openapi/
-│       ├── api.yaml              ← main spec
-│       └── components/
-│           ├── schemas.yaml
-│           ├── parameters.yaml
-│           └── responses.yaml
+│   ├── openapi/
+│   │   └── api.yaml              ← HTTP boundary
+│   ├── asyncapi/
+│   │   └── events.yaml           ← event boundary
+│   └── json-rpc/
+│       └── service.yaml          ← RPC boundary
 └── fixtures/
     └── {feature-area}/
         └── {fixture-name}.json
@@ -74,7 +74,7 @@ Before defining contract schemas, check specs/models/:
 ## Traceability Requirements
 
 - Feature files must reference the source story, journey, and contract at the top of the file.
-- OpenAPI operations must include `x-story`, `x-feature`, and `x-journey`.
+- Contract operations must include `x-story`, `x-feature`, and `x-journey`.
 - Fixtures must include a `_meta` block with the story and scenario they support.
 
 ## Feature File Template

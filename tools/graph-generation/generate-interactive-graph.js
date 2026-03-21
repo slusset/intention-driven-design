@@ -18,6 +18,8 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const { extractContractOperations, loadContractDocuments } = require('../lib/contracts');
+const { parseFrontMatter } = require('../lib/parse-front-matter');
 
 const SPECS_DIR = process.argv[2]
   ? path.resolve(process.argv[2])
@@ -198,28 +200,18 @@ function parseLifecycles() {
 }
 
 function parseContracts() {
-  const apiFile = path.join(SPECS_DIR, 'contracts/openapi/api.yaml');
-  if (!fs.existsSync(apiFile)) return;
-  let api;
-  try { api = yaml.load(fs.readFileSync(apiFile, 'utf8')); } catch (_) { return; }
-  if (!api.paths) return;
-
-  for (const [pathKey, pathItem] of Object.entries(api.paths)) {
-    if (pathItem.$ref) continue;
-    for (const method of ['get', 'post', 'put', 'patch', 'delete']) {
-      const op = pathItem[method];
-      if (!op) continue;
-      const id = `contract:${method.toUpperCase()} ${pathKey}`;
-      const tag = op.tags?.[0] || '';
-      addNode(id, 'contract', `${method.toUpperCase()} ${pathKey}`, {
-        operationId: op.operationId, tag, summary: op.summary || '',
+  const contracts = loadContractDocuments(SPECS_DIR, null);
+  for (const contract of contracts) {
+    for (const operation of extractContractOperations(contract)) {
+      const id = `contract:${operation.signature}`;
+      addNode(id, 'contract', operation.signature, {
+        operationId: operation.operationId || operation.methodName || '',
+        summary: operation.label || '',
+        protocol: operation.protocol,
       });
-      if (op['x-journey']) addEdge(id, op['x-journey'], 'serves');
-      if (op['x-story']) {
-        const sp = resolveStoryName(op['x-story'], tag);
-        if (sp) addEdge(id, sp, 'implements');
-      }
-      if (op['x-feature']) addEdge(id, op['x-feature'], 'tested-by');
+      for (const journeyRef of operation.journeyRefs) addEdge(id, journeyRef, 'serves');
+      for (const storyRef of operation.storyRefs) addEdge(id, storyRef, 'implements');
+      for (const featureRef of operation.featureRefs) addEdge(id, featureRef, 'tested-by');
     }
   }
 }
@@ -245,13 +237,18 @@ function parseJourneyMaps() {
 }
 
 function parseFixtures() {
-  for (const f of findFiles(path.join(SPECS_DIR, 'fixtures'), /\.json$/)) {
+  for (const f of findFiles(path.join(SPECS_DIR, 'fixtures'), /\.(json|ya?ml)$/)) {
     const id = relPath(f);
     let fixture;
-    try { fixture = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (_) { continue; }
+    try {
+      const parsed = parseFrontMatter(f, fs.readFileSync(f, 'utf8'));
+      fixture = parsed.body;
+    } catch (_) { continue; }
     addNode(id, 'fixture', titleCase(path.basename(f, '.json')), { file: id });
-    if (fixture._meta?.story) addEdge(id, fixture._meta.story, 'test-data-for');
-    if (fixture._meta?.feature) addEdge(id, fixture._meta.feature, 'feeds');
+    const storyRef = fixture?.story || fixture?._meta?.story;
+    const featureRef = fixture?.feature || fixture?._meta?.feature;
+    if (storyRef) addEdge(id, storyRef, 'test-data-for');
+    if (featureRef) addEdge(id, featureRef, 'feeds');
   }
 }
 

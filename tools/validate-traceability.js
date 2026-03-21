@@ -5,7 +5,7 @@
  *
  * Validates:
  * - Feature files reference stories and journeys
- * - OpenAPI operations reference features
+ * - Contract operations reference stories, features, and journeys
  * - Journey maps reference journeys
  * - Models reference stories
  * - Stories reference journeys
@@ -30,6 +30,11 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const {
+  extractContractOperations,
+  loadContractDocuments,
+  protocolDisplayName,
+} = require('./lib/contracts');
 const {
   parseFrontMatter,
   findFiles,
@@ -164,7 +169,7 @@ function checkFeatureFiles() {
     }
 
     if (!contractFound) {
-      const contractMatch = content.match(/# [Cc]ontract:\s*(GET|POST|PUT|PATCH|DELETE)\s/);
+      const contractMatch = content.match(/^#\s*[Cc]ontract:\s*(.+)$/m);
       contractFound = !!contractMatch;
     }
 
@@ -183,77 +188,67 @@ function checkFeatureFiles() {
   results.info.push(`Checked ${features.length} feature file(s)`);
 }
 
-// ── OpenAPI contract ──────────────────────────────────────────────────
-function checkOpenAPIContract() {
-  const openApiDir = path.join(specsDir, 'contracts/openapi');
-  const apiFiles = filterFilesBySelection(findFiles(openApiDir, /\.ya?ml$/));
+// ── Contracts ─────────────────────────────────────────────────────────
+function checkContracts() {
+  const selectedPaths = specificFileSet
+    ? new Set(Array.from(specificFileSet).map(filePath => path.resolve(filePath)))
+    : null;
+  const loadedContracts = loadContractDocuments(specsDir, results)
+    .filter(contract => !selectedPaths || selectedPaths.has(contract.filePath));
 
-  if (apiFiles.length === 0) {
-    results.info.push('OpenAPI contract not found, skipping');
+  if (loadedContracts.length === 0) {
+    results.info.push('No contract artifacts found, skipping');
     return;
   }
 
   let operationCount = 0;
 
-  for (const apiFile of apiFiles) {
-    let api;
-    let contractLabel = path.relative(process.cwd(), apiFile);
+  for (const contract of loadedContracts) {
+    const contractLabel = contract.relativePath;
+    const operations = extractContractOperations(contract);
 
-    try {
-      const content = fs.readFileSync(apiFile, 'utf8');
-      api = yaml.load(content);
-    } catch (e) {
-      results.errors.push(`${contractLabel}: Failed to parse OpenAPI spec: ${e.message}`);
+    if (operations.length === 0) {
+      results.info.push(`${contractLabel}: ${protocolDisplayName(contract.protocol)} contract has no operations defined`);
       continue;
     }
 
-    if (!api || !api.paths) {
-      results.info.push(`${contractLabel}: OpenAPI spec has no paths defined`);
-      continue;
-    }
+    for (const operation of operations) {
+      operationCount += 1;
+      const opId = operation.label || operation.signature;
 
-    for (const [pathKey, pathItem] of Object.entries(api.paths)) {
-      // Skip $ref paths (they'll be validated when resolved)
-      if (pathItem.$ref) continue;
-
-      for (const method of ['get', 'post', 'put', 'patch', 'delete']) {
-        const operation = pathItem[method];
-        if (!operation) continue;
-
-        operationCount++;
-        const opId = operation.operationId || `${method.toUpperCase()} ${pathKey}`;
-
-        // Check for x-story
-        if (!operation['x-story']) {
-          results.warnings.push(`${contractLabel}: Operation ${opId}: Missing x-story extension`);
-        }
-
-        // Check for x-feature (supports string or array)
-        const rawFeature = operation['x-feature'];
-        const xFeatures = rawFeature
-          ? (Array.isArray(rawFeature) ? rawFeature : [rawFeature])
-          : [];
-        if (xFeatures.length === 0) {
-          results.warnings.push(`${contractLabel}: Operation ${opId}: Missing x-feature extension`);
-        } else {
-          for (const feat of xFeatures) {
-            if (!fileExistsIfScoped(feat)) {
-              results.errors.push(`${contractLabel}: Operation ${opId}: Referenced feature not found: ${feat}`);
-            }
+      if (operation.storyRefs.length === 0) {
+        results.warnings.push(`${contractLabel}: Operation ${opId}: Missing x-story extension`);
+      } else {
+        for (const storyRef of operation.storyRefs) {
+          if (!fileExistsIfScoped(storyRef)) {
+            results.errors.push(`${contractLabel}: Operation ${opId}: Referenced story not found: ${storyRef}`);
           }
         }
+      }
 
-        // Check for x-journey (new — from front-matter conventions)
-        if (!operation['x-journey']) {
-          results.info.push(`${contractLabel}: Operation ${opId}: No x-journey extension (optional)`);
-        } else if (!fileExistsIfScoped(operation['x-journey'])) {
-          results.errors.push(`${contractLabel}: Operation ${opId}: Referenced journey not found: ${operation['x-journey']}`);
+      if (operation.featureRefs.length === 0) {
+        results.warnings.push(`${contractLabel}: Operation ${opId}: Missing x-feature extension`);
+      } else {
+        for (const featureRef of operation.featureRefs) {
+          if (!fileExistsIfScoped(featureRef)) {
+            results.errors.push(`${contractLabel}: Operation ${opId}: Referenced feature not found: ${featureRef}`);
+          }
+        }
+      }
+
+      if (operation.journeyRefs.length === 0) {
+        results.info.push(`${contractLabel}: Operation ${opId}: No x-journey extension (optional)`);
+      } else {
+        for (const journeyRef of operation.journeyRefs) {
+          if (!fileExistsIfScoped(journeyRef)) {
+            results.errors.push(`${contractLabel}: Operation ${opId}: Referenced journey not found: ${journeyRef}`);
+          }
         }
       }
     }
   }
 
-  results.info.push(`Checked ${operationCount} API operation(s) across ${apiFiles.length} contract file(s)`);
+  results.info.push(`Checked ${operationCount} contract operation(s) across ${loadedContracts.length} contract file(s)`);
 }
 
 // ── Journey maps ──────────────────────────────────────────────────────
@@ -555,7 +550,7 @@ function main() {
   checkJourneys();
   checkStories();
   checkFeatureFiles();
-  checkOpenAPIContract();
+  checkContracts();
   checkFixtures();
   checkJourneyMaps();
   checkModels();

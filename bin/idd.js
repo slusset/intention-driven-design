@@ -38,6 +38,7 @@ if (commands[subcommand]) {
 
 function cmdValidate(argv) {
   const VALIDATORS = {
+    contracts: 'validate-contracts.js',
     traceability: 'validate-traceability.js',
     'front-matter': 'validate-front-matter.js',
     'capability-scope': 'validate-capability-scope.js',
@@ -246,6 +247,8 @@ function cmdInit(argv) {
     'specs/stories',
     'specs/features',
     'specs/contracts/openapi',
+    'specs/contracts/asyncapi',
+    'specs/contracts/json-rpc',
     'specs/fixtures',
     'specs/models',
     'specs/capabilities',

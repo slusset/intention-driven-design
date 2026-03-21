@@ -1,0 +1,16 @@
+id: quick-start-audit-event
+type: fixture
+story: specs/stories/quick-start-audit.story.md
+feature: specs/features/quick-start-audit.feature
+scenario: Creating the first audit emits a contract event
+contract:
+  protocol: asyncapi
+  ref: specs/contracts/asyncapi/audit-events.yaml
+  channel: audits/created
+  action: publish
+request:
+  payload:
+    auditId: audit_001
+    accountId: acct_001
+    templateId: template_trade_show_default
+    createdAt: '2026-03-21T10:15:00Z'
