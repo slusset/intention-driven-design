@@ -122,16 +122,59 @@ function dereference(value, document) {
   return resolvePointer(document, value.$ref) || value;
 }
 
+function resolveLocalRefs(value, document, seenRefs = new Set()) {
+  if (Array.isArray(value)) {
+    return value.map(item => resolveLocalRefs(item, document, seenRefs));
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  if (value.$ref && typeof value.$ref === 'string' && value.$ref.startsWith('#/')) {
+    if (seenRefs.has(value.$ref)) {
+      return value;
+    }
+
+    const resolved = resolvePointer(document, value.$ref);
+    if (!resolved) {
+      return value;
+    }
+
+    const nextSeenRefs = new Set(seenRefs);
+    nextSeenRefs.add(value.$ref);
+
+    const resolvedValue = resolveLocalRefs(resolved, document, nextSeenRefs);
+    const siblingEntries = Object.entries(value).filter(([key]) => key !== '$ref');
+    if (siblingEntries.length === 0) {
+      return resolvedValue;
+    }
+
+    return {
+      ...(resolvedValue && typeof resolvedValue === 'object' && !Array.isArray(resolvedValue) ? resolvedValue : {}),
+      ...Object.fromEntries(
+        siblingEntries.map(([key, child]) => [key, resolveLocalRefs(child, document, nextSeenRefs)])
+      ),
+    };
+  }
+
+  const clone = {};
+  for (const [key, child] of Object.entries(value)) {
+    clone[key] = resolveLocalRefs(child, document, seenRefs);
+  }
+  return clone;
+}
+
 function schemaFromOpenApiContent(content, document) {
   if (!content || typeof content !== 'object') return null;
 
   if (content['application/json'] && content['application/json'].schema) {
-    return dereference(content['application/json'].schema, document);
+    return resolveLocalRefs(content['application/json'].schema, document);
   }
 
   for (const mediaType of Object.values(content)) {
     if (mediaType && typeof mediaType === 'object' && mediaType.schema) {
-      return dereference(mediaType.schema, document);
+      return resolveLocalRefs(mediaType.schema, document);
     }
   }
 
@@ -297,6 +340,7 @@ module.exports = {
   parseContractDocument,
   protocolDisplayName,
   responseForStatus,
+  resolveLocalRefs,
   schemaFromOpenApiContent,
   toArray,
   toPosix,
