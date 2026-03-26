@@ -19,9 +19,10 @@
 2. Create a capability stub with personas, journeys, and stories.
 3. Model domain concepts, rules, and lifecycles.
 4. Convert story acceptance criteria into BDD features + API contracts, then finalize the capability scope with models, features, and contracts.
-5. Implement code from contracts and feature expectations.
-6. Produce executable verification: unit, contract, e2e, regression.
-7. Publish evidence under `certification/` before merge (`/certification`).
+5. If work is delegated or parallelized, define role contracts before edits begin.
+6. Implement code from contracts and feature expectations.
+7. Produce executable verification: unit, contract, e2e, regression.
+8. Publish evidence under `certification/` before merge (`/certification`).
 
 ## Done criteria
 
@@ -31,3 +32,4 @@
 - No feature is accepted on manual confidence alone.
 - Certification evidence manifest is committed with traceability verified.
 - Gaps are declared honestly, not hidden.
+- Delegated roles preserve declared boundaries and invariants.

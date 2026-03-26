@@ -20,6 +20,8 @@ Two execution modes:
 2. **Agent-assisted** — Claude (or another agent) loads this skill for semantic review.
 
 The automated layer is fast and cheap (no LLM). The agent layer catches what static checks cannot: misaligned intent, incomplete journeys, naming drift.
+When role contracts are present, it should also catch cross-boundary changes
+that violate the declared execution contract.
 
 ## When to Use
 
@@ -58,6 +60,7 @@ The automated layer is fast and cheap (no LLM). The agent layer catches what sta
 │  │  • Completeness (missing edge-case scenarios,     │  │
 │  │    missing error responses)                       │  │
 │  │  • Model drift (code diverging from model rules)  │  │
+│  │  • Role-boundary drift in delegated work          │  │
 │  └───────────────────────────────────────────────────┘  │
 │                          │                              │
 │                  comment on PR                          │
@@ -136,6 +139,36 @@ If the PR modifies implementation files (`backend/src/`, `frontend/src/`) but no
 
 **Pass criteria**: Warning only (never blocks).
 
+### Check 6: Role Contract Coverage
+
+If the PR includes delegated or multi-agent work and role contracts are present,
+verify that:
+
+- each changed file falls within at least one declared role boundary
+- methodology or governance docs changed by an implementation role are flagged
+- artifact changes outside a role's allowed scope are reported for review
+
+This check is advisory by default because repositories may adopt role contracts
+incrementally.
+
+**Pass criteria**: Warning only unless the repo explicitly makes role contracts mandatory.
+
+### Check 7: Methodology Change Coverage
+
+If the PR changes methodology-defining surfaces such as `docs/idd/`, `skills/`,
+`tools/`, or `.github/workflows/`, verify that the PR includes enough context to
+justify the change:
+
+- an intent artifact or design note describing the change
+- clear statement of the affected methodology boundary
+- evidence or worked example supporting the proposed adoption state
+- explicit indication of whether the change is exploratory, provisional, or canonical
+
+This check is advisory by default. It exists to ensure changes to the
+methodology follow the methodology.
+
+**Pass criteria**: Warning only unless the repo chooses to make methodology artifacts mandatory.
+
 ## Layer 2: Semantic Review
 
 These checks require an LLM (Claude or equivalent) and are optional. They provide deeper analysis as PR comments.
@@ -174,6 +207,28 @@ For changed feature files:
 - Are edge cases from the story's acceptance criteria covered?
 
 **Output**: PR comment listing potential missing scenarios.
+
+### Semantic Check: Role-Boundary Drift
+
+When role contracts are available:
+
+- compare the changed files to the active role boundaries
+- flag actors changing artifacts outside their declared ownership
+- flag downstream edits that should have been routed through an upstream skill
+- flag methodology or governance changes that lack explicit human approval
+
+**Output**: PR comment summarizing role-boundary drift risks.
+
+### Semantic Check: Methodology Change Legibility
+
+When the PR changes methodology-defining files:
+
+- identify whether the change declares intent clearly
+- identify whether the scope of the change is explicit
+- identify whether evidence matches the claimed promotion state
+- flag experiments that are being written as canonical doctrine too early
+
+**Output**: PR comment summarizing whether the methodology change is legible, scoped, and evidenced.
 
 ## GitHub Action Integration
 
@@ -280,6 +335,7 @@ PR review catches problems early and cheaply. Certification provides the formal 
 | C14 — Agent Non-Negotiables | **primary**: enforces rule 3 (no merge without evidence) at PR boundary |
 | C12 — Done Means Verified | referenced: PR review is the first verification gate |
 | C15 — Capability as Cert Unit | referenced: capability scope check uses capability artifacts |
+| C16 — Agent Role as Execution Contract | referenced: role-boundary drift checks delegated work |
 
 ## Guardrails
 
@@ -288,4 +344,5 @@ PR review catches problems early and cheaply. Certification provides the formal 
 - Never block a PR on Layer 2 results alone. Humans decide on semantic issues.
 - The spec-before-code check is a warning, never a blocker. Pure refactors are valid.
 - PR review does not replace certification. It complements it.
+- Methodology-change checks are warnings unless the repo explicitly promotes them to blockers.
 - Check scripts must exit 0 (pass) or 1 (fail) — no partial states.

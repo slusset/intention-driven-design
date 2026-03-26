@@ -18,3 +18,16 @@
 - Prefer deterministic checks over narrative claims.
 - Report confidence as evidence-backed findings, not opinions.
 - Keep humans focused on meaning and tradeoffs, not bookkeeping.
+
+## Agent role protocol
+
+Before parallel or delegated work begins, define the active role contract:
+
+- Role name and owned boundary
+- Required upstream artifacts and invariants
+- Allowed decisions and prohibited changes
+- Expected outputs and handoff target
+- Success evidence for closing the role
+
+If a role discovers a gap outside its authority, it must route the change to the
+correct upstream layer instead of improvising across boundaries.

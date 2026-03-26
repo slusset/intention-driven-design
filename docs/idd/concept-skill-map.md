@@ -24,6 +24,7 @@ How IDD concepts distribute across skills. Use this when:
 | C13 Fix Forward                 | | | referenced | referenced | referenced | **primary** | **primary** |
 | C14 Agent Non-Negotiables       | referenced | referenced | referenced | referenced | referenced | **primary** | referenced |
 | C15 Capability as Cert Unit     | referenced | | | | **primary** | referenced | **primary** |
+| C16 Agent Role as Exec Contract | referenced | referenced | referenced | referenced | referenced | referenced | **primary** |
 
 **primary** = skill is the main vehicle for this concept; it defines templates and enforces it.
 **referenced** = skill mentions or depends on the concept but doesn't define it.
@@ -36,13 +37,13 @@ The pr-review skill is also cross-cutting — it enforces IDD compliance at the 
 
 | Skill | Primary concepts | Referenced concepts |
 |-------|:---:|:---:|
-| solution-narrative   | C1, C2, C8, C9        | C6, C11, C14, C15 |
-| domain-modeling      | C2, C10                | C6, C7, C8, C11, C14 |
-| behavior-contract    | C2, C3, C4, C8        | C7, C10, C11, C12, C13, C14 |
-| e2e-journey-testing  | C4, C5, C8, C12       | C3, C6, C11, C13, C14 |
-| certification        | C5, C8, C12, C15      | C4, C13, C14 |
-| pr-review            | C5, C8, C13, C14      | C12, C15 |
-| idd-workflow       | C8, C11, C13, C15     | C1, C3, C4, C5, C6, C7, C9, C10, C12, C14 |
+| solution-narrative   | C1, C2, C8, C9        | C6, C11, C14, C15, C16 |
+| domain-modeling      | C2, C10                | C6, C7, C8, C11, C14, C16 |
+| behavior-contract    | C2, C3, C4, C8        | C7, C10, C11, C12, C13, C14, C16 |
+| e2e-journey-testing  | C4, C5, C8, C12       | C3, C6, C11, C13, C14, C16 |
+| certification        | C5, C8, C12, C15      | C4, C13, C14, C16 |
+| pr-review            | C5, C8, C13, C14      | C12, C15, C16 |
+| idd-workflow       | C8, C11, C13, C15, C16 | C1, C3, C4, C5, C6, C7, C9, C10, C12, C14 |
 
 ## Conversion checklist
 
