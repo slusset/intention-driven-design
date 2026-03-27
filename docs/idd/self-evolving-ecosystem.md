@@ -129,6 +129,25 @@ Within this methodology repository, the practical next steps are:
 2. Extend workflow skills to require role contracts for delegated work.
 3. Teach PR review to flag cross-boundary drift.
 4. Define improvement proposals as first-class artifacts before automating them.
+5. Explore candidate primitives that operationalize the self-improvement loop.
+6. Build evaluation methods that attribute improvement to the methodology
+   independently of model and harness changes.
+
+## Active exploration
+
+The `explore/methodology-attribution` branch investigates six candidate
+primitives for the runtime and adaptive layers:
+
+- **Shared Memory** (P1) — cross-agent knowledge persistence
+- **Action Budget** (P2) — bounded resource envelopes on role contracts
+- **Observation Frame** (P3) — structured perception of methodology state
+- **Hypothesis Lifecycle** (P4) — epistemic discipline for handling uncertainty
+- **Execution Trace** (P5) — process evidence alongside outcome evidence
+- **Handoff Protocol** (P6) — structured transitions between roles
+
+These follow the methodology-change-process: exploratory first, promoted only
+with evidence and human approval. See [explorations/](explorations/) for
+proposals and evaluation design.
 
 ## What does not belong here yet
 
