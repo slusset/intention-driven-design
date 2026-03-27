@@ -1,0 +1,54 @@
+name: Release Claude Desktop Plugin
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-plugin:
+    name: Build and release plugin package
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout merge commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Prepare release metadata
+        id: meta
+        shell: bash
+        run: |
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          UTC_STAMP="$(date -u +'%Y%m%d%H%M%S')"
+          TAG="claude-plugin-${UTC_STAMP}-${SHORT_SHA}"
+          RELEASE_NAME="Claude Desktop plugin ${UTC_STAMP} (${SHORT_SHA})"
+
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "release_name=$RELEASE_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build plugin zip
+        id: build
+        shell: bash
+        run: |
+          chmod +x tools/build.sh
+          ZIP_PATH="$(tools/build.sh)"
+          ZIP_NAME="$(basename "$ZIP_PATH")"
+
+          echo "zip_path=$ZIP_PATH" >> "$GITHUB_OUTPUT"
+          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.release_name }}
+          generate_release_notes: true
+          files: ${{ steps.build.outputs.zip_path }}

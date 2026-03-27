@@ -7,7 +7,7 @@
 3. `specs/stories/`
 4. `specs/models/`
 5. `specs/features/` (BDD)
-6. `specs/contracts/openapi/`
+6. `specs/contracts/openapi/`, `specs/contracts/asyncapi/`, and/or `specs/contracts/json-rpc/`
 7. `specs/fixtures/`
 8. `specs/journey-maps/`
 9. `specs/capabilities/` (created as a stub after narrative, finalized after models/contracts/features exist)

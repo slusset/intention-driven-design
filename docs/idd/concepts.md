@@ -33,12 +33,12 @@ knowledge. If a concept matters, it has a file.
 
 ## C3 — Contracts Define Reality at Boundaries
 
-API contracts (OpenAPI, Gherkin features) are the authoritative source of truth
+Boundary contracts (OpenAPI, AsyncAPI, JSON-RPC, plus Gherkin features) are the authoritative source of truth
 for how systems interact. Implementation must conform to the contract, not the
 other way around.
 
 **Manifesto principle**: 3
-**Artifacts involved**: features, contracts/openapi, fixtures
+**Artifacts involved**: features, contracts/*, fixtures
 
 ---
 
@@ -95,7 +95,7 @@ The capability groups artifacts into a certifiable scope. No link in the chain
 is optional. If an artifact exists, its provenance is declared.
 
 **Enforced via**: YAML front-matter (preferred), comment headers,
-`x-story`/`x-feature`/`x-journey` OpenAPI extensions, `_meta` blocks in
+`x-story`/`x-feature`/`x-journey` contract extensions, `_meta` blocks in
 fixtures, test file headers. See `docs/idd/front-matter-spec.md` for the
 uniform front-matter schema.
 

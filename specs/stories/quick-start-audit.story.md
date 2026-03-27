@@ -2,8 +2,8 @@
 id: quick-start-audit
 type: story
 refs:
-  journey: examples/journeys/trade-show-signup.journey.md
-  persona: examples/personas/trade-show-prospect.persona.md
+  journey: specs/journeys/trade-show-signup.journey.md
+  persona: specs/personas/trade-show-prospect.persona.md
   steps: [3, 4]
 ---
 

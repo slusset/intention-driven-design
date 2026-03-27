@@ -20,7 +20,7 @@ The example chain models a trade-show workflow:
 - `personas/` → who the system serves
 - `journeys/` → end-to-end user experience
 - `stories/` → scoped user capabilities
-- `features/` + `contracts/` + `fixtures/` → executable behavior
+- `features/` + `contracts/` + `fixtures/` → executable behavior across HTTP, event, and RPC boundaries
 - `models/` → domain concepts and rules
 - `journey-maps/` → E2E validation spine
 - `capabilities/` → certification scope boundary
@@ -30,9 +30,9 @@ The example chain models a trade-show workflow:
 Run checks against this directory directly:
 
 ```bash
-node tools/check-front-matter.js examples/
-node tools/check-traceability.js examples/
-node tools/check-capability-scope.js examples/
+node tools/check-front-matter.js specs/
+node tools/check-traceability.js specs/
+node tools/check-capability-scope.js specs/
 ```
 
 Real adopters should place equivalent artifacts under `specs/` in their own repositories.

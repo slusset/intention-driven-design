@@ -30,7 +30,7 @@ parallel without breaking traceability.
 ├─────────────────────────────────────────────────────────────┤
 │                     CONTRACT LAYER                           │
 │   Features ◀── Contracts ──▶ Fixtures                        │
-│   (Gherkin)    (OpenAPI)     (test data)                     │
+│   (Gherkin)    (OpenAPI / AsyncAPI / JSON-RPC)               │
 │                                        /behavior-contract    │
 ├──────────────────────────────────────────────────────────────┤
 │                  IMPLEMENTATION LAYER                        │
@@ -70,7 +70,9 @@ IDD breaks this into a traceable chain:
 | Narrative | `specs/stories/onboarding/mobile-signup.md` | Capability: quick mobile account creation |
 | Model | `specs/models/audit/audit.model.yaml` | Concept: Audit entity, states, rules |
 | Contract | `specs/features/onboarding/mobile-signup.feature` | Behavior: Gherkin scenarios |
-| Contract | `specs/contracts/openapi/api.yaml` | API: `POST /accounts`, `POST /audits` |
+| Contract | `specs/contracts/openapi/api.yaml` | HTTP boundary: `POST /accounts`, `POST /audits` |
+| Contract | `specs/contracts/asyncapi/audit-events.yaml` | Event boundary: `publish audits/created` |
+| Contract | `specs/contracts/json-rpc/account-service.yaml` | RPC boundary: `account.getQuickStartPrompt` |
 | Contract | `specs/fixtures/onboarding/mobile-signup.json` | Test data: request/response pairs |
 | Implementation | Backend + Frontend code | Derived from contracts |
 | Validation | `frontend/e2e/journeys/trade-show-signup.spec.ts` | E2E test following the journey |
@@ -98,7 +100,7 @@ node tools/graph-generation/generate-spec-graph.js examples --format mermaid
 
 1. **Intent precedes code.** No implementation without an explicit intent artifact.
 2. **Shared mental models are artifacts, not conversations.** If a concept matters, it has a file.
-3. **Contracts define reality at boundaries.** API contracts are the source of truth, not implementation.
+3. **Contracts define reality at boundaries.** OpenAPI, AsyncAPI, and JSON-RPC contracts are the source of truth, not implementation.
 4. **Assumptions must become executable.** Untested assumptions are technical debt.
 5. **Feedback must be fast, honest, and automated.** Evidence, not confidence theater.
 6. **Human cognition is protected.** Agents handle bookkeeping; humans handle meaning.
@@ -110,31 +112,74 @@ Read the full [manifesto](docs/idd/manifesto.md).
 
 The narrative, model, and contract layers are completely technology-independent. The `specs/` directory works the same whether your implementation uses Spring Boot, Express, Django, Rails, Angular, React, or anything else. Implementation skills can be swapped or added for any stack without changing the upstream artifacts.
 
-## Installing as a plugin
+## Installation
 
-### Claude Code / Cowork
-
-**Local testing** (loads skills directly):
-```bash
-claude --plugin-dir /path/to/intention-driven-design
-```
-
-**From GitHub**:
-```bash
-claude plugin marketplace add slusset/intention-driven-design
-claude plugin install idd-skills@intention-driven-design
-```
-
-### Codex CLI
+### Quick start (from Git)
 
 ```bash
-./tools/link-skills.sh codex --with-technical
+npm install --save-dev github:slusset/intention-driven-design
+npx idd validate all          # run validators
+npx idd install-skills claude  # install skills to ~/.claude/skills/
 ```
 
-### Other agents (Cursor, Gemini CLI, etc.)
+### Local development (from checkout)
 
+```bash
+git clone git@github.com:slusset/intention-driven-design.git
+cd intention-driven-design
+npm install
+npm link                       # makes `idd` available globally
+```
+
+### Initialize a new project
+
+```bash
+npx idd init .                 # scaffolds specs/ structure + CI workflow
+npx idd install-skills claude --with-technical
+```
+
+### CLI reference
+
+```
+idd validate <check...>       Run validators (or "all")
+idd install-skills <target>   Install skills to claude/codex/all
+  --with-technical             Include stack-specific skills
+  --link                       Symlink instead of copy (dev mode)
+  --check                      Check if installed skills are current
+idd generate-evidence          Scaffold certification evidence manifest
+idd init [dir]                 Scaffold IDD directory structure
+idd version                    Print version
+```
+
+### Installing skills for AI agents
+
+**Claude Code / Codex:**
+```bash
+idd install-skills claude      # copies versioned skills to ~/.claude/skills/
+idd install-skills codex       # copies to ~/.codex/skills/
+idd install-skills all         # both
+```
+
+**Other agents (Cursor, Gemini CLI, etc.):**
 All skills follow the [Agent Skills open standard](https://agentskills.io).
 Copy `skills/` and any needed `technical-skills/` into the agent's skill discovery path.
+
+### CI with GitHub Actions
+
+Consuming repos can use the reusable action:
+
+```yaml
+- uses: slusset/intention-driven-design/.github/actions/idd-check@v1
+  with:
+    checks: all
+```
+
+Or install the toolkit directly:
+
+```yaml
+- run: npm install github:slusset/intention-driven-design
+- run: npx idd validate all --json
+```
 
 ## Repo overlay and technical skills
 
@@ -170,7 +215,7 @@ For governing changes to IDD itself, see [Methodology Change Process](docs/idd/m
 |-------|---------|------------|
 | **Solution Narrative** | Personas, journeys, stories — the "why" | `/solution-narrative` |
 | **Domain Modeling** | Entities, aggregates, business rules | `/domain-modeling` |
-| **Behavior Contract** | BDD features, OpenAPI contracts, fixtures | `/behavior-contract` |
+| **Behavior Contract** | BDD features, OpenAPI/AsyncAPI/JSON-RPC contracts, fixtures | `/behavior-contract` |
 | **E2E Journey Testing** | Playwright tests from journey maps | `/e2e-journey-testing` |
 | **Certification** | Traceability verification and evidence manifests | `/certification` |
 | **IDD Workflow** | Meta-skill: when to use which skill | `/idd-workflow` |
@@ -193,6 +238,9 @@ See [`technical-skills/README.md`](technical-skills/README.md) for the discovery
 ## Repository layout
 
 ```
+bin/
+└── idd.js                   CLI entrypoint (npm bin)
+
 docs/idd/                    IDD philosophy and concept library
 ├── manifesto.md             Core principles (the "why")
 ├── concepts.md              Atomic concept catalog (C1–C16)
@@ -205,10 +253,10 @@ docs/idd/                    IDD philosophy and concept library
 ├── project-template.md      Artifact spine and delivery loop
 └── certification-guide.md   Evidence standards and templates
 
-skills/                      IDD methodology skills
+skills/                      IDD methodology skills (bundled in package)
 ├── solution-narrative/      Personas, journeys, stories
 ├── domain-modeling/         Entities, aggregates, business rules
-├── behavior-contract/       BDD features, OpenAPI contracts, fixtures
+├── behavior-contract/       BDD features, protocol contracts, fixtures
 ├── e2e-journey-testing/     Playwright journey tests
 ├── certification/           Traceability verification and evidence
 └── idd-workflow/            Meta-skill: when to use which skill
@@ -219,38 +267,42 @@ technical-skills/            Stack-specific implementation guidance
 ├── angular-from-design/     Angular implementation from static design
 └── spring-boot-architecture/ Spring Boot architecture and test workflow
 
-tools/                       Build, link, and validation utilities
-├── build.sh                 Package plugin zip for distribution
-├── link-skills.sh           Symlink skills into agent runtimes
+tools/                       Validators and generators
 ├── validate-front-matter.js Validate required/recommended metadata fields
 ├── validate-traceability.js Validate cross-artifact reference integrity
 ├── validate-capability-scope.js Validate capability scope coverage
-├── validate-fixtures.js     Validate fixtures against OpenAPI request/response schemas
+├── validate-contracts.js    Validate OpenAPI, AsyncAPI, and JSON-RPC contracts
+├── validate-fixtures.js     Validate fixtures against protocol-specific contract schemas
 ├── validate-models.js       Validate model/lifecycle structural rules
 ├── validate-journey-maps.js Validate journey map structural rules
-├── graph-generation/
-│   └── generate-spec-graph.js  Generate Mermaid spec traceability graph
+├── generate-evidence.js     Scaffold certification evidence manifests
+├── graph-generation/        Mermaid spec traceability graph generators
 └── lib/                     Shared parsing and formatting helpers
+
+.github/actions/idd-check/   Reusable GitHub Action for consuming repos
 ```
 
 ## Validation Suite
 
-The repository uses a unified validator naming convention: `tools/validate-*.js`.
+Run all validators at once:
+
+```bash
+idd validate all --json
+```
+
+Or run individual checks:
+
+```bash
+idd validate traceability front-matter --json
+idd validate fixtures models --strict
+```
+
+Available validators: `contracts`, `traceability`, `front-matter`, `capability-scope`, `fixtures`, `models`, `journey-maps`, `evidence`.
 
 Common CLI options:
-- `[specs-dir]` optional positional root (defaults to `specs/`)
 - `--files <paths...>` limit checks to specific files
 - `--json` machine-readable output for CI aggregation
-
-Examples:
-```bash
-node tools/validate-front-matter.js --json
-node tools/validate-traceability.js --json --files specs/features/mobile-signup.feature
-node tools/validate-capability-scope.js --json --files specs/stories/mobile-signup.story.md
-node tools/validate-fixtures.js --json
-node tools/validate-models.js --json --strict
-node tools/validate-journey-maps.js --json
-```
+- `--strict` treat warnings as errors
 
 ## How concepts and skills relate
 
@@ -265,7 +317,7 @@ When converting a skill to a new agent platform:
 
 1. Concept definitions in `docs/idd/` are authoritative for meaning.
 2. Skills in `skills/` are authoritative for operational implementation.
-3. Runtime copies (`~/.codex/skills`, `~/.claude/skills`) are symlinked from this repo via `tools/link-skills.sh` — never create standalone copies.
+3. Runtime copies (`~/.claude/skills`, `~/.codex/skills`) are installed via `idd install-skills` and version-stamped. Run `idd install-skills --check` to detect staleness.
 
 ## Self-referential note
 

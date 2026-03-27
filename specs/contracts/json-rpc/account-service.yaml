@@ -1,0 +1,27 @@
+jsonrpc: '2.0'
+info:
+  title: Trade Show Account RPC
+  version: 1.0.0
+  description: RPC contract for quick-start account guidance.
+methods:
+  account.getQuickStartPrompt:
+    summary: Load quick-start prompt details for a newly created account
+    x-story: specs/stories/quick-start-audit.story.md
+    x-feature: specs/features/quick-start-audit.feature
+    x-journey: specs/journeys/trade-show-signup.journey.md
+    paramsSchema:
+      type: object
+      required: [accountId]
+      properties:
+        accountId:
+          type: string
+    resultSchema:
+      type: object
+      required: [accountId, cta, recommendedTemplateId]
+      properties:
+        accountId:
+          type: string
+        cta:
+          type: string
+        recommendedTemplateId:
+          type: string

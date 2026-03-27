@@ -1,0 +1,369 @@
+name: 'IDD Compliance Check'
+description: 'Run Intention-Driven Design validators against a specs/ directory and post results.'
+
+inputs:
+  node-version:
+    description: 'Node.js version to use'
+    required: false
+    default: '20'
+  specs-dir:
+    description: 'Path to specs directory (relative to repo root)'
+    required: false
+    default: 'specs'
+  checks:
+    description: 'Space-separated list of checks to run, or "all"'
+    required: false
+    default: 'all'
+  post-comment:
+    description: 'Post a PR comment with results (only on pull_request events)'
+    required: false
+    default: 'true'
+  spectral-ruleset:
+    description: 'Path to Spectral ruleset for OpenAPI linting'
+    required: false
+    default: '.spectral.yaml'
+  gherkin-config:
+    description: 'Path to gherkin-lint config'
+    required: false
+    default: '.gherkin-lintrc'
+
+outputs:
+  total-errors:
+    description: 'Total number of errors found'
+    value: ${{ steps.summarize.outputs.total_errors }}
+  total-warnings:
+    description: 'Total number of warnings found'
+    value: ${{ steps.summarize.outputs.total_warnings }}
+  passed:
+    description: 'Whether all checks passed'
+    value: ${{ steps.summarize.outputs.passed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Install idd-toolkit
+      shell: bash
+      run: |
+        # If running from within the idd repo itself, use local install
+        if [ -f "${{ github.action_path }}/../../../package.json" ]; then
+          cd "${{ github.action_path }}/../../.."
+          npm ci
+        else
+          npm install idd-toolkit @stoplight/spectral-cli gherkin-lint
+        fi
+
+    - name: Gather changed specs
+      id: changed_specs
+      shell: bash
+      run: |
+        set +e
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- '${{ inputs.specs-dir }}/**' > /tmp/changed-specs.txt
+          COUNT=$(grep -c . /tmp/changed-specs.txt || true)
+        else
+          : > /tmp/changed-specs.txt
+          COUNT=0
+        fi
+        echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+    - name: Run IDD validators
+      id: validate
+      shell: bash
+      run: |
+        set +e
+
+        # Resolve the idd CLI
+        if [ -f "${{ github.action_path }}/../../../bin/idd.js" ]; then
+          IDD="node ${{ github.action_path }}/../../../bin/idd.js"
+        else
+          IDD="npx idd"
+        fi
+
+        SPECS_DIR="${{ inputs.specs-dir }}"
+
+        # Determine which core checks to run
+        CHECKS="${{ inputs.checks }}"
+        if [ "$CHECKS" = "all" ]; then
+          CHECKS="contracts traceability front-matter capability-scope fixtures models journey-maps"
+        fi
+
+        # Run each core validator individually, capturing JSON per check
+        mkdir -p /tmp/idd-results
+        echo "{" > /tmp/idd-results/exit-codes.json
+        FIRST=true
+        for CHECK in $CHECKS; do
+          $IDD validate "$CHECK" --json > "/tmp/idd-results/${CHECK}.json" 2>&1
+          EXIT_CODE=$?
+          if [ "$FIRST" = true ]; then FIRST=false; else echo "," >> /tmp/idd-results/exit-codes.json; fi
+          printf '  "%s": %d' "$CHECK" "$EXIT_CODE" >> /tmp/idd-results/exit-codes.json
+        done
+        echo "" >> /tmp/idd-results/exit-codes.json
+        echo "}" >> /tmp/idd-results/exit-codes.json
+        echo "checks=$CHECKS" >> "$GITHUB_OUTPUT"
+
+        # Run OpenAPI lint if ruleset and spec exist
+        OPENAPI_EXIT=0
+        OPENAPI_RAN=false
+        if [ -f "${{ inputs.spectral-ruleset }}" ] && [ -f "$SPECS_DIR/contracts/openapi/api.yaml" ]; then
+          OPENAPI_RAN=true
+          npx @stoplight/spectral-cli lint "$SPECS_DIR/contracts/openapi/api.yaml" --ruleset "${{ inputs.spectral-ruleset }}" > /tmp/idd-results/openapi-lint.txt 2>&1
+          OPENAPI_EXIT=$?
+        fi
+        echo "openapi_exit=$OPENAPI_EXIT" >> "$GITHUB_OUTPUT"
+        echo "openapi_ran=$OPENAPI_RAN" >> "$GITHUB_OUTPUT"
+
+        # AsyncAPI and JSON-RPC contract validation is covered by the core "contracts" validator.
+
+        # Run Gherkin lint if config and features exist
+        GHERKIN_EXIT=0
+        GHERKIN_RAN=false
+        if [ -f "${{ inputs.gherkin-config }}" ] && [ -d "$SPECS_DIR/features" ]; then
+          GHERKIN_RAN=true
+          npx gherkin-lint -c "${{ inputs.gherkin-config }}" "$SPECS_DIR/features/**/*.feature" > /tmp/idd-results/gherkin-lint.txt 2>&1
+          GHERKIN_EXIT=$?
+        fi
+        echo "gherkin_exit=$GHERKIN_EXIT" >> "$GITHUB_OUTPUT"
+        echo "gherkin_ran=$GHERKIN_RAN" >> "$GITHUB_OUTPUT"
+
+        # Spec-before-code check
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          IMPL_CHANGES=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- 'backend/src/' 'frontend/src/' 2>/dev/null | wc -l | tr -d ' ')
+          SPEC_CHANGES=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- "$SPECS_DIR/" 2>/dev/null | wc -l | tr -d ' ')
+          echo "impl_changes=$IMPL_CHANGES" >> "$GITHUB_OUTPUT"
+          echo "spec_changes=$SPEC_CHANGES" >> "$GITHUB_OUTPUT"
+          if [ "$IMPL_CHANGES" -gt "0" ] && [ "$SPEC_CHANGES" -eq "0" ]; then
+            echo "spec_warning=true" >> "$GITHUB_OUTPUT"
+            git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- 'backend/src/' 'frontend/src/' > /tmp/idd-results/impl-files.txt 2>/dev/null
+          else
+            echo "spec_warning=false" >> "$GITHUB_OUTPUT"
+          fi
+        else
+          echo "impl_changes=0" >> "$GITHUB_OUTPUT"
+          echo "spec_changes=0" >> "$GITHUB_OUTPUT"
+          echo "spec_warning=false" >> "$GITHUB_OUTPUT"
+        fi
+
+        exit 0
+
+    - name: Build summary
+      id: summarize
+      shell: bash
+      run: |
+        node <<'NODE'
+        const fs = require('fs');
+        const path = require('path');
+
+        const RESULTS_DIR = '/tmp/idd-results';
+        const outputFile = process.env.GITHUB_OUTPUT || '/dev/null';
+
+        // ── Pretty names for checks ──
+        const LABELS = {
+          'traceability': 'Traceability',
+          'contracts': 'Contracts',
+          'front-matter': 'Front-Matter',
+          'capability-scope': 'Capability Scope',
+          'fixtures': 'Fixtures',
+          'models': 'Models',
+          'journey-maps': 'Journey Maps',
+          'evidence': 'Evidence',
+        };
+
+        // ── Read per-check JSON results ──
+        function readJson(filePath) {
+          try {
+            return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+          } catch (_) {
+            return null;
+          }
+        }
+
+        function summarizeLines(lines, limit = 15) {
+          if (!Array.isArray(lines) || lines.length === 0) return '';
+          const shown = lines.slice(0, limit).map((l) => `- ${l}`).join('\n');
+          const extra = lines.length > limit ? `\n- ...and ${lines.length - limit} more` : '';
+          return shown + extra;
+        }
+
+        // ── Parse outputs from the validate step ──
+        const checksStr = `${{ steps.validate.outputs.checks }}`;
+        const checks = checksStr.split(/\s+/).filter(Boolean);
+        const exitCodes = readJson(path.join(RESULTS_DIR, 'exit-codes.json')) || {};
+
+        let totalErrors = 0;
+        let totalWarnings = 0;
+        let failedChecks = [];
+
+        let body = '## IDD Compliance Review\n\n';
+
+        // Overview table
+        body += '| Check | Status | Errors | Warnings |\n';
+        body += '|-------|--------|--------|----------|\n';
+
+        const detailSections = [];
+
+        for (const check of checks) {
+          const exitCode = exitCodes[check] || 0;
+          const result = readJson(path.join(RESULTS_DIR, `${check}.json`));
+
+          const errors = result && Array.isArray(result.errors) ? result.errors : [];
+          const warnings = result && Array.isArray(result.warnings) ? result.warnings : [];
+          const info = result && Array.isArray(result.info) ? result.info : [];
+          const label = LABELS[check] || check;
+          const icon = exitCode === 0 ? '✅' : '❌';
+
+          totalErrors += errors.length;
+          totalWarnings += warnings.length;
+          if (exitCode !== 0) failedChecks.push(label);
+
+          body += `| ${label} | ${icon} | ${errors.length} | ${warnings.length} |\n`;
+
+          // Build detail section if there's anything to show
+          const parts = [];
+          if (errors.length > 0) {
+            parts.push('**Errors**\n' + summarizeLines(errors));
+          }
+          if (warnings.length > 0) {
+            parts.push('**Warnings**\n' + summarizeLines(warnings));
+          }
+          if (info.length > 0) {
+            parts.push('**Info**\n' + summarizeLines(info, 10));
+          }
+
+          if (parts.length > 0) {
+            detailSections.push({ label, icon, content: parts.join('\n\n') });
+          }
+        }
+
+        // OpenAPI lint row
+        const openapiRan = '${{ steps.validate.outputs.openapi_ran }}' === 'true';
+        const openapiExit = Number('${{ steps.validate.outputs.openapi_exit }}' || 0);
+        if (openapiRan) {
+          const openapiIcon = openapiExit === 0 ? '✅' : '❌';
+          body += `| OpenAPI Lint | ${openapiIcon} | ${openapiExit === 0 ? 0 : '—'} | — |\n`;
+          if (openapiExit !== 0) failedChecks.push('OpenAPI Lint');
+
+          try {
+            const lines = fs.readFileSync(path.join(RESULTS_DIR, 'openapi-lint.txt'), 'utf8').split(/\r?\n/).filter(Boolean);
+            if (lines.length > 0) {
+              detailSections.push({ label: 'OpenAPI Lint', icon: openapiIcon, content: '```\n' + lines.slice(0, 20).join('\n') + '\n```' });
+            }
+          } catch (_) {}
+        }
+
+        // Gherkin lint row
+        const gherkinRan = '${{ steps.validate.outputs.gherkin_ran }}' === 'true';
+        const gherkinExit = Number('${{ steps.validate.outputs.gherkin_exit }}' || 0);
+        if (gherkinRan) {
+          const gherkinIcon = gherkinExit === 0 ? '✅' : '❌';
+          body += `| Gherkin Lint | ${gherkinIcon} | ${gherkinExit === 0 ? 0 : '—'} | — |\n`;
+          if (gherkinExit !== 0) failedChecks.push('Gherkin Lint');
+
+          try {
+            const lines = fs.readFileSync(path.join(RESULTS_DIR, 'gherkin-lint.txt'), 'utf8').split(/\r?\n/).filter(Boolean);
+            if (lines.length > 0) {
+              detailSections.push({ label: 'Gherkin Lint', icon: gherkinIcon, content: '```\n' + lines.slice(0, 20).join('\n') + '\n```' });
+            }
+          } catch (_) {}
+        }
+
+        body += '\n';
+
+        // Detail sections as collapsible
+        if (detailSections.length > 0) {
+          for (const section of detailSections) {
+            body += `<details><summary>${section.icon} ${section.label}</summary>\n\n`;
+            body += section.content + '\n';
+            body += '\n</details>\n\n';
+          }
+        }
+
+        // Spec-before-code
+        const specWarning = '${{ steps.validate.outputs.spec_warning }}' === 'true';
+        const implChanges = Number('${{ steps.validate.outputs.impl_changes }}' || 0);
+        const specChanges = Number('${{ steps.validate.outputs.spec_changes }}' || 0);
+
+        if (specWarning) {
+          body += '### Spec-Before-Code ⚠️\n\n';
+          body += `${implChanges} implementation file(s) changed without spec updates. If behavior changed, update specs first.\n\n`;
+          try {
+            const files = fs.readFileSync(path.join(RESULTS_DIR, 'impl-files.txt'), 'utf8').trim();
+            if (files) {
+              body += '<details><summary>Changed implementation files</summary>\n\n```\n' + files + '\n```\n\n</details>\n\n';
+            }
+          } catch (_) {}
+        } else if (implChanges > 0) {
+          body += `### Spec-Before-Code ✅\n\n${implChanges} implementation file(s) with ${specChanges} spec file(s) updated.\n\n`;
+        }
+
+        // Footer
+        body += '---\n\n';
+        if (failedChecks.length > 0) {
+          body += `**${failedChecks.length} check(s) failed:** ${failedChecks.join(', ')}  \n`;
+        }
+        body += `Total: ${totalErrors} error(s), ${totalWarnings} warning(s)\n\n`;
+        body += '*Automated by [IDD Toolkit](https://github.com/slusset/intention-driven-design)*\n';
+
+        fs.writeFileSync('/tmp/idd-summary.md', body);
+
+        // Write action outputs
+        const passed = failedChecks.length === 0 ? 'true' : 'false';
+        fs.appendFileSync(outputFile, `total_errors=${totalErrors}\n`);
+        fs.appendFileSync(outputFile, `total_warnings=${totalWarnings}\n`);
+        fs.appendFileSync(outputFile, `passed=${passed}\n`);
+        NODE
+
+        cat /tmp/idd-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Post PR comment
+      if: github.event_name == 'pull_request' && inputs.post-comment == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          let body;
+          try {
+            body = fs.readFileSync('/tmp/idd-summary.md', 'utf8');
+          } catch (error) {
+            body = `## IDD Compliance Review\n\n- Failed to load summary: ${error.message}\n`;
+          }
+
+          const marker = '## IDD Compliance Review';
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+
+          const existing = comments.find((c) => c.body && c.body.startsWith(marker));
+          if (existing) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existing.id,
+              body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+          }
+
+    - name: Enforce failure
+      if: always()
+      shell: bash
+      run: |
+        PASSED="${{ steps.summarize.outputs.passed }}"
+        if [ "$PASSED" != "true" ]; then
+          echo "IDD validation failed. See job summary for details."
+          exit 1
+        fi
+        echo "All IDD checks passed."

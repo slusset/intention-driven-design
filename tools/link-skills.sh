@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+echo "DEPRECATED: Use 'idd install-skills' instead." >&2
+echo "  npm install -g idd-toolkit   # or npx idd install-skills claude" >&2
+echo "  idd install-skills claude [--with-technical] [--link]" >&2
+echo "" >&2
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IDD_SOURCE_DIR="$REPO_ROOT/skills"
 TECH_SOURCE_DIR="$REPO_ROOT/technical-skills"

@@ -1,0 +1,26 @@
+id: onboarding-shared-value-objects
+type: model
+description: "Reusable value objects shared across onboarding-oriented model examples."
+sources:
+  stories:
+    - specs/stories/mobile-signup.story.md
+    - specs/stories/quick-start-audit.story.md
+  journeys:
+    - specs/journeys/trade-show-signup.journey.md
+
+value_objects:
+  boothCode:
+    value_object: BoothCode
+    description: "A booth-specific code that associates a signup with an event interaction."
+    attributes:
+      value:
+        type: string
+        required: true
+
+  prospectContact:
+    value_object: ProspectContact
+    description: "Normalized contact details captured during signup."
+    attributes:
+      email:
+        type: email
+        required: true

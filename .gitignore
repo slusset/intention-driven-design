@@ -1,5 +1,7 @@
 .env
 .idea
 .DS_Store
+.claude/settings.local.json
 build/
+node_modules/
 tools/node_modules/
