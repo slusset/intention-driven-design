@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `.claude-plugin/marketplace.json` — local marketplace descriptor so the repo can be installed in Claude Code via `/plugin marketplace add` + `/plugin install idd-skills@idd`
+- `justfile` — wraps common local flows (`just install`, `just validate`, `just test`, `just install-skills`, lint tasks)
+
+### Changed
+
+- Skills now invoke bundled validators via `${CLAUDE_PLUGIN_ROOT}/tools/validate-*.js`, making the plugin self-contained. `npx idd validate` remains available for CI and non-plugin contexts via the sibling `idd-toolkit` npm package.
+- README installation section leads with the plugin install path; npm install is documented as the CI/dev alternative.
+
+### Removed
+
+- `tools/check-capability-scope.js`, `tools/check-front-matter.js`, `tools/check-traceability.js` — deprecated compatibility wrappers; use `validate-*` directly
+- `tools/link-skills.sh` — superseded by `idd install-skills --link`
+- `tools/build.sh` — plugin-zip build script; distribution is now directly via the plugin marketplace against a git checkout
+- `.github/workflows/release-claude-plugin.yml` — no longer builds a plugin zip release
+- `tools/package.json`, `tools/package-lock.json` — redundant private sub-package; root `idd-toolkit` owns dependencies
+- `WORKFLOW.md` — Symphony-orchestration experiment, no longer reflects repo workflow
+
 ### Fixed
 
 - `validate fixtures`: nested `$ref` composition in `components.schemas`
@@ -36,7 +55,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `.github/workflows/idd-check.yml` simplified from ~400 lines to use the reusable action
 
-### Deprecated
-
-- `tools/link-skills.sh` — use `idd install-skills` instead
-- `tools/build.sh` — use `npm pack` instead

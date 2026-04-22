@@ -65,4 +65,4 @@ When updating a concept definition in `concepts.md`:
 1. Find the concept row in the matrix.
 2. Update every skill marked **primary** — these define the concept operationally.
 3. Review skills marked **referenced** — they may need wording adjustments.
-4. Use `tools/link-skills.sh` to symlink skills into agent runtimes — no drift possible.
+4. Use `idd install-skills --link` to symlink skills into agent runtimes — no drift possible.

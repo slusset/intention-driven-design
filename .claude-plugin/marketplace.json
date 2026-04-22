@@ -1,0 +1,14 @@
+{
+  "name": "idd",
+  "owner": {
+    "name": "Ted Slusser",
+    "email": "ted@si-c.io"
+  },
+  "plugins": [
+    {
+      "name": "idd-skills",
+      "source": "./",
+      "description": "Intention-Driven Design skills and validators for narrative-first, traceable software development."
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "name": "idd-skills",
   "version": "0.1.0",
-  "description": "Intention-Driven Design methodology skills. Narrative-first development: personas, journeys, stories, domain models, behavior contracts, and e2e journey testing.",
+  "description": "Intention-Driven Design methodology skills. Narrative-first development: personas, journeys, stories, domain models, behavior contracts, and e2e journey testing. Bundles validator scripts invoked via ${CLAUDE_PLUGIN_ROOT}.",
   "author": {
     "name": "Ted Slusser",
     "url": "https://github.com/slusset"

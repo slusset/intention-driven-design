@@ -110,12 +110,28 @@ The narrative, model, and contract layers are completely technology-independent.
 
 ## Installation
 
-### Quick start (from Git)
+### As a Claude Code plugin (recommended for personal use)
+
+The repo is a self-contained Claude Code plugin — `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` are at the repo root. Skills invoke the bundled validators via `${CLAUDE_PLUGIN_ROOT}`, so no separate CLI install is needed.
+
+```bash
+git clone git@github.com:slusset/intention-driven-design.git ~/dev/idd
+```
+
+Then in Claude Code:
+
+```
+/plugin marketplace add ~/dev/idd
+/plugin install idd-skills@idd
+```
+
+After editing plugin files, refresh with `/plugin marketplace update idd`. For an ephemeral single-session load, run `claude --plugin-dir ~/dev/idd` instead.
+
+### As an npm package (for CI and local dev ergonomics)
 
 ```bash
 npm install --save-dev github:slusset/intention-driven-design
-npx idd validate all          # run validators
-npx idd install-skills claude  # install skills to ~/.claude/skills/
+npx idd validate all          # run validators outside of Claude Code
 ```
 
 ### Local development (from checkout)
@@ -123,8 +139,7 @@ npx idd install-skills claude  # install skills to ~/.claude/skills/
 ```bash
 git clone git@github.com:slusset/intention-driven-design.git
 cd intention-driven-design
-npm install
-npm link                       # makes `idd` available globally
+just install                   # npm install && npm link
 ```
 
 ### Initialize a new project
