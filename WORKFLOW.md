@@ -60,7 +60,8 @@ This is a **methodology repo**, not an application. It contains:
 - `docs/idd/` — Markdown documentation defining IDD concepts, manifesto, certification guide, front-matter spec, project template, and agent operating contract
 - `skills/` — SKILL.md files that guide agents through IDD phases (solution-narrative, domain-modeling, behavior-contract, e2e-journey-testing, certification, pr-review, idd-workflow)
 - `technical-skills/` — Stack-specific SKILL.md files layered on top of IDD for implementation and framework-specific testing
-- `tools/` — Node.js scripts for CI checks (check-traceability.js, check-front-matter.js, check-capability-scope.js) and a shared library (lib/parse-front-matter.js)
+- `tools/` — Node.js validators (`validate-*.js`) invoked by `bin/idd.js`, plus a shared library (`lib/`)
+- `bin/idd.js` — CLI entrypoint that dispatches to validators and installs skills
 - `.github/workflows/idd-check.yml` — GitHub Actions CI workflow
 - `README.md` — Project overview with skill table and layered architecture diagram
 
@@ -148,7 +149,7 @@ After planning changes, verify:
    - If the issue modifies CI (`.github/workflows/idd-check.yml`), validate YAML syntax: `node -e "require('js-yaml').load(require('fs').readFileSync('.github/workflows/idd-check.yml','utf8'))"`
    - Grep for any broken cross-references you may have introduced (e.g., concept IDs, skill names, file paths mentioned in docs that no longer exist)
    - Verify markdown renders correctly (no unclosed fences, broken tables)
-   - Note: `tools/check-traceability.js` validates specs in target projects that adopt IDD — it does not apply to this methodology repo itself
+   - Note: `idd validate traceability` validates specs in target projects that adopt IDD — it does not apply to this methodology repo itself
 2. Update the workpad comment with completed checklist and validation results.
 3. Commit with a clear message referencing the issue number:
    - Format: `<type>: <description> (#<issue-number>)`

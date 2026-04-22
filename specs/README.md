@@ -4,7 +4,7 @@ This directory contains a complete, minimal set of **illustrative** IDD artifact
 
 These files are not project-of-record specs for this repository. They exist so contributors can:
 
-- run tooling validation (`check-front-matter`, `check-traceability`, `check-capability-scope`) against realistic data,
+- run tooling validation (`idd validate front-matter traceability capability-scope`) against realistic data,
 - inspect fully populated artifacts while onboarding, and
 - reuse patterns when creating `specs/` in downstream project repositories.
 
@@ -30,9 +30,7 @@ The example chain models a trade-show workflow:
 Run checks against this directory directly:
 
 ```bash
-node tools/check-front-matter.js specs/
-node tools/check-traceability.js specs/
-node tools/check-capability-scope.js specs/
+idd validate front-matter traceability capability-scope
 ```
 
 Real adopters should place equivalent artifacts under `specs/` in their own repositories.

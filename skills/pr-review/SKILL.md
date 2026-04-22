@@ -66,7 +66,7 @@ The automated layer is fast and cheap (no LLM). The agent layer catches what sta
 
 ## Layer 1: Deterministic Checks
 
-These run without an LLM. They extend `tools/check-traceability.js` to operate on the PR diff rather than the full repo.
+These run without an LLM. They invoke `idd validate` (from `idd-toolkit`) scoped to the PR diff rather than the full repo.
 
 ### Check 1: Front-Matter Presence
 
@@ -92,11 +92,10 @@ See `docs/idd/front-matter-spec.md` for the full schema.
 Every `refs` path, `sources` path, `_meta.story`, `_meta.feature`, `# story:`, and `# journey:` value must point to a file that exists in the repo.
 
 ```bash
-# Run the existing checker
-node tools/check-traceability.js
+npx idd validate traceability --json
 ```
 
-**Pass criteria**: Zero broken links (exit code 0 from check-traceability.js).
+**Pass criteria**: Zero broken links (exit code 0).
 
 ### Check 3: Capability Scope Updated
 
@@ -138,42 +137,14 @@ If the PR modifies implementation files (`backend/src/`, `frontend/src/`) but no
 
 ## Layer 2: Semantic Review
 
-These checks require an LLM (Claude or equivalent) and are optional. They provide deeper analysis as PR comments.
+Optional LLM-assisted pass that covers what deterministic checks cannot:
 
-### Semantic Check: Story ↔ Feature Alignment
+- **Story ↔ feature alignment** — scenarios match the story's acceptance criteria and narrative.
+- **Journey coherence** — steps form a logical sequence with realistic system responses and identified failure modes.
+- **Ubiquitous language** — terms in changed files agree with the glossary (`specs/models/README.md`).
+- **Completeness** — features cover happy-path, validation, authorization, and contract-defined error responses.
 
-For each feature file changed in the PR, read the referenced story and verify:
-- The feature's `As a / I want / So that` matches the story narrative.
-- Each scenario maps to an acceptance criterion in the story.
-- No acceptance criteria are missing corresponding scenarios.
-
-**Output**: Inline PR comment on the feature file listing coverage.
-
-### Semantic Check: Journey Coherence
-
-For each journey file changed in the PR:
-- Do the steps form a logical sequence?
-- Are system responses realistic given the contract?
-- Are failure modes identified for each step?
-
-**Output**: PR comment summarizing journey health.
-
-### Semantic Check: Ubiquitous Language
-
-Compare terms used in changed files against `specs/models/README.md` (glossary):
-- Flag terms that appear in code but not in the glossary.
-- Flag glossary terms that are misspelled or inconsistently cased in specs.
-
-**Output**: PR comment with terminology suggestions.
-
-### Semantic Check: Completeness
-
-For changed feature files:
-- Does the feature have `@happy-path`, `@validation`, and `@authorization` scenarios?
-- Does the corresponding contract define error responses for each error scenario?
-- Are edge cases from the story's acceptance criteria covered?
-
-**Output**: PR comment listing potential missing scenarios.
+Output: PR comments. Never blocks merge on Layer 2 alone.
 
 ## GitHub Action Integration
 
@@ -183,9 +154,9 @@ The deterministic checks run as a GitHub Action. See `.github/workflows/idd-chec
 PR opened/updated
     │
     ├── Layer 1: idd-check.yml (automatic, every PR)
-    │   ├── check-traceability.js (existing tool)
-    │   ├── check-front-matter.js (new, validates front-matter)
-    │   ├── check-capability-scope.js (new, validates scope)
+    │   ├── npx idd validate traceability
+    │   ├── npx idd validate front-matter
+    │   ├── npx idd validate capability-scope
     │   └── Posts results as PR comment
     │
     └── Layer 2: Agent review (optional, triggered by label or comment)
@@ -232,28 +203,9 @@ Both layers post results in a consistent format:
 *Automated by [IDD PR Review](docs/idd/pr-review.md) • [What is IDD?](docs/idd/manifesto.md)*
 ```
 
-## Creating New Check Scripts
+## Adding a New Validator
 
-The deterministic checks are implemented as standalone Node.js scripts in `tools/`. Each follows the same pattern:
-
-```javascript
-#!/usr/bin/env node
-/**
- * Check description
- * Usage: node tools/check-{name}.js [specs-dir]
- * Exit: 0 = pass, 1 = fail
- */
-
-const results = { errors: [], warnings: [], info: [] };
-
-// ... check logic ...
-
-// Output JSON for the GitHub Action to parse
-console.log(JSON.stringify(results));
-process.exit(results.errors.length > 0 ? 1 : 0);
-```
-
-The GitHub Action collects JSON output from each script and formats the combined result as a PR comment.
+Add `tools/validate-<name>.js` (standalone, exit 0/1, support `--json`), then register it in the `VALIDATORS` map in [bin/idd.js](bin/idd.js). It becomes available as `idd validate <name>` and is picked up by `idd validate all`.
 
 ## Relationship to Certification
 

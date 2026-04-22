@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- `tools/check-capability-scope.js`, `tools/check-front-matter.js`, `tools/check-traceability.js` — deprecated compatibility wrappers; use `idd validate <name>` instead
+- `tools/link-skills.sh` — superseded by `idd install-skills --link`
+- `tools/build.sh` and `.claude-plugin/plugin.json` — plugin-zip distribution retired; consolidate on npm via `idd-toolkit`
+- `.github/workflows/release-claude-plugin.yml` — no longer builds a plugin zip release
+- `tools/package.json`, `tools/package-lock.json` — redundant private sub-package; root `idd-toolkit` package owns dependencies
+
 ### Fixed
 
 - `validate fixtures`: nested `$ref` composition in `components.schemas`
@@ -36,7 +44,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `.github/workflows/idd-check.yml` simplified from ~400 lines to use the reusable action
 
-### Deprecated
-
-- `tools/link-skills.sh` — use `idd install-skills` instead
-- `tools/build.sh` — use `npm pack` instead
