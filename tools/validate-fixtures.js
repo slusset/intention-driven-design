@@ -91,6 +91,42 @@ function createAjv() {
   return ajv;
 }
 
+/**
+ * Pre-register every `components.schemas.*` entry from every OpenAPI
+ * contract in the index as a named Ajv schema keyed by its canonical
+ * `$ref` ("#/components/schemas/<Name>"). This lets nested `$ref`s in
+ * any compiled schema (via `allOf` / `oneOf` / `properties`) resolve
+ * against sibling components without the validator having to inline
+ * them first.
+ *
+ * Without this, validating a schema that uses `allOf: [{ $ref: ... }]`
+ * fails at compile time with "can't resolve reference from id #" because
+ * Ajv only sees the top-level schema. Both the legacy-path
+ * (`validateLegacyFixture`) and the OpenAPI-path (`validateOpenApiFixture`)
+ * compile schemas extracted from components in isolation; both benefit
+ * from this registration.
+ *
+ * Malformed individual schemas are skipped so the per-fixture compile
+ * can still surface a precise error instead of failing the whole run.
+ */
+function registerComponentSchemas(ajv, index) {
+  for (const contract of index.openapiContracts) {
+    const components = contract.document && contract.document.components;
+    const schemas = components && components.schemas;
+    if (!schemas || typeof schemas !== 'object') continue;
+    for (const [name, schema] of Object.entries(schemas)) {
+      const ref = `#/components/schemas/${name}`;
+      if (ajv.getSchema(ref)) continue; // duplicate across contracts — first wins
+      if (!schema || typeof schema !== 'object') continue;
+      try {
+        ajv.addSchema({ ...schema, $id: ref });
+      } catch {
+        // Malformed schema — let the per-fixture compile surface a precise error.
+      }
+    }
+  }
+}
+
 function validateWithSchema(ajv, schema, value, label) {
   try {
     const validate = ajv.compile(schema);
@@ -401,6 +437,7 @@ function main() {
   const index = buildContractIndex(results);
   const schemas = getLegacySchemas(index);
   const ajv = createAjv();
+  registerComponentSchemas(ajv, index);
 
   if (index.contracts.length === 0 && results.errors.length === 0) {
     results.info.push('Fixture schema validation skipped because no contract artifacts are available');
