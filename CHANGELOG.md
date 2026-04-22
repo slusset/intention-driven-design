@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `validate fixtures`: nested `$ref` composition in `components.schemas`
+  (e.g. `allOf: [{ $ref: '#/components/schemas/Base' }, ...]`) now resolves
+  correctly in both the legacy `_meta.schema` path and the OpenAPI
+  `method/path` path. Previously the validator called `ajv.compile(schema)`
+  in isolation and failed with `can't resolve reference from id #`
+  whenever a named schema referenced a sibling component. The fix
+  pre-registers every `components.schemas.*` entry with its canonical
+  `#/components/schemas/<Name>` as `$id` so Ajv can resolve nested
+  references at compile time. Added regression test
+  `test/fixture-ref-resolution.test.js`.
+
 ## [0.1.0] - 2026-03-07
 
 ### Added
