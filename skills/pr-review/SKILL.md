@@ -66,7 +66,7 @@ The automated layer is fast and cheap (no LLM). The agent layer catches what sta
 
 ## Layer 1: Deterministic Checks
 
-These run without an LLM. They invoke `idd validate` (from `idd-toolkit`) scoped to the PR diff rather than the full repo.
+These run without an LLM. They invoke validators bundled with this plugin at `${CLAUDE_PLUGIN_ROOT}/tools/validate-*.js`, scoped to the PR diff rather than the full repo. (In CI or outside the plugin, the same scripts are also available via `npx idd validate <name>` when `idd-toolkit` is installed.)
 
 ### Check 1: Front-Matter Presence
 
@@ -92,7 +92,7 @@ See `docs/idd/front-matter-spec.md` for the full schema.
 Every `refs` path, `sources` path, `_meta.story`, `_meta.feature`, `# story:`, and `# journey:` value must point to a file that exists in the repo.
 
 ```bash
-npx idd validate traceability --json
+node "${CLAUDE_PLUGIN_ROOT}/tools/validate-traceability.js" --json
 ```
 
 **Pass criteria**: Zero broken links (exit code 0).
@@ -154,9 +154,9 @@ The deterministic checks run as a GitHub Action. See `.github/workflows/idd-chec
 PR opened/updated
     │
     ├── Layer 1: idd-check.yml (automatic, every PR)
-    │   ├── npx idd validate traceability
-    │   ├── npx idd validate front-matter
-    │   ├── npx idd validate capability-scope
+    │   ├── validate-traceability.js
+    │   ├── validate-front-matter.js
+    │   ├── validate-capability-scope.js
     │   └── Posts results as PR comment
     │
     └── Layer 2: Agent review (optional, triggered by label or comment)
