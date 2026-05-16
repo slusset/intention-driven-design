@@ -76,11 +76,12 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.3.0`** (declared in
+The current version is **`1.4.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
 actions, and assertions landed in 1.2; declarative lifecycle and journey-map
-shapes landed in 1.3.
+shapes landed in 1.3; the reference graph + capability-scope closure rule
+landed in 1.4.
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward
@@ -315,6 +316,77 @@ shape selector inverts that: the author tells the validator what kind of
 artifact this is, and the validator applies the matching rule set. That is
 the load-bearing move — it replaces an assumed grammar with a chosen
 grammar.
+
+## Reference graph + capability closure (v1.4)
+
+JSON Schema cannot express constraints that span more than one document. The
+**reference graph** defines which front-matter and body conventions count as
+references between artifacts, and the **capability closure rule** turns the
+graph into a cross-document validation: every artifact reachable from a
+capability's declared scope must itself be in scope, with `scope.excluded`
+naming the exceptions.
+
+### Reference graph
+
+The authoritative extractor lives at
+[`tools/lib/reference-graph.js`](tools/lib/reference-graph.js).
+
+| Source artifact | Reference fields |
+|---|---|
+| Persona (`.md`) | `refs.*` (any string path under refs) |
+| Journey (`.md`) | `refs.persona` |
+| Story (`.md`) | `refs.journey`, `refs.persona` |
+| Feature (`.feature`) | `# story:`, `# journey:`, `# contract:`, `# feature:` (Gherkin header) |
+| Model (`.model.yaml`) | `sources.stories`, `sources.journeys`, `sources.features` |
+| Lifecycle (`.lifecycle.yaml`) | `sources.stories`, `sources.journeys`, `sources.features` |
+| Journey-map (`.journey-map.yaml`) | `sources.journey`, `sources.stories`, `sources.features`, `fixtures.*.ref` |
+| Fixture (`.fixture.yaml` / `.json`) | `story`, `feature`, `contract` (string or `.ref`) |
+| Contract (OpenAPI / AsyncAPI / JSON-RPC) | `x-story`, `x-feature`, `x-journey` extensions on any node |
+| Capability (`.capability.yaml`) | Not walked as a source — its `scope` is the *declared* set the closure is compared against. |
+
+Only paths under `specs/` or `examples/` count as references. Absolute and
+external URLs are ignored.
+
+### Closure rule
+
+For each capability, the validator at
+[`tools/validate-capability-closure.js`](tools/validate-capability-closure.js):
+
+1. Walks the reference graph from the declared scope, accumulating every
+   reachable artifact.
+2. Compares the closure to the declared scope:
+   - **Reachable but not declared** → WARNING. The author should add the
+     artifact to scope, or list it under `scope.excluded` if owned by another
+     capability.
+   - **Declared but no incoming reference (narrative tier only)** → WARNING.
+     Likely dead spec; otherwise add a reference somewhere in the closure.
+3. Artifacts listed under `scope.excluded` are ignored on both sides — they
+   are explicit cross-capability shares and are not pulled into the closure.
+
+The "declared but unreachable" check applies only to the narrative tier
+(personas, journeys, stories). The structured tier (features, models,
+lifecycles, journey-maps, fixtures, contracts) often legitimately sits at
+graph leaves with no inbound references, so warning on those would be noise.
+
+### `excluded:` semantics
+
+`scope.excluded` lists artifacts that the capability legitimately *references*
+but does not *own* — typically shared models, shared personas, or contracts
+declared by another capability. The closure walker treats excluded entries as
+walls: they are not added to the closure and not pulled in transitively. The
+inverse-scope check ignores them too.
+
+```yaml
+id: full-scan-fulfillment
+type: capability
+scope:
+  stories: [specs/stories/fulfill-scan.story.md]
+  models: [specs/models/scan.model.yaml]
+  contracts: [specs/contracts/openapi/fulfillment.yaml]
+  excluded:
+    - specs/models/account.model.yaml          # owned by trade-show-signup
+    - specs/personas/trade-show-prospect.persona.md
+```
 
 ## Conformance fixtures
 
