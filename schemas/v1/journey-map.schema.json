@@ -10,6 +10,11 @@
     "id": { "type": "string", "minLength": 1 },
     "type": { "const": "journey-map" },
     "journey": { "type": "string", "minLength": 1 },
+    "shape": {
+      "description": "Declarative journey-map shape (#39). Selects which step-ordering rule applies. Default is `sequential` for back-compat.",
+      "enum": ["sequential", "branching", "hierarchical"],
+      "default": "sequential"
+    },
     "sources": {
       "type": "object",
       "additionalProperties": false,
@@ -60,6 +65,10 @@
           "story": { "type": "string" },
           "title": { "type": "string" },
           "journey_step": { "type": ["integer", "string"] },
+          "branch": {
+            "description": "Used with shape:branching. Distinguishes steps that share a journey_step number by naming the branch the step belongs to.",
+            "type": "string"
+          },
           "actions": { "type": "array", "items": { "$ref": "#/$defs/action" } },
           "assertions": { "type": "array", "items": { "$ref": "#/$defs/assertion" } },
           "$conformance": { "$ref": "#/$defs/conformance" },
@@ -74,9 +83,10 @@
         "required": ["journey_step", "title"],
         "additionalProperties": false,
         "properties": {
-          "journey_step": { "type": "integer", "minimum": 1 },
+          "journey_step": { "type": ["integer", "string"], "minimum": 1 },
           "title": { "type": "string" },
           "story": { "type": "string" },
+          "branch": { "type": "string" },
           "actions": { "type": "array", "items": { "$ref": "#/$defs/action" } },
           "assertions": { "type": "array", "items": { "$ref": "#/$defs/assertion" } },
           "$conformance": { "$ref": "#/$defs/conformance" },

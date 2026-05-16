@@ -90,6 +90,9 @@ function validateLegacyStepModel(map, errors, warnings, info) {
     return;
   }
 
+  // Shape selects step-ordering rules (#39). Default is `sequential` for back-compat.
+  const shape = typeof map.shape === 'string' ? map.shape : 'sequential';
+  const stepsByNumber = new Map();
   let lastStepNumber = 0;
 
   for (const [stepId, step] of Object.entries(map.steps)) {
@@ -104,10 +107,23 @@ function validateLegacyStepModel(map, errors, warnings, info) {
 
     if (!step.journey_step) {
       errors.push(`Step "${stepId}" missing journey_step number`);
-    } else if (step.journey_step <= lastStepNumber) {
-      warnings.push(`Step "${stepId}" has non-sequential journey_step (${step.journey_step} after ${lastStepNumber})`);
     } else {
-      lastStepNumber = step.journey_step;
+      const num = step.journey_step;
+      if (shape === 'sequential') {
+        if (typeof num === 'number' && num <= lastStepNumber) {
+          warnings.push(`Step "${stepId}" has non-sequential journey_step (${num} after ${lastStepNumber}). Declare \`shape: branching\` or \`shape: hierarchical\` if the order is intentional.`);
+        } else if (typeof num === 'number') {
+          lastStepNumber = num;
+        }
+      } else if (shape === 'branching') {
+        if (!step.branch) {
+          warnings.push(`Step "${stepId}" under shape:branching is missing a \`branch:\` key`);
+        }
+        const group = stepsByNumber.get(num) || [];
+        group.push({ stepId, branch: step.branch });
+        stepsByNumber.set(num, group);
+      }
+      // shape:hierarchical accepts any journey_step format (e.g., "3a", "3b")
     }
 
     if (!step.title) {
@@ -159,6 +175,19 @@ function validateLegacyStepModel(map, errors, warnings, info) {
         if (assertion.selector && !String(assertion.selector).includes('data-testid')) {
           warnings.push(`Step "${stepId}" assertion selector doesn't use data-testid: ${assertion.selector}`);
         }
+      }
+    }
+  }
+
+  if (shape === 'branching') {
+    for (const [num, group] of stepsByNumber.entries()) {
+      if (group.length < 2) continue;
+      const branches = group.map((g) => g.branch).filter(Boolean);
+      const uniqueBranches = new Set(branches);
+      if (uniqueBranches.size !== branches.length) {
+        warnings.push(`shape:branching — journey_step ${num} has steps sharing the same \`branch:\` value (${[...group].map((g) => `${g.stepId}/${g.branch || '(none)'}`).join(', ')})`);
+      } else {
+        info.push(`shape:branching — journey_step ${num} fans out across branches: ${branches.join(', ')}`);
       }
     }
   }

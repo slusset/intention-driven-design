@@ -76,10 +76,11 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.2.0`** (declared in
+The current version is **`1.3.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
-actions, and assertions landed in 1.2.
+actions, and assertions landed in 1.2; declarative lifecycle and journey-map
+shapes landed in 1.3.
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward
@@ -242,6 +243,78 @@ with the named combination, the validator emits a WARNING listing each
 conflict. When a slot carries an unrecognized `type` (and no `kind`), the
 validator emits a WARNING suggesting either the known legacy names or the
 expanded form.
+
+## Declarative shapes (v1.3)
+
+Two artifact kinds previously had a fixed grammar baked into the validator —
+lifecycles required a terminal state, journey maps required strictly increasing
+`journey_step` numbers. Both rules are correct for the common case and misfire
+on legitimate alternatives.
+
+v1.3 makes the shape explicit. The author declares the kind of artifact, and
+the validator applies the matching rule set. The default for each is the
+previous rule, so existing files remain valid.
+
+### Lifecycle shapes
+
+`shape` is an optional top-level field on `.lifecycle.yaml`:
+
+| Shape | Default rule | Use for |
+|---|---|---|
+| `bounded` (default) | at least one terminal state required | Order, Audit, Signup |
+| `absorbing` | at least one terminal state required | Order (one reachable terminal) |
+| `unbounded` | terminal state NOT required | Customer, TruthFile, BusinessAccount |
+| `cyclic` | terminal state NOT required; transitions may return to initial | Subscription, Membership |
+
+When `shape: unbounded` (or `cyclic`) is declared, the "Lifecycle should have at
+least one terminal state" warning is silenced.
+
+```yaml
+id: truth-file-lifecycle
+type: model
+entity: TruthFile
+shape: unbounded
+initial_state: active
+states:
+  active:
+    description: "The canonical record for the customer's full lifetime."
+```
+
+### Journey-map shapes
+
+`shape` is an optional top-level field on `.journey-map.yaml`:
+
+| Shape | Default rule | Use for |
+|---|---|---|
+| `sequential` (default) | strictly increasing `journey_step` | Linear flows |
+| `branching` | duplicate `journey_step` numbers allowed when each step has a `branch:` key | Magic-link redemption (link vs code), retry alternates |
+| `hierarchical` | sub-step notation (`3a`, `3b`) accepted in `journey_step` | Nested journeys |
+
+Under `shape: branching`, each step at a shared step number declares which
+branch it belongs to:
+
+```yaml
+shape: branching
+steps:
+  exchange-link:
+    journey_step: 3
+    branch: link-redeem
+  exchange-code:
+    journey_step: 3
+    branch: code-redeem
+```
+
+The validator emits an INFO line summarizing each fan-out (`shape:branching —
+journey_step 3 fans out across branches: link-redeem, code-redeem`) and warns
+when a step under `shape: branching` is missing its `branch:` key.
+
+### Why this inverts the relationship
+
+The previous rules assumed one grammar and warned on everything else. The
+shape selector inverts that: the author tells the validator what kind of
+artifact this is, and the validator applies the matching rule set. That is
+the load-bearing move — it replaces an assumed grammar with a chosen
+grammar.
 
 ## Conformance fixtures
 
