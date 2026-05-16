@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const { findFiles, formatResults, parseFrontMatter } = require('./lib/parse-front-matter');
 const { getValidator, categorize } = require('./lib/schema-loader');
+const { categorize: categorizeKind } = require('./lib/kinds');
 
 const args = process.argv.slice(2);
 let specsDir = null;
@@ -49,12 +50,14 @@ if (!specsDir) {
 const JOURNEY_MAPS_DIR = path.join(specsDir, 'journey-maps');
 const MAP_PATTERN = /\.(?:map|journey-map)\.ya?ml$/i;
 
-const VALID_ACTION_TYPES = [
+// Legacy enums retained for messages. Authoritative vocabulary lives in
+// tools/lib/kinds.js (ACTION_COMBINATIONS, ASSERTION_COMBINATIONS).
+const LEGACY_ACTION_TYPES = [
   'navigate', 'click', 'fill', 'select', 'check', 'uncheck',
   'wait', 'hover', 'scroll', 'press', 'type', 'upload',
 ];
 
-const VALID_ASSERTION_TYPES = [
+const LEGACY_ASSERTION_TYPES = [
   'visible', 'hidden', 'text', 'url', 'api', 'count',
   'polling', 'attribute', 'value', 'enabled', 'disabled',
 ];
@@ -81,7 +84,7 @@ function expectedJourneyFromFilename(filePath) {
     .replace(/\.map\.ya?ml$/i, '');
 }
 
-function validateLegacyStepModel(map, errors, warnings) {
+function validateLegacyStepModel(map, errors, warnings, info) {
   if (!map.steps || typeof map.steps !== 'object' || Array.isArray(map.steps)) {
     errors.push('Missing required field: steps (legacy object format)');
     return;
@@ -118,11 +121,16 @@ function validateLegacyStepModel(map, errors, warnings) {
           continue;
         }
 
-        if (!action.type) {
-          errors.push(`Step "${stepId}" has action without type`);
-        } else if (!VALID_ACTION_TYPES.includes(action.type)) {
-          warnings.push(`Step "${stepId}" has unknown action type: ${action.type}`);
-        }
+        applyKindedCheck({
+          slot: 'action',
+          value: action,
+          context: `Step "${stepId}" action`,
+          legacyNames: LEGACY_ACTION_TYPES,
+          validKindsHint: 'ui-interaction, navigation, wait, network',
+          errors,
+          warnings,
+          info,
+        });
 
         if (action.target && !String(action.target).includes('data-testid')) {
           warnings.push(`Step "${stepId}" action target doesn't use data-testid: ${action.target}`);
@@ -137,11 +145,16 @@ function validateLegacyStepModel(map, errors, warnings) {
           continue;
         }
 
-        if (!assertion.type) {
-          errors.push(`Step "${stepId}" has assertion without type`);
-        } else if (!VALID_ASSERTION_TYPES.includes(assertion.type)) {
-          warnings.push(`Step "${stepId}" has unknown assertion type: ${assertion.type}`);
-        }
+        applyKindedCheck({
+          slot: 'assertion',
+          value: assertion,
+          context: `Step "${stepId}" assertion`,
+          legacyNames: LEGACY_ASSERTION_TYPES,
+          validKindsHint: 'dom, url, api, cookie, classification, tag, context',
+          errors,
+          warnings,
+          info,
+        });
 
         if (assertion.selector && !String(assertion.selector).includes('data-testid')) {
           warnings.push(`Step "${stepId}" assertion selector doesn't use data-testid: ${assertion.selector}`);
@@ -151,7 +164,29 @@ function validateLegacyStepModel(map, errors, warnings) {
   }
 }
 
-function validateCurrentStepModel(map, errors, warnings) {
+function applyKindedCheck({ slot, value, context, legacyNames, validKindsHint, errors, warnings, info }) {
+  const result = categorizeKind(slot, value);
+  if (result.status === 'expanded') {
+    info.push(`${context} type:${result.legacyType} ⇒ ${result.description}`);
+  } else if (result.status === 'kinded') {
+    // expanded form, no legacy name — self-describing
+  } else if (result.status === 'mixed') {
+    info.push(`${context} type:${result.legacyType} ⇒ ${result.description}`);
+    for (const conflict of result.conflicts) {
+      warnings.push(`${context} conflict between legacy type and expanded form — ${conflict}`);
+    }
+  } else if (result.status === 'unknown') {
+    if (result.legacyType) {
+      warnings.push(`${context} has unrecognized type: ${result.legacyType}. Known legacy names: ${legacyNames.join(', ')}. Or use the expanded form with kind/property/target.`);
+    } else if (result.kind) {
+      warnings.push(`${context} has unknown kind: ${result.kind}. Allowed kinds: ${validKindsHint}.`);
+    } else {
+      errors.push(`${context} missing type or kind`);
+    }
+  }
+}
+
+function validateCurrentStepModel(map, errors, warnings, info = []) {
   if (!Array.isArray(map.steps) || map.steps.length === 0) {
     errors.push('Missing required field: steps (array format)');
     return;
@@ -181,21 +216,22 @@ function validateCurrentStepModel(map, errors, warnings) {
 function validateJourneyMap(filePath) {
   const errors = [];
   const warnings = [];
+  const info = [];
 
   let map;
   try {
     const content = fs.readFileSync(filePath, 'utf8');
     const parsed = parseFrontMatter(filePath, content);
     if (parsed.parseError) {
-      return { errors: [`Invalid YAML or unreadable file: ${parsed.parseError}`], warnings: [] };
+      return { errors: [`Invalid YAML or unreadable file: ${parsed.parseError}`], warnings: [], info: [] };
     }
     map = parsed.body;
   } catch (error) {
-    return { errors: [`Invalid YAML or unreadable file: ${error.message}`], warnings: [] };
+    return { errors: [`Invalid YAML or unreadable file: ${error.message}`], warnings: [], info: [] };
   }
 
   if (!map || typeof map !== 'object') {
-    return { errors: ['YAML root must be an object'], warnings: [] };
+    return { errors: ['YAML root must be an object'], warnings: [], info: [] };
   }
 
   const schemaCheck = getValidator('journey-map')(map);
@@ -218,12 +254,12 @@ function validateJourneyMap(filePath) {
   }
 
   if (Array.isArray(map.steps)) {
-    validateCurrentStepModel(map, errors, warnings);
+    validateCurrentStepModel(map, errors, warnings, info);
   } else {
-    validateLegacyStepModel(map, errors, warnings);
+    validateLegacyStepModel(map, errors, warnings, info);
   }
 
-  return { errors, warnings };
+  return { errors, warnings, info };
 }
 
 function outputResults(results) {
@@ -248,7 +284,7 @@ function main() {
 
   for (const mapFile of mapFiles) {
     const relativePath = path.relative(process.cwd(), mapFile);
-    const { errors, warnings } = validateJourneyMap(mapFile);
+    const { errors, warnings, info = [] } = validateJourneyMap(mapFile);
 
     for (const error of errors) {
       results.errors.push(`${relativePath}: ${error}`);
@@ -256,6 +292,10 @@ function main() {
 
     for (const warning of warnings) {
       results.warnings.push(`${relativePath}: ${warning}`);
+    }
+
+    for (const item of info) {
+      results.info.push(`${relativePath}: ${item}`);
     }
 
     if (errors.length === 0 && warnings.length === 0) {

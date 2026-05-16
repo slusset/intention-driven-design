@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const { findFiles, formatResults, parseFrontMatter } = require('./lib/parse-front-matter');
 const { getValidator, categorize } = require('./lib/schema-loader');
+const { categorize: categorizeKind } = require('./lib/kinds');
 
 const args = process.argv.slice(2);
 let specsDir = null;
@@ -53,7 +54,9 @@ const VALID_TYPES = [
   'enum', 'array', 'object', 'uuid', 'ulid', 'email', 'url', 'uri',
 ];
 
-const VALID_RELATIONSHIP_TYPES = [
+// Legacy enum retained as documentation for the named-combinations table.
+// Authoritative vocabulary lives in tools/lib/kinds.js (RELATIONSHIP_COMBINATIONS).
+const LEGACY_RELATIONSHIP_TYPES = [
   'belongs-to', 'has-one', 'has-many', 'many-to-many',
 ];
 
@@ -80,24 +83,25 @@ function collectModelFiles() {
 function validateModelFile(filePath) {
   const errors = [];
   const warnings = [];
+  const info = [];
   const isLifecycle = /\.lifecycle\.ya?ml$/i.test(filePath);
 
   let content;
   try {
     content = fs.readFileSync(filePath, 'utf8');
   } catch (error) {
-    return { errors: [`Cannot read file: ${error.message}`], warnings: [] };
+    return { errors: [`Cannot read file: ${error.message}`], warnings: [], info: [] };
   }
 
   const parsed = parseFrontMatter(filePath, content);
   if (parsed.parseError) {
-    return { errors: [`Invalid YAML: ${parsed.parseError}`], warnings: [] };
+    return { errors: [`Invalid YAML: ${parsed.parseError}`], warnings: [], info: [] };
   }
 
   const model = parsed.body;
 
   if (!model || typeof model !== 'object') {
-    return { errors: ['YAML root must be an object'], warnings };
+    return { errors: ['YAML root must be an object'], warnings, info };
   }
 
   const schemaKind = isLifecycle ? 'lifecycle' : 'model';
@@ -111,10 +115,11 @@ function validateModelFile(filePath) {
   }
 
   if (isLifecycle) {
-    return validateLifecycle(model, errors, warnings);
+    return validateLifecycle(model, errors, warnings, info);
   }
 
-  return validateModelDocument(model, errors, warnings);
+  const r = validateModelDocument(model, errors, warnings, info);
+  return { ...r, info: r.info || info };
 }
 
 function isObject(value) {
@@ -145,7 +150,7 @@ function validateAttributeBlock(block, blockLabel, itemLabel, errors, warnings) 
   }
 }
 
-function validateRelationshipBlock(relationships, errors, warnings) {
+function validateRelationshipBlock(relationships, errors, warnings, info) {
   if (!isObject(relationships)) {
     errors.push('Relationships must be an object');
     return;
@@ -157,14 +162,29 @@ function validateRelationshipBlock(relationships, errors, warnings) {
       continue;
     }
 
-    if (!rel.type) {
-      errors.push(`Relationship "${relName}" missing type`);
-    } else if (!VALID_RELATIONSHIP_TYPES.includes(rel.type)) {
-      warnings.push(`Relationship "${relName}" has unknown type: ${rel.type}`);
-    }
-
     if (!rel.entity) {
       errors.push(`Relationship "${relName}" missing target entity`);
+    }
+
+    const result = categorizeKind('relationship', rel);
+
+    if (result.status === 'expanded') {
+      info.push(`Relationship "${relName}" type:${result.legacyType} ⇒ ${result.description}`);
+    } else if (result.status === 'kinded') {
+      // expanded form, no legacy name — already self-describing
+    } else if (result.status === 'mixed') {
+      info.push(`Relationship "${relName}" type:${result.legacyType} ⇒ ${result.description}`);
+      for (const conflict of result.conflicts) {
+        warnings.push(`Relationship "${relName}" conflict between legacy type and expanded form — ${conflict}`);
+      }
+    } else if (result.status === 'unknown') {
+      if (result.legacyType) {
+        warnings.push(`Relationship "${relName}" has unrecognized type: ${result.legacyType}. Known legacy names: ${LEGACY_RELATIONSHIP_TYPES.join(', ')}. Or use the expanded form with kind/cardinality/ownership/temporality.`);
+      } else if (result.kind) {
+        warnings.push(`Relationship "${relName}" has unknown kind: ${result.kind}. Allowed kinds: composition, association, aggregation, pointer.`);
+      } else {
+        errors.push(`Relationship "${relName}" missing type or kind`);
+      }
     }
   }
 }
@@ -195,7 +215,7 @@ function validateSources(model, label, warnings) {
   }
 }
 
-function validateEntityModel(model, errors, warnings) {
+function validateEntityModel(model, errors, warnings, info) {
   if (!model.description) {
     warnings.push('Entity should have a description');
   }
@@ -216,7 +236,7 @@ function validateEntityModel(model, errors, warnings) {
   }
 
   if (model.relationships) {
-    validateRelationshipBlock(model.relationships, errors, warnings);
+    validateRelationshipBlock(model.relationships, errors, warnings, info);
   }
 
   if (model.rules) {
@@ -322,37 +342,37 @@ function validateValueObjectBundle(model, errors, warnings) {
   validateSources(model, 'Shared value object bundle', warnings);
 }
 
-function validateModelDocument(model, errors, warnings) {
+function validateModelDocument(model, errors, warnings, info = []) {
   if (model.entity) {
-    validateEntityModel(model, errors, warnings);
-    return { errors, warnings };
+    validateEntityModel(model, errors, warnings, info);
+    return { errors, warnings, info };
   }
 
   if (model.value_object) {
     validateSources(model, 'Value object', warnings);
-    return { errors, warnings };
+    return { errors, warnings, info };
   }
 
   if (model.aggregate) {
     validateAggregateModel(model, errors, warnings);
-    return { errors, warnings };
+    return { errors, warnings, info };
   }
 
   if (model.catalog) {
     validateCatalogModel(model, errors, warnings);
-    return { errors, warnings };
+    return { errors, warnings, info };
   }
 
   if (model.value_objects) {
     validateValueObjectBundle(model, errors, warnings);
-    return { errors, warnings };
+    return { errors, warnings, info };
   }
 
   errors.push('Model must have one of "entity", "value_object", "aggregate", "catalog", or "value_objects"');
-  return { errors, warnings };
+  return { errors, warnings, info };
 }
 
-function validateLifecycle(model, errors, warnings) {
+function validateLifecycle(model, errors, warnings, info = []) {
   if (!model.entity) {
     errors.push('Lifecycle must specify entity');
   }
@@ -363,7 +383,7 @@ function validateLifecycle(model, errors, warnings) {
 
   if (!model.states || typeof model.states !== 'object') {
     errors.push('Lifecycle must define states');
-    return { errors, warnings };
+    return { errors, warnings, info };
   }
 
   const stateNames = Object.keys(model.states);
@@ -412,7 +432,7 @@ function validateLifecycle(model, errors, warnings) {
     }
   }
 
-  return { errors, warnings };
+  return { errors, warnings, info };
 }
 
 function outputResults(results) {
@@ -437,7 +457,7 @@ function main() {
 
   for (const modelFile of modelFiles) {
     const relativePath = path.relative(process.cwd(), modelFile);
-    const { errors, warnings } = validateModelFile(modelFile);
+    const { errors, warnings, info = [] } = validateModelFile(modelFile);
 
     for (const error of errors) {
       results.errors.push(`${relativePath}: ${error}`);
@@ -445,6 +465,10 @@ function main() {
 
     for (const warning of warnings) {
       results.warnings.push(`${relativePath}: ${warning}`);
+    }
+
+    for (const item of info) {
+      results.info.push(`${relativePath}: ${item}`);
     }
 
     if (errors.length === 0 && warnings.length === 0) {

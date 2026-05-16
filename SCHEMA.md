@@ -76,9 +76,10 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.1.0`** (declared in
+The current version is **`1.2.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
-with `$conformance` tiers landed in 1.1.
+with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
+actions, and assertions landed in 1.2.
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward
@@ -151,6 +152,96 @@ or ignore it.
 `$conformance` and `$conformance-notes` are reserved at every object level and
 are always accepted. They are metadata about the enclosing field, not part of
 its payload.
+
+## Kinded grammars (v1.2)
+
+Three slots previously expressed as closed enums are now kinded — they declare
+a `kind` and a set of attributes rather than collapsing a multi-attribute
+concept into a single token. The legacy names remain valid as **named
+combinations** that the validator expands. Authors can use either form; new
+documents are encouraged to use the expanded form where the additional axes
+are load-bearing.
+
+The authoritative table lives at
+[`tools/lib/kinds.js`](tools/lib/kinds.js).
+
+### Relationships
+
+Expanded form attributes:
+
+- `kind`: `composition` | `association` | `aggregation` | `pointer`
+- `cardinality`: `one-to-one` | `one-to-many` | `many-to-one` | `many-to-many`
+- `temporality`: `live` | `pinned` | `snapshotted` | `versioned`
+- `ownership`: `owned` | `not-owned`
+- `required`: boolean
+
+Named combinations:
+
+| Legacy `type` | `kind` | `cardinality` | `ownership` |
+|---|---|---|---|
+| `belongs-to` | association | many-to-one | not-owned |
+| `has-one` | composition | one-to-one | owned |
+| `has-many` | composition | one-to-many | owned |
+| `many-to-many` | association | many-to-many | not-owned |
+
+The new `pointer` kind covers cases like a `Scan` referencing a specific
+historical `TruthFileRevision` — neither owned by the scan nor live-tracking
+the latest revision. With `temporality: pinned` the read-only-pinned semantics
+are explicit:
+
+```yaml
+relationships:
+  pinnedRevision:
+    entity: TruthFileRevision
+    kind: pointer
+    cardinality: many-to-one
+    temporality: pinned
+```
+
+### Journey-map actions
+
+Expanded form attributes:
+
+- `kind`: `ui-interaction` | `navigation` | `wait` | `network`
+- `verb`: optional fine-grained verb (e.g., `double-click`)
+- `target`, `value`: as before
+
+Named combinations cover the Playwright vocabulary (`navigate`, `click`,
+`fill`, `select`, `check`, `uncheck`, `wait`, `hover`, `scroll`, `press`,
+`type`, `upload`). See `ACTION_COMBINATIONS` in
+[`tools/lib/kinds.js`](tools/lib/kinds.js).
+
+### Journey-map assertions
+
+Expanded form attributes:
+
+- `kind`: `dom` | `url` | `api` | `cookie` | `classification` | `tag` | `context`
+- `property`: per-kind property name (e.g., `visibility`, `text`, `set`,
+  `max-age`)
+- `target`: selector / URL / endpoint / cookie name / classification name / …
+- `expected`: as before
+- `selector`: legacy alias for `target` on DOM kinds
+
+Named combinations cover the legacy `visible | hidden | text | url | api |
+count | polling | attribute | value | enabled | disabled` vocabulary. New
+domain assertions like `kind: cookie, property: set, target: session-cookie`
+or `kind: classification, target: principal-classification` are first-class
+in v1.2.
+
+### Validator behavior
+
+When a slot carries a legacy `type`, the validator emits an INFO line showing
+the expansion so the underlying grammar is observable:
+
+```
+specs/models/scan.model.yaml: Relationship "owner" type:belongs-to ⇒ kind:association, cardinality:many-to-one, ownership:not-owned
+```
+
+When a slot carries both a legacy `type` and expanded fields that disagree
+with the named combination, the validator emits a WARNING listing each
+conflict. When a slot carries an unrecognized `type` (and no `kind`), the
+validator emits a WARNING suggesting either the known legacy names or the
+expanded form.
 
 ## Conformance fixtures
 
