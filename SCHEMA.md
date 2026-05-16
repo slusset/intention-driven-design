@@ -76,12 +76,12 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.4.0`** (declared in
+The current version is **`1.5.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
 actions, and assertions landed in 1.2; declarative lifecycle and journey-map
 shapes landed in 1.3; the reference graph + capability-scope closure rule
-landed in 1.4.
+landed in 1.4; enforcement bindings on model rules landed in 1.5.
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward
@@ -387,6 +387,88 @@ scope:
     - specs/models/account.model.yaml          # owned by trade-show-signup
     - specs/personas/trade-show-prospect.persona.md
 ```
+
+## Enforcement bindings on model rules (v1.5)
+
+Model rules historically carried a narrative `enforced:` tag — `persistence`,
+`validation`, `domain` — that told a reader *where* the rule was supposed to
+be enforced. The tag didn't bind to anything checkable. v1.5 makes the
+binding concrete.
+
+### Three accepted forms
+
+A rule's `enforced` field can take one of three forms:
+
+```yaml
+# 1. Narrative — legacy form, retained for back-compat. Not bound; cannot be verified.
+rules:
+  - id: one-canonical-per-customer
+    description: "..."
+    enforced: persistence
+
+# 2. Pending — explicit acknowledgement that binding is in flight.
+rules:
+  - id: one-canonical-per-customer
+    description: "..."
+    enforced:
+      pending: "issue #99"
+
+# 3. Bound — array of concrete bindings the validator resolves.
+rules:
+  - id: one-canonical-per-customer
+    description: "..."
+    enforced:
+      - kind: persistence
+        binding: migrations/0042_truth_files.sql#unique_customer_id
+      - kind: validation
+        binding: specs/contracts/openapi/api.yaml#/components/schemas/TruthFile/required
+```
+
+### Binding kinds
+
+| Kind | Resolves to |
+|---|---|
+| `validation` | OpenAPI / AsyncAPI / JSON-RPC schema fragment via JSON pointer; or a Gherkin `Scenario:` name; or a typed DTO declaration |
+| `persistence` | DB migration file with a named CONSTRAINT / INDEX / TABLE / TYPE; or a typed DTO in the repository layer |
+| `invariant` | Heading in `docs/invariants-in-production.md` (or wherever your invariants live) referenced by slug |
+| `domain` | Unit test or BDD scenario referenced by name |
+
+### Binding format
+
+The `binding` string takes one of three shapes:
+
+| Form | Resolves |
+|---|---|
+| `path#anchor` | File + anchor. Anchor resolution depends on file type: SQL identifier (case-insensitive substring against a `CONSTRAINT \| INDEX \| TABLE \| TYPE \| TRIGGER` token), JSON pointer in YAML/JSON, or heading slug in Markdown. |
+| `path:label` | File + labeled entity. Resolves to a `Scenario:` / `Scenario Outline:` name in a `.feature` file, or a `test('…')` / `it('…')` name in a Node test file. |
+| `path` | File existence only. |
+
+Per-kind expectations are advisory — a `persistence` binding pointing at a
+`.feature` file gets an advisory warning that the kind and file type look
+mismatched, but the binding still resolves if the file is present.
+
+### Validator behavior
+
+[`tools/validate-enforcement-bindings.js`](tools/validate-enforcement-bindings.js):
+
+| Rule form | Default | `--strict` |
+|---|---|---|
+| `enforced: <narrative-string>` | INFO | WARNING |
+| `enforced: { pending: "..." }` | INFO with tracker | WARNING |
+| `enforced: [{ kind, binding }, …]` — all resolve | INFO per binding | INFO per binding |
+| `enforced: [{ kind, binding }, …]` — any unresolved | **ERROR** | ERROR |
+| no `enforced` field | (silent) | (silent) |
+
+The strict mode is meant for CI in downstream repos that want to forbid the
+narrative form entirely. The default keeps existing models valid while
+encouraging migration.
+
+### CI rule for downstream repos
+
+A PR that introduces a rule with `enforced:` should either bind it to a
+concrete artifact or mark it `pending:` with a tracking issue. The validator
+catches the binding case automatically; the `pending:` case is an explicit
+signal in code review that the binding is in flight.
 
 ## Conformance fixtures
 

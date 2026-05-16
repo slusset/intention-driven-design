@@ -141,10 +141,52 @@
         "description": { "type": "string" },
         "when": { "type": "string" },
         "then": { "type": "string" },
-        "enforced": {
-          "description": "Today this is a narrative tag. Bound to concrete enforcement points in issue #41.",
-          "type": ["string", "array", "object"]
+        "enforced": { "$ref": "#/$defs/enforced" },
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
+      }
+    },
+    "enforced": {
+      "description": "How this rule is enforced (#41). Three accepted forms: (1) a legacy narrative string (e.g., 'persistence'), retained for back-compat; (2) a `pending:` marker referencing a tracking issue, allowed during implementation; (3) an array of concrete bindings that the validator resolves against real artifacts.",
+      "oneOf": [
+        { "type": "string" },
+        { "$ref": "#/$defs/pendingEnforcement" },
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/enforcementBinding" }
+        }
+      ]
+    },
+    "pendingEnforcement": {
+      "type": "object",
+      "required": ["pending"],
+      "additionalProperties": false,
+      "properties": {
+        "pending": {
+          "description": "Tracking reference (issue URL or identifier) for the in-flight binding.",
+          "type": "string",
+          "minLength": 1
         },
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
+      }
+    },
+    "enforcementBinding": {
+      "type": "object",
+      "required": ["kind", "binding"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "description": "Where the rule is enforced. validation → OpenAPI schema constraint, Gherkin scenario, or typed DTO. persistence → DB migration file with a named constraint, or repository typed DTO. invariant → entry in docs/invariants-in-production.md with an emission point in the implementation. domain → unit test or BDD scenario referenced by name.",
+          "enum": ["validation", "persistence", "invariant", "domain"]
+        },
+        "binding": {
+          "description": "Locator the validator resolves. Examples: `migrations/0042_truth_files.sql#unique-customer-id`, `openapi:#/components/schemas/TruthFile/required`, `docs/invariants-in-production.md#truth-file-revision-pin-roundtrip`, `tests/unit/scan.test.js:scan pinned to revision`. See SCHEMA.md for the format per kind.",
+          "type": "string",
+          "minLength": 1
+        },
+        "description": { "type": "string" },
         "$conformance": { "$ref": "#/$defs/conformance" },
         "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
