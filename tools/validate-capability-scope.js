@@ -25,7 +25,7 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 const { findFiles, fileExists, formatResults } = require('./lib/parse-front-matter');
-const { getValidator, formatAjvErrors } = require('./lib/schema-loader');
+const { getValidator, categorize } = require('./lib/schema-loader');
 
 // ── Parse arguments ───────────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -86,7 +86,9 @@ function loadCapabilities() {
   const capFiles = findFiles(capDir, /\.capability\.ya?ml$/);
   const capabilities = [];
   const schemaErrors = [];
+  const schemaWarnings = [];
   const validate = getValidator('capability');
+  const schemaUrl = 'https://github.com/slusset/intention-driven-design/schemas/v1/capability.schema.json';
 
   for (const capFile of capFiles) {
     try {
@@ -96,9 +98,10 @@ function loadCapabilities() {
       if (data && typeof data === 'object') {
         const r = validate(data);
         if (!r.valid) {
-          for (const msg of formatAjvErrors(r.errors)) {
-            schemaErrors.push(`${relative}: schema: ${msg}`);
-          }
+          const c = categorize(r.errors, data, { schemaUrl });
+          for (const msg of c.errors) schemaErrors.push(`${relative}: schema: ${msg}`);
+          for (const msg of c.warnings) schemaWarnings.push(`${relative}: schema: ${msg}`);
+          for (const msg of c.info) schemaWarnings.push(`${relative}: schema: ${msg}`);
         }
       }
       if (data && data.scope) {
@@ -113,7 +116,7 @@ function loadCapabilities() {
     }
   }
 
-  return { capabilities, schemaErrors };
+  return { capabilities, schemaErrors, schemaWarnings };
 }
 
 /**
@@ -175,10 +178,9 @@ function main() {
   const results = { errors: [], warnings: [], info: [] };
 
   // Load capabilities
-  const { capabilities, schemaErrors } = loadCapabilities();
-  for (const msg of schemaErrors) {
-    results.errors.push(msg);
-  }
+  const { capabilities, schemaErrors, schemaWarnings } = loadCapabilities();
+  for (const msg of schemaErrors) results.errors.push(msg);
+  for (const msg of schemaWarnings) results.warnings.push(msg);
 
   if (capabilities.length === 0) {
     results.info.push('No capability files found in specs/capabilities/');

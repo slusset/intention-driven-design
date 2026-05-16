@@ -2,15 +2,26 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/lifecycle.schema.json",
   "title": "IDD Lifecycle",
-  "description": "Schema for IDD lifecycle documents (.lifecycle.yaml). A lifecycle declares states and transitions for an entity. The 'at least one terminal state' rule is enforced today; issue #39 replaces it with a declarative shape selector.",
+  "description": "Schema for IDD lifecycle documents (.lifecycle.yaml). The 'at least one terminal state' rule is enforced today; issue #39 replaces it with a declarative shape selector. Closed-world keys per #37.",
   "type": "object",
   "required": ["id", "type", "entity", "initial_state", "states"],
+  "additionalProperties": false,
   "properties": {
     "id": { "type": "string", "minLength": 1 },
     "type": { "const": "model" },
     "entity": { "type": "string", "minLength": 1 },
     "description": { "type": "string" },
-    "sources": { "$ref": "https://github.com/slusset/intention-driven-design/schemas/v1/model.schema.json#/$defs/sources" },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stories": { "type": "array", "items": { "type": "string" } },
+        "journeys": { "type": "array", "items": { "type": "string" } },
+        "features": { "type": "array", "items": { "type": "string" } },
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
+      }
+    },
     "initial_state": { "type": "string", "minLength": 1 },
     "states": {
       "type": "object",
@@ -20,14 +31,24 @@
     "transitions": {
       "type": "object",
       "additionalProperties": { "$ref": "#/$defs/transition" }
-    }
+    },
+    "$conformance": { "$ref": "#/$defs/conformance" },
+    "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
   },
   "$defs": {
+    "conformance": {
+      "description": "Conformance tier for the enclosing field. See SCHEMA.md.",
+      "enum": ["canonical", "legacy-compatible", "experimental"]
+    },
+    "conformanceNotes": { "type": "string" },
     "state": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "description": { "type": "string" },
-        "terminal": { "type": "boolean" }
+        "terminal": { "type": "boolean" },
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
     },
     "stateRef": {
@@ -39,11 +60,14 @@
     "transition": {
       "type": "object",
       "required": ["from", "to"],
+      "additionalProperties": false,
       "properties": {
         "from": { "$ref": "#/$defs/stateRef" },
         "to": { "$ref": "#/$defs/stateRef" },
         "trigger": { "type": "string" },
-        "description": { "type": "string" }
+        "description": { "type": "string" },
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
     }
   }

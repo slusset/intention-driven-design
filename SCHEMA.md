@@ -69,35 +69,88 @@ Two future initiatives extend the cross-document layer:
 The schema set is versioned with semantic versioning:
 
 - **Patch** — non-substantive changes (descriptions, examples, comments).
-- **Minor** — additive changes: new fields, new optional artifact kinds, new
-  variants. Existing valid documents remain valid.
-- **Major** — breaking changes: removed fields, tightened constraints that
-  invalidate previously valid documents, removed artifact kinds. Major bumps
-  ship with a documented migration path.
+- **Minor** — additive changes: new canonical fields, promotion of
+  `experimental` to `canonical`, new optional artifact kinds, new variants.
+  Existing valid documents remain valid.
+- **Major** — breaking changes: removed `canonical` fields, tightened
+  constraints that invalidate previously valid documents, removed artifact
+  kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.0.0`** (declared in
-[`schemas/v1/index.json`](schemas/v1/index.json)).
+The current version is **`1.1.0`** (declared in
+[`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
+with `$conformance` tiers landed in 1.1.
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward
 compatibility for at least one minor release of `idd-toolkit`.
 
-## Extension model
+## Closed-world keys and `$conformance` (v1.1)
 
-Today schemas allow unknown keys by default. **Issue #37** introduces
-closed-world key validation with a `$conformance` marker that tags each field
-as `canonical`, `legacy-compatible`, or `experimental`. Until #37 lands,
-extensions are silently accepted; once it lands, every key must be enumerated
-in the schema and tagged with a conformance tier.
+Every structured-tier schema sets `additionalProperties: false` (or
+`unevaluatedProperties: false` at the document root where variants
+participate). An unknown key at any enumerated object level is reported by the
+validator.
 
-The change-process states for the schemas mirror the methodology-change-process
-states in [`docs/idd/methodology-change-process.md`](docs/idd/methodology-change-process.md):
+### Severity
 
-| Schema tier | Methodology state | Meaning |
+The validator does not fail the build on unknown keys by default. It
+*categorizes* each one against the document so that intent is observable:
+
+| Author intent (carried on the value) | Severity | Validator output |
+|---|---|---|
+| `$conformance: canonical` (or known field, default) | — | Field is accepted; no message. |
+| `$conformance: legacy-compatible` | warning | "unknown property X retained under $conformance:legacy-compatible" |
+| `$conformance: experimental` | info | "unknown property X accepted under $conformance:experimental" |
+| no marker | warning | "unknown property X (schema: …)" |
+
+A `--strict` flag on each validator promotes warnings to errors.
+
+### Tier vocabulary
+
+| Tier | Methodology state | Meaning |
 |---|---|---|
 | `canonical` | canonical | Load-bearing. Downstream tools depend on this. |
 | `legacy-compatible` | provisional | Retained for back-compat. Scheduled for retirement. |
 | `experimental` | exploratory | Proposed extension. Warnings rather than errors. |
+
+The tiers mirror the methodology-change-process states documented in
+[`docs/idd/methodology-change-process.md`](docs/idd/methodology-change-process.md).
+
+### Declaring an experimental field
+
+Authors who need a field the schema does not yet enumerate can ship it with
+explicit intent:
+
+```yaml
+attributes:
+  profileDescription:
+    type: string
+    placeholder:
+      $conformance: experimental
+      $conformance-notes: "promotion tracked in issue X"
+      value: "Chiropractor providing family and prenatal care..."
+```
+
+The validator emits an info line acknowledging the experimental field.
+Reviewers see the extension explicitly; downstream tools can choose to honor
+or ignore it.
+
+### Promotion path
+
+1. **Exploratory:** ship the field under `$conformance: experimental` with a
+   tracking issue in `$conformance-notes`. The validator emits info, not
+   warnings.
+2. **Provisional:** open a PR that adds the field to the relevant schema with
+   `$conformance: experimental` on the schema property itself. Validators stop
+   emitting the unknown-property message; the experimental status persists.
+3. **Canonical:** open a follow-up PR promoting the field to `$conformance:
+   canonical`. This is a minor version bump.
+
+### Reserved keys
+
+`$conformance` and `$conformance-notes` are reserved at every object level and
+are always accepted. They are metadata about the enclosing field, not part of
+its payload.
 
 ## Conformance fixtures
 

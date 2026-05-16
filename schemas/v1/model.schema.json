@@ -2,68 +2,117 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/model.schema.json",
   "title": "IDD Domain Model",
-  "description": "Schema for IDD domain model documents (.model.yaml). A model is one of: entity, value-object, aggregate, catalog, or a shared value-objects bundle. The discriminating top-level key selects the variant.",
+  "description": "Schema for IDD domain model documents (.model.yaml). A model is one of: entity, value-object, aggregate, catalog, or a shared value-objects bundle. The discriminating top-level key (entity / value_object / aggregate / catalog / value_objects) selects the variant. Closed-world key validation per #37: each enumerated key is allowed; unknown keys are reported and may be demoted via $conformance.",
   "type": "object",
   "required": ["id", "type"],
+  "additionalProperties": false,
   "properties": {
     "id": { "type": "string", "minLength": 1 },
     "type": { "const": "model" },
     "description": { "type": "string" },
     "sources": { "$ref": "#/$defs/sources" },
-    "rules": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/rule" }
-    }
+    "rules": { "type": "array", "items": { "$ref": "#/$defs/rule" } },
+    "entity": { "type": "string", "minLength": 1 },
+    "aggregate": { "type": "string", "minLength": 1 },
+    "catalog": { "type": "string", "minLength": 1 },
+    "value_object": { "type": "string", "minLength": 1 },
+    "value_objects": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/nestedValueObject" }
+    },
+    "entities": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/nestedEntity" }
+    },
+    "identity": { "$ref": "#/$defs/identity" },
+    "attributes": { "$ref": "#/$defs/attributeBlock" },
+    "properties": { "$ref": "#/$defs/attributeBlock" },
+    "relationships": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/relationship" }
+    },
+    "entries": { "type": "object" },
+    "items": { "type": "object" },
+    "$conformance": { "$ref": "#/$defs/conformance" },
+    "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
   },
   "anyOf": [
-    { "$ref": "#/$defs/entityVariant" },
-    { "$ref": "#/$defs/valueObjectVariant" },
-    { "$ref": "#/$defs/aggregateVariant" },
-    { "$ref": "#/$defs/catalogVariant" },
-    { "$ref": "#/$defs/bundleVariant" }
+    { "required": ["entity"] },
+    { "required": ["value_object"] },
+    { "required": ["aggregate"] },
+    { "required": ["catalog"] },
+    {
+      "required": ["value_objects"],
+      "not": { "anyOf": [
+        { "required": ["entity"] },
+        { "required": ["aggregate"] },
+        { "required": ["catalog"] },
+        { "required": ["value_object"] }
+      ] }
+    }
   ],
   "$defs": {
+    "conformance": {
+      "description": "Conformance tier for the enclosing field. See SCHEMA.md.",
+      "enum": ["canonical", "legacy-compatible", "experimental"]
+    },
+    "conformanceNotes": { "type": "string" },
     "sources": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "stories": { "type": "array", "items": { "type": "string" } },
         "journeys": { "type": "array", "items": { "type": "string" } },
-        "features": { "type": "array", "items": { "type": "string" } }
+        "features": { "type": "array", "items": { "type": "string" } },
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
     },
-    "attributeType": {
-      "description": "Canonical attribute primitive types. Closed-world enforcement of this set is deferred to issue #37.",
-      "type": "string"
+    "identity": {
+      "type": "object",
+      "required": ["field"],
+      "additionalProperties": false,
+      "properties": {
+        "field": { "type": "string" },
+        "type": { "type": "string" },
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
+      }
     },
     "attribute": {
       "type": "object",
       "required": ["type"],
+      "additionalProperties": false,
       "properties": {
-        "type": { "$ref": "#/$defs/attributeType" },
+        "type": { "type": "string" },
         "required": { "type": "boolean" },
         "constraints": { "type": "array", "items": { "type": ["string", "object"] } },
         "values": { "type": "array" },
-        "description": { "type": "string" }
+        "description": { "type": "string" },
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
     },
     "attributeBlock": {
       "type": "object",
+      "description": "Map of attribute names to attribute definitions. Attribute names are author-defined; values must conform to #/$defs/attribute.",
       "additionalProperties": { "$ref": "#/$defs/attribute" }
     },
     "relationship": {
       "type": "object",
       "required": ["type", "entity"],
+      "additionalProperties": false,
       "properties": {
-        "type": {
-          "description": "Relationship kind. Replaced by a richer kinded grammar in issue #38.",
-          "type": "string"
-        },
+        "type": { "type": "string" },
         "entity": { "type": "string" },
-        "description": { "type": "string" }
+        "description": { "type": "string" },
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
     },
     "rule": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "id": { "type": "string" },
         "description": { "type": "string" },
@@ -72,103 +121,33 @@
         "enforced": {
           "description": "Today this is a narrative tag. Bound to concrete enforcement points in issue #41.",
           "type": ["string", "array", "object"]
-        }
-      }
-    },
-    "entityVariant": {
-      "type": "object",
-      "required": ["entity"],
-      "properties": {
-        "entity": { "type": "string", "minLength": 1 },
-        "aggregate": { "type": "string" },
-        "identity": {
-          "type": "object",
-          "required": ["field"],
-          "properties": {
-            "field": { "type": "string" },
-            "type": { "type": "string" }
-          }
         },
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
+      }
+    },
+    "nestedEntity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "entity": { "type": "string" },
+        "ref": { "type": "string" },
+        "description": { "type": "string" },
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
+      }
+    },
+    "nestedValueObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "value_object": { "type": "string" },
+        "ref": { "type": "string" },
+        "description": { "type": "string" },
         "attributes": { "$ref": "#/$defs/attributeBlock" },
-        "relationships": {
-          "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/relationship" }
-        }
-      }
-    },
-    "valueObjectVariant": {
-      "type": "object",
-      "required": ["value_object"],
-      "properties": {
-        "value_object": { "type": "string", "minLength": 1 },
-        "attributes": { "$ref": "#/$defs/attributeBlock" },
-        "properties": { "$ref": "#/$defs/attributeBlock" }
-      }
-    },
-    "aggregateVariant": {
-      "type": "object",
-      "required": ["aggregate"],
-      "properties": {
-        "aggregate": { "type": "string", "minLength": 1 },
-        "entities": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "object",
-            "properties": {
-              "entity": { "type": "string" },
-              "ref": { "type": "string" },
-              "description": { "type": "string" }
-            }
-          }
-        },
-        "value_objects": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "object",
-            "properties": {
-              "value_object": { "type": "string" },
-              "ref": { "type": "string" },
-              "description": { "type": "string" },
-              "attributes": { "$ref": "#/$defs/attributeBlock" },
-              "properties": { "$ref": "#/$defs/attributeBlock" }
-            }
-          }
-        }
-      }
-    },
-    "catalogVariant": {
-      "type": "object",
-      "required": ["catalog"],
-      "properties": {
-        "catalog": { "type": "string", "minLength": 1 },
         "properties": { "$ref": "#/$defs/attributeBlock" },
-        "entries": { "type": "object" },
-        "items": { "type": "object" }
-      }
-    },
-    "bundleVariant": {
-      "description": "Shared value-objects bundle: a file that defines multiple reusable value objects without a single entity/aggregate/catalog.",
-      "type": "object",
-      "required": ["value_objects"],
-      "not": { "anyOf": [
-        { "required": ["entity"] },
-        { "required": ["aggregate"] },
-        { "required": ["catalog"] },
-        { "required": ["value_object"] }
-      ] },
-      "properties": {
-        "value_objects": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "object",
-            "properties": {
-              "value_object": { "type": "string" },
-              "description": { "type": "string" },
-              "attributes": { "$ref": "#/$defs/attributeBlock" },
-              "properties": { "$ref": "#/$defs/attributeBlock" }
-            }
-          }
-        }
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
     }
   }

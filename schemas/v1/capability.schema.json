@@ -2,9 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/capability.schema.json",
   "title": "IDD Capability",
-  "description": "Schema for IDD capability documents (.capability.yaml). Declares the artifact set in scope for a capability. Issue #40 adds reference-closure validation on top of this shape; this schema only describes the document.",
+  "description": "Schema for IDD capability documents (.capability.yaml). Declares the artifact set in scope for a capability. Issue #40 adds reference-closure validation on top of this shape. Closed-world keys per #37; scope categories enumerate the canonical artifact kinds.",
   "type": "object",
   "required": ["id", "type", "scope"],
+  "additionalProperties": false,
   "properties": {
     "id": { "type": "string", "minLength": 1 },
     "type": { "const": "capability" },
@@ -12,6 +13,7 @@
     "scope": {
       "type": "object",
       "minProperties": 1,
+      "additionalProperties": false,
       "properties": {
         "personas": { "$ref": "#/$defs/refList" },
         "journeys": { "$ref": "#/$defs/refList" },
@@ -20,12 +22,21 @@
         "models": { "$ref": "#/$defs/refList" },
         "contracts": { "$ref": "#/$defs/refList" },
         "fixtures": { "$ref": "#/$defs/refList" },
-        "journey_maps": { "$ref": "#/$defs/refList" }
-      },
-      "additionalProperties": { "$ref": "#/$defs/refList" }
-    }
+        "journey_maps": { "$ref": "#/$defs/refList" },
+        "excluded": { "$ref": "#/$defs/refList" },
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
+      }
+    },
+    "$conformance": { "$ref": "#/$defs/conformance" },
+    "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
   },
   "$defs": {
+    "conformance": {
+      "description": "Conformance tier for the enclosing field. See SCHEMA.md.",
+      "enum": ["canonical", "legacy-compatible", "experimental"]
+    },
+    "conformanceNotes": { "type": "string" },
     "refList": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 }

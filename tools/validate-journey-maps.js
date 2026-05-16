@@ -16,7 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const { findFiles, formatResults, parseFrontMatter } = require('./lib/parse-front-matter');
-const { getValidator, formatAjvErrors } = require('./lib/schema-loader');
+const { getValidator, categorize } = require('./lib/schema-loader');
 
 const args = process.argv.slice(2);
 let specsDir = null;
@@ -200,9 +200,12 @@ function validateJourneyMap(filePath) {
 
   const schemaCheck = getValidator('journey-map')(map);
   if (!schemaCheck.valid) {
-    for (const msg of formatAjvErrors(schemaCheck.errors)) {
-      errors.push(`schema: ${msg}`);
-    }
+    const c = categorize(schemaCheck.errors, map, {
+      schemaUrl: 'https://github.com/slusset/intention-driven-design/schemas/v1/journey-map.schema.json',
+    });
+    for (const msg of c.errors) errors.push(`schema: ${msg}`);
+    for (const msg of c.warnings) warnings.push(`schema: ${msg}`);
+    for (const msg of c.info) warnings.push(`schema: ${msg}`);
   }
 
   if (!map.journey) {

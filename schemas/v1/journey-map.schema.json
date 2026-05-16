@@ -2,26 +2,35 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/journey-map.schema.json",
   "title": "IDD Journey Map",
-  "description": "Schema for IDD journey map documents (.journey-map.yaml / .map.yaml). Two step models are supported: the current array form (preferred) and the legacy keyed-object form. The 'non-sequential journey_step' rule and the assertion/action vocabularies are validator behaviors today; issues #38 and #39 replace them with kinded grammars and a declarative shape selector.",
+  "description": "Schema for IDD journey map documents. Two step models are supported: the current array form (preferred) and the legacy keyed-object form. The 'non-sequential journey_step' rule and the assertion/action vocabularies are validator behaviors today; issues #38 and #39 replace them with kinded grammars and a declarative shape selector. Closed-world keys per #37.",
   "type": "object",
   "required": ["id", "type", "journey"],
+  "additionalProperties": false,
   "properties": {
     "id": { "type": "string", "minLength": 1 },
     "type": { "const": "journey-map" },
     "journey": { "type": "string", "minLength": 1 },
     "sources": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "journey": { "type": "string" },
         "stories": { "type": "array", "items": { "type": "string" } },
-        "features": { "type": "array", "items": { "type": "string" } }
+        "features": { "type": "array", "items": { "type": "string" } },
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
     },
     "fixtures": {
       "type": "object",
       "additionalProperties": {
         "type": "object",
-        "properties": { "ref": { "type": "string" } }
+        "additionalProperties": false,
+        "properties": {
+          "ref": { "type": "string" },
+          "$conformance": { "$ref": "#/$defs/conformance" },
+          "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
+        }
       }
     },
     "steps": {
@@ -29,22 +38,32 @@
         { "$ref": "#/$defs/stepArray" },
         { "$ref": "#/$defs/stepObject" }
       ]
-    }
+    },
+    "$conformance": { "$ref": "#/$defs/conformance" },
+    "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
   },
   "$defs": {
+    "conformance": {
+      "description": "Conformance tier for the enclosing field. See SCHEMA.md.",
+      "enum": ["canonical", "legacy-compatible", "experimental"]
+    },
+    "conformanceNotes": { "type": "string" },
     "stepArray": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
         "required": ["id"],
+        "additionalProperties": false,
         "properties": {
           "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
           "story": { "type": "string" },
           "title": { "type": "string" },
           "journey_step": { "type": ["integer", "string"] },
           "actions": { "type": "array", "items": { "$ref": "#/$defs/action" } },
-          "assertions": { "type": "array", "items": { "$ref": "#/$defs/assertion" } }
+          "assertions": { "type": "array", "items": { "$ref": "#/$defs/assertion" } },
+          "$conformance": { "$ref": "#/$defs/conformance" },
+          "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
         }
       }
     },
@@ -53,31 +72,40 @@
       "additionalProperties": {
         "type": "object",
         "required": ["journey_step", "title"],
+        "additionalProperties": false,
         "properties": {
           "journey_step": { "type": "integer", "minimum": 1 },
           "title": { "type": "string" },
           "story": { "type": "string" },
           "actions": { "type": "array", "items": { "$ref": "#/$defs/action" } },
-          "assertions": { "type": "array", "items": { "$ref": "#/$defs/assertion" } }
+          "assertions": { "type": "array", "items": { "$ref": "#/$defs/assertion" } },
+          "$conformance": { "$ref": "#/$defs/conformance" },
+          "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
         }
       }
     },
     "action": {
       "type": "object",
       "required": ["type"],
+      "additionalProperties": false,
       "properties": {
         "type": { "type": "string" },
         "target": { "type": ["string", "object"] },
-        "value": {}
+        "value": {},
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
     },
     "assertion": {
       "type": "object",
       "required": ["type"],
+      "additionalProperties": false,
       "properties": {
         "type": { "type": "string" },
         "selector": { "type": ["string", "object"] },
-        "expected": {}
+        "expected": {},
+        "$conformance": { "$ref": "#/$defs/conformance" },
+        "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
     }
   }
