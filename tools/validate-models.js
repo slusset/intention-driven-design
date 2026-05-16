@@ -392,9 +392,22 @@ function validateLifecycle(model, errors, warnings, info = []) {
     errors.push(`Initial state "${model.initial_state}" not found in states`);
   }
 
+  const shape = typeof model.shape === 'string' ? model.shape : 'bounded';
   const hasTerminal = Object.values(model.states).some((state) => state && state.terminal === true);
-  if (!hasTerminal) {
-    warnings.push('Lifecycle should have at least one terminal state');
+
+  // Shape selects which rule applies (#39).
+  //   bounded   — at least one terminal state required (default)
+  //   absorbing — at least one terminal state required
+  //   unbounded — no terminal needed (Customer, TruthFile, …)
+  //   cyclic    — no terminal needed; transitions may return to initial
+  if (shape === 'bounded' || shape === 'absorbing') {
+    if (!hasTerminal) {
+      warnings.push(`Lifecycle (shape:${shape}) should have at least one terminal state`);
+    }
+  } else if (shape === 'unbounded' || shape === 'cyclic') {
+    if (hasTerminal) {
+      info.push(`Lifecycle declared shape:${shape} but has a terminal state — that is allowed; the terminal-state requirement is only enforced for bounded/absorbing shapes`);
+    }
   }
 
   if (model.transitions && typeof model.transitions === 'object') {

@@ -11,6 +11,11 @@
     "type": { "const": "model" },
     "entity": { "type": "string", "minLength": 1 },
     "description": { "type": "string" },
+    "shape": {
+      "description": "Declarative lifecycle shape (#39). Selects which validator rule set applies. Default is `bounded` for back-compat.",
+      "enum": ["bounded", "unbounded", "absorbing", "cyclic"],
+      "default": "bounded"
+    },
     "sources": {
       "type": "object",
       "additionalProperties": false,
