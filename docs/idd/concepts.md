@@ -199,3 +199,19 @@ capabilities; capabilities enumerate their constituent artifacts.
 (certification workflow)
 **Related concepts**: C8 (closes the chain at scope level), C11 (adds a
 grouping layer above the spine), C12 (defines what "done" means for)
+
+---
+
+## C16 — Agent Role as Execution Contract
+
+When work is distributed across humans or agents, each actor must have a
+bounded role contract: owned scope, required inputs, permitted decisions,
+expected outputs, preserved invariants, and explicit handoff targets.
+
+Agent role extends IDD through agency without changing the artifact spine. It
+defines how methodology is executed, not what intent means. Roles must route
+ambiguity back to the correct upstream layer instead of improvising across
+boundaries.
+
+**Applies to**: orchestration, multi-agent delivery, handoff design, review
+**Defined in**: agent-role.md, agent-operating-contract.md, idd-workflow

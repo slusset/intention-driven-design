@@ -1,0 +1,31 @@
+# Minimal role contract template for orchestrated IDD work.
+role: implementation-role
+mission: Change implementation to satisfy declared contracts and tests.
+owns:
+  - frontend/src/
+  - backend/src/
+inputs:
+  - specs/stories/
+  - specs/features/
+  - specs/contracts/openapi/
+must_preserve:
+  - traceability chain
+  - capability scope
+  - declared model invariants
+may_change:
+  - implementation files
+  - test files in owned boundary
+must_not_change:
+  - persona intent without narrative update
+  - contract semantics without behavior-contract update
+handoff_to:
+  - validation-role
+success_evidence:
+  - changed files trace to upstream artifacts
+  - verification passes for owned boundary
+human_approval_required_for:
+  - changes to methodology contracts
+  - changes to governance rules
+notes: >
+  Copy this template and tighten write scope, invariants, and approval rules for
+  each active role.

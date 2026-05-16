@@ -10,6 +10,10 @@ Agentic coding tools are remarkably capable at execution but have a subtle failu
 
 The result is a framework where AI agents can autonomously implement, verify, and evolve software while humans focus on meaning, tradeoffs, and creative decisions.
 
+IDD can also be extended through explicit agent roles: bounded execution
+contracts that let multiple agents develop the methodology or a target system in
+parallel without breaking traceability.
+
 ## How it works
 
 ```
@@ -201,6 +205,25 @@ IDD's narrative, model, and contract skills stay stack-agnostic. Repositories ca
 
 The `idd-workflow` skill should load that overlay before picking backend/frontend implementation skills. If the overlay is missing, it should warn, offer to scaffold one, and continue with explicit assumptions instead of blocking the session.
 
+## Agent roles as an IDD extension
+
+When work is split across multiple humans or agents, define a role contract for
+each actor:
+
+- owned boundary
+- required inputs
+- decisions it may make autonomously
+- outputs it must produce
+- invariants it must preserve
+- handoff target and success evidence
+
+This extends IDD through agency rather than bypassing it. The role governs how
+work is executed; the artifact spine still governs what must remain true.
+
+See [Agent Role](docs/idd/agent-role.md) and [Agent Operating Contract](docs/idd/agent-operating-contract.md).
+For the broader systems view, see [Self-Evolving Engineering Ecosystem](docs/idd/self-evolving-ecosystem.md).
+For governing changes to IDD itself, see [Methodology Change Process](docs/idd/methodology-change-process.md).
+
 ## Skills
 
 | Skill | Purpose | Invocation |
@@ -235,9 +258,13 @@ bin/
 
 docs/idd/                    IDD philosophy and concept library
 ├── manifesto.md             Core principles (the "why")
-├── concepts.md              Atomic concept catalog (C1–C14)
+├── concepts.md              Atomic concept catalog (C1–C16)
 ├── concept-skill-map.md     Which concepts each skill carries
 ├── agent-operating-contract.md  Non-negotiable agent rules
+├── agent-role.md            Agent-role extension for orchestrated agency
+├── self-evolving-ecosystem.md  Runtime + world-model framing around IDD
+├── methodology-change-process.md  How IDD changes should follow IDD
+├── templates/               Reusable methodology templates
 ├── project-template.md      Artifact spine and delivery loop
 └── certification-guide.md   Evidence standards and templates
 

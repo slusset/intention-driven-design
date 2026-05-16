@@ -234,17 +234,23 @@ Discovery answers "what skills are available." Selection answers "which one shou
    ├── Ask only if multiple plausible matches remain
    └── Output: selected stack-specific skills + fallback assumptions
 
-6. Implementation (parallel, stack-specific)
+6. Define agent roles when using delegated or parallel execution
+   ├── Assign each role an owned boundary and allowed write scope
+   ├── Declare required upstream artifacts and preserved invariants
+   ├── Define expected outputs and handoff target
+   └── Route cross-boundary ambiguity back to the relevant upstream skill
+
+7. Implementation (parallel, stack-specific)
    ├── Selected backend skill → backend/
    ├── Selected frontend skill → frontend/
    └── If no dedicated skill exists, follow repo architecture docs + generic implementation checklist
 
-7. /e2e-journey-testing
+8. /e2e-journey-testing
    ├── Create journey map
    ├── Implement Playwright tests
    └── Output: specs/journey-maps/, frontend/e2e/
 
-8. /certification
+9. /certification
    ├── Verify capability scope is complete
    ├── Collect test evidence
    ├── Generate evidence manifest (references capability file)
@@ -279,6 +285,7 @@ Discovery answers "what skills are available." Selection answers "which one shou
 4. Implement changes:
    - Backend → Selected backend technical skill or generic backend checklist
    - Frontend → Selected frontend technical skill or generic frontend checklist
+   - Delegated work → define role contracts before parallel edits
 
 5. Update tests:
    - Journey affected? → /e2e-journey-testing
@@ -327,6 +334,9 @@ Bug fixes follow the Fix Forward principle (C13): fix the spec first, then the c
 
 **Never fix code without updating the spec.** Fixing code without updating specs is drift — the single most common way systems lose alignment with their intent.
 Always apply repo overlay constraints while fixing forward (for example, architecture boundaries and test pyramid policy).
+
+If multiple actors are involved in the repair, assign explicit role contracts so
+each fix-forward step has a bounded owner.
 
 ### Fix Forward Skill Routing
 
@@ -433,6 +443,8 @@ solution-narrative              ← Stack-agnostic
         ▼
  behavior-contract              ← Stack-agnostic
         │
+        ├────────── define role contracts when delegating
+        │
         ├──────────────────────┐
         ▼                      ▼
   backend-skill          frontend-skill     ← Stack-specific
@@ -452,6 +464,7 @@ solution-narrative              ← Stack-agnostic
 
 - **IDD philosophy**: `docs/idd/manifesto.md`
 - **Concept definitions**: `docs/idd/concepts.md`
+- **Agent role extension**: `docs/idd/agent-role.md`
 - **Front-matter schema**: `docs/idd/front-matter-spec.md`
 - **Certification standards**: `docs/idd/certification-guide.md`
 - **PR compliance checks**: `skills/pr-review/SKILL.md`
@@ -470,6 +483,7 @@ When this meta-skill is used by an orchestrator, include these fields in the han
 - `repo_overlay_constraints` (summary bullets when loaded, otherwise the fallback assumptions or open gaps)
 - `technical_skills_discovered` (list of repo-local candidates with area/framework hints)
 - `technical_skill_selection` (chosen skill per area with selection source and evidence)
+- `agent_roles` (role contracts with owner, scope, invariants, outputs, and handoff target)
 - `skills_selected` (ordered list for this task)
 - `blocking_issues` (true blockers only; missing overlay alone does not belong here)
 
