@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/persona.schema.json",
+  "title": "IDD Persona front-matter",
+  "description": "Schema for the YAML front-matter of an IDD persona artifact (Markdown body is freeform).",
+  "type": "object",
+  "required": [
+    "id",
+    "type"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "type": {
+      "const": "persona"
+    },
+    "refs": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  }
+}

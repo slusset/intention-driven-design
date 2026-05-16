@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/index.json",
+  "title": "IDD Schema Registry (v1)",
+  "description": "Registry of IDD schemas at v1. Each entry maps an artifact kind to its canonical $id and to the local path under schemas/v1/. Consumers should prefer the $id URL; local validators resolve via the path.",
+  "version": "1.0.0",
+  "dialect": "https://json-schema.org/draft/2020-12/schema",
+  "artifacts": {
+    "persona": {
+      "kind": "front-matter",
+      "applies_to": "specs/personas/**/*.md",
+      "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/persona.schema.json",
+      "path": "persona.schema.json"
+    },
+    "journey": {
+      "kind": "front-matter",
+      "applies_to": "specs/journeys/**/*.md",
+      "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/journey.schema.json",
+      "path": "journey.schema.json"
+    },
+    "story": {
+      "kind": "front-matter",
+      "applies_to": "specs/stories/**/*.md",
+      "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/story.schema.json",
+      "path": "story.schema.json"
+    },
+    "feature": {
+      "kind": "front-matter",
+      "applies_to": "specs/features/**/*.feature",
+      "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/feature.schema.json",
+      "path": "feature.schema.json"
+    },
+    "model": {
+      "kind": "document",
+      "applies_to": "specs/models/**/*.model.yaml",
+      "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/model.schema.json",
+      "path": "model.schema.json"
+    },
+    "lifecycle": {
+      "kind": "document",
+      "applies_to": "specs/models/**/*.lifecycle.yaml",
+      "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/lifecycle.schema.json",
+      "path": "lifecycle.schema.json"
+    },
+    "journey-map": {
+      "kind": "document",
+      "applies_to": "specs/journey-maps/**/*.{journey-map,map}.yaml",
+      "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/journey-map.schema.json",
+      "path": "journey-map.schema.json"
+    },
+    "capability": {
+      "kind": "document",
+      "applies_to": "specs/capabilities/**/*.capability.yaml",
+      "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/capability.schema.json",
+      "path": "capability.schema.json"
+    },
+    "fixture": {
+      "kind": "document",
+      "applies_to": "specs/fixtures/**/*.{fixture.yaml,json}",
+      "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/fixture.schema.json",
+      "path": "fixture.schema.json"
+    }
+  },
+  "cross_document_constraints": {
+    "description": "Constraints that JSON Schema cannot express. Validated by imperative checkers, not by these schemas.",
+    "constraints": [
+      "traceability: every refs/sources/scope/journey/story/feature reference resolves to an existing file (tools/validate-traceability.js)",
+      "capability-scope: every artifact listed under a capability's scope exists (tools/validate-capability-scope.js)",
+      "fixture-contract: fixture payloads validate against their declared contract operation (tools/validate-fixtures.js)",
+      "evidence: certification manifests reference real test outputs (tools/validate-evidence.js)"
+    ],
+    "future": [
+      "issue #40: reference-closure as a capability-scope obligation",
+      "issue #41: model 'enforced:' rules resolve to concrete enforcement points"
+    ]
+  }
+}

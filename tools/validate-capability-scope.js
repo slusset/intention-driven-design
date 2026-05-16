@@ -25,6 +25,7 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 const { findFiles, fileExists, formatResults } = require('./lib/parse-front-matter');
+const { getValidator, formatAjvErrors } = require('./lib/schema-loader');
 
 // ── Parse arguments ───────────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -84,14 +85,25 @@ function loadCapabilities() {
   const capDir = path.join(specsDir, 'capabilities');
   const capFiles = findFiles(capDir, /\.capability\.ya?ml$/);
   const capabilities = [];
+  const schemaErrors = [];
+  const validate = getValidator('capability');
 
   for (const capFile of capFiles) {
     try {
       const content = fs.readFileSync(capFile, 'utf8');
       const data = yaml.load(content);
+      const relative = path.relative(process.cwd(), capFile);
+      if (data && typeof data === 'object') {
+        const r = validate(data);
+        if (!r.valid) {
+          for (const msg of formatAjvErrors(r.errors)) {
+            schemaErrors.push(`${relative}: schema: ${msg}`);
+          }
+        }
+      }
       if (data && data.scope) {
         capabilities.push({
-          file: path.relative(process.cwd(), capFile),
+          file: relative,
           id: data.id || path.basename(capFile, '.capability.yaml'),
           scope: data.scope,
         });
@@ -101,7 +113,7 @@ function loadCapabilities() {
     }
   }
 
-  return capabilities;
+  return { capabilities, schemaErrors };
 }
 
 /**
@@ -163,7 +175,10 @@ function main() {
   const results = { errors: [], warnings: [], info: [] };
 
   // Load capabilities
-  const capabilities = loadCapabilities();
+  const { capabilities, schemaErrors } = loadCapabilities();
+  for (const msg of schemaErrors) {
+    results.errors.push(msg);
+  }
 
   if (capabilities.length === 0) {
     results.info.push('No capability files found in specs/capabilities/');

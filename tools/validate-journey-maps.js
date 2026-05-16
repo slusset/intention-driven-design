@@ -16,6 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const { findFiles, formatResults, parseFrontMatter } = require('./lib/parse-front-matter');
+const { getValidator, formatAjvErrors } = require('./lib/schema-loader');
 
 const args = process.argv.slice(2);
 let specsDir = null;
@@ -195,6 +196,13 @@ function validateJourneyMap(filePath) {
 
   if (!map || typeof map !== 'object') {
     return { errors: ['YAML root must be an object'], warnings: [] };
+  }
+
+  const schemaCheck = getValidator('journey-map')(map);
+  if (!schemaCheck.valid) {
+    for (const msg of formatAjvErrors(schemaCheck.errors)) {
+      errors.push(`schema: ${msg}`);
+    }
   }
 
   if (!map.journey) {

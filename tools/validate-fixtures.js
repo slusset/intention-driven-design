@@ -25,6 +25,7 @@ const {
   protocolDisplayName,
 } = require('./lib/contracts');
 const { findFiles, formatResults, parseFrontMatter } = require('./lib/parse-front-matter');
+const { getValidator: getSchemaValidator, formatAjvErrors } = require('./lib/schema-loader');
 
 const args = process.argv.slice(2);
 let specsDir = null;
@@ -394,6 +395,12 @@ function validateFixture(fixturePath, index, schemas, ajv) {
 
   if (fixture.parseError) {
     return { valid: false, error: `Invalid fixture format: ${fixture.parseError}` };
+  }
+
+  const schemaResult = getSchemaValidator('fixture')(fixture);
+  if (!schemaResult.valid) {
+    const detail = formatAjvErrors(schemaResult.errors).join('; ');
+    return { valid: false, error: `Fixture schema: ${detail}` };
   }
 
   if (fixture._meta && typeof fixture._meta === 'object' && fixture._meta.schema) {
