@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/capability.schema.json",
+  "title": "IDD Capability",
+  "description": "Schema for IDD capability documents (.capability.yaml). Declares the artifact set in scope for a capability. Issue #40 adds reference-closure validation on top of this shape; this schema only describes the document.",
+  "type": "object",
+  "required": ["id", "type", "scope"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "type": { "const": "capability" },
+    "description": { "type": "string" },
+    "scope": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "personas": { "$ref": "#/$defs/refList" },
+        "journeys": { "$ref": "#/$defs/refList" },
+        "stories": { "$ref": "#/$defs/refList" },
+        "features": { "$ref": "#/$defs/refList" },
+        "models": { "$ref": "#/$defs/refList" },
+        "contracts": { "$ref": "#/$defs/refList" },
+        "fixtures": { "$ref": "#/$defs/refList" },
+        "journey_maps": { "$ref": "#/$defs/refList" }
+      },
+      "additionalProperties": { "$ref": "#/$defs/refList" }
+    }
+  },
+  "$defs": {
+    "refList": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/fixture.schema.json",
+  "title": "IDD Fixture",
+  "description": "Schema for IDD fixture documents (.fixture.yaml or .json). YAML fixtures carry id/type at the top level. JSON fixtures carry the same metadata under a `_meta` block. Fixtures describe canonical request/response pairs (HTTP, RPC, or event) referenced from features and journey maps. The body shape beyond the metadata is intentionally open in v1 — payload schemas come from the contract layer (OpenAPI / AsyncAPI / JSON-RPC) via fixture validation.",
+  "type": "object",
+  "anyOf": [
+    { "$ref": "#/$defs/topLevelMetadata" },
+    { "$ref": "#/$defs/nestedMetadata" }
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "type": { "const": "fixture" },
+    "story": { "type": "string" },
+    "feature": { "type": "string" },
+    "scenario": { "type": "string" },
+    "contract": { "$ref": "#/$defs/contractRef" },
+    "request": { "type": ["object", "array"] },
+    "response": { "type": ["object", "array"] },
+    "event": { "type": ["object", "array"] },
+    "rpc": { "type": ["object", "array"] },
+    "_meta": {
+      "type": "object",
+      "description": "Used in JSON fixtures to carry the same metadata fields under a single key.",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "type": { "const": "fixture" },
+        "story": { "type": "string" },
+        "feature": { "type": "string" },
+        "scenario": { "type": "string" },
+        "contract": { "$ref": "#/$defs/contractRef" },
+        "schema": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "topLevelMetadata": {
+      "type": "object",
+      "required": ["id", "type"]
+    },
+    "nestedMetadata": {
+      "type": "object",
+      "required": ["_meta"]
+    },
+    "contractRef": {
+      "description": "Either a path to the contract file (string) or a structured contract reference (protocol, ref, operation/channel/method).",
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": { "type": "string" },
+            "ref": { "type": "string" },
+            "operation": { "type": "string" },
+            "channel": { "type": "string" },
+            "action": { "type": "string" },
+            "method": { "type": "string" }
+          }
+        }
+      ]
+    }
+  }
+}

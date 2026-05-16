@@ -16,6 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const { findFiles, formatResults, parseFrontMatter } = require('./lib/parse-front-matter');
+const { getValidator, formatAjvErrors } = require('./lib/schema-loader');
 
 const args = process.argv.slice(2);
 let specsDir = null;
@@ -97,6 +98,14 @@ function validateModelFile(filePath) {
 
   if (!model || typeof model !== 'object') {
     return { errors: ['YAML root must be an object'], warnings };
+  }
+
+  const schemaKind = isLifecycle ? 'lifecycle' : 'model';
+  const schemaCheck = getValidator(schemaKind)(model);
+  if (!schemaCheck.valid) {
+    for (const msg of formatAjvErrors(schemaCheck.errors)) {
+      errors.push(`schema: ${msg}`);
+    }
   }
 
   if (isLifecycle) {

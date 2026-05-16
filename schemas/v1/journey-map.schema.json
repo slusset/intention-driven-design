@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/journey-map.schema.json",
+  "title": "IDD Journey Map",
+  "description": "Schema for IDD journey map documents (.journey-map.yaml / .map.yaml). Two step models are supported: the current array form (preferred) and the legacy keyed-object form. The 'non-sequential journey_step' rule and the assertion/action vocabularies are validator behaviors today; issues #38 and #39 replace them with kinded grammars and a declarative shape selector.",
+  "type": "object",
+  "required": ["id", "type", "journey"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "type": { "const": "journey-map" },
+    "journey": { "type": "string", "minLength": 1 },
+    "sources": {
+      "type": "object",
+      "properties": {
+        "journey": { "type": "string" },
+        "stories": { "type": "array", "items": { "type": "string" } },
+        "features": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "fixtures": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": { "ref": { "type": "string" } }
+      }
+    },
+    "steps": {
+      "oneOf": [
+        { "$ref": "#/$defs/stepArray" },
+        { "$ref": "#/$defs/stepObject" }
+      ]
+    }
+  },
+  "$defs": {
+    "stepArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "story": { "type": "string" },
+          "title": { "type": "string" },
+          "journey_step": { "type": ["integer", "string"] },
+          "actions": { "type": "array", "items": { "$ref": "#/$defs/action" } },
+          "assertions": { "type": "array", "items": { "$ref": "#/$defs/assertion" } }
+        }
+      }
+    },
+    "stepObject": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["journey_step", "title"],
+        "properties": {
+          "journey_step": { "type": "integer", "minimum": 1 },
+          "title": { "type": "string" },
+          "story": { "type": "string" },
+          "actions": { "type": "array", "items": { "$ref": "#/$defs/action" } },
+          "assertions": { "type": "array", "items": { "$ref": "#/$defs/assertion" } }
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string" },
+        "target": { "type": ["string", "object"] },
+        "value": {}
+      }
+    },
+    "assertion": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string" },
+        "selector": { "type": ["string", "object"] },
+        "expected": {}
+      }
+    }
+  }
+}

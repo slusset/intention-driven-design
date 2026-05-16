@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/feature.schema.json",
+  "title": "IDD Feature front-matter",
+  "description": "Schema for the parsed Gherkin '# key: value' header block of an IDD feature file. The Gherkin body itself is validated by Gherkin parsers, not this schema.",
+  "type": "object",
+  "required": ["id", "type"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "type": { "const": "feature" },
+    "story": { "type": "string" },
+    "journey": { "type": "string" },
+    "scenario": { "type": "string" }
+  }
+}
