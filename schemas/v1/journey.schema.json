@@ -4,24 +4,24 @@
   "title": "IDD Journey front-matter",
   "description": "Schema for the YAML front-matter of an IDD journey artifact (Markdown body is freeform).",
   "type": "object",
-  "required": [
-    "id",
-    "type"
-  ],
+  "required": ["id", "type"],
+  "additionalProperties": false,
   "properties": {
-    "id": {
-      "type": "string",
-      "minLength": 1
-    },
-    "type": {
-      "const": "journey"
-    },
+    "id": { "type": "string", "minLength": 1 },
+    "type": { "const": "journey" },
     "refs": {
       "type": "object",
-      "properties": {
-        "persona": {}
-      },
+      "description": "Open-ended map of reference kinds to values.",
       "additionalProperties": true
-    }
+    },
+    "$conformance": { "$ref": "#/$defs/conformance" },
+    "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
+  },
+  "$defs": {
+    "conformance": {
+      "description": "Conformance tier for the enclosing field. See SCHEMA.md.",
+      "enum": ["canonical", "legacy-compatible", "experimental"]
+    },
+    "conformanceNotes": { "type": "string" }
   }
 }

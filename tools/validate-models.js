@@ -16,7 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const { findFiles, formatResults, parseFrontMatter } = require('./lib/parse-front-matter');
-const { getValidator, formatAjvErrors } = require('./lib/schema-loader');
+const { getValidator, categorize } = require('./lib/schema-loader');
 
 const args = process.argv.slice(2);
 let specsDir = null;
@@ -101,11 +101,13 @@ function validateModelFile(filePath) {
   }
 
   const schemaKind = isLifecycle ? 'lifecycle' : 'model';
+  const schemaUrl = `https://github.com/slusset/intention-driven-design/schemas/v1/${schemaKind}.schema.json`;
   const schemaCheck = getValidator(schemaKind)(model);
   if (!schemaCheck.valid) {
-    for (const msg of formatAjvErrors(schemaCheck.errors)) {
-      errors.push(`schema: ${msg}`);
-    }
+    const c = categorize(schemaCheck.errors, model, { schemaUrl });
+    for (const msg of c.errors) errors.push(`schema: ${msg}`);
+    for (const msg of c.warnings) warnings.push(`schema: ${msg}`);
+    for (const msg of c.info) warnings.push(`schema: ${msg}`);
   }
 
   if (isLifecycle) {

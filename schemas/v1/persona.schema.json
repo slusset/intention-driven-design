@@ -4,21 +4,27 @@
   "title": "IDD Persona front-matter",
   "description": "Schema for the YAML front-matter of an IDD persona artifact (Markdown body is freeform).",
   "type": "object",
-  "required": [
-    "id",
-    "type"
-  ],
+  "required": ["id", "type"],
+  "additionalProperties": false,
   "properties": {
-    "id": {
-      "type": "string",
-      "minLength": 1
-    },
-    "type": {
-      "const": "persona"
-    },
+    "id": { "type": "string", "minLength": 1 },
+    "type": { "const": "persona" },
     "refs": {
       "type": "object",
+      "description": "Open-ended map of reference kinds to values. Keys are not enumerated because cross-artifact reference vocabulary evolves; closed-world checks operate on the structured tier.",
       "additionalProperties": true
+    },
+    "$conformance": { "$ref": "#/$defs/conformance" },
+    "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
+  },
+  "$defs": {
+    "conformance": {
+      "description": "Conformance tier for the enclosing field. See SCHEMA.md.",
+      "enum": ["canonical", "legacy-compatible", "experimental"]
+    },
+    "conformanceNotes": {
+      "description": "Free-text note explaining the conformance tier (e.g., a tracking issue for promotion).",
+      "type": "string"
     }
   }
 }

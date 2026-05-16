@@ -4,25 +4,24 @@
   "title": "IDD Story front-matter",
   "description": "Schema for the YAML front-matter of an IDD story artifact (Markdown body is freeform).",
   "type": "object",
-  "required": [
-    "id",
-    "type"
-  ],
+  "required": ["id", "type"],
+  "additionalProperties": false,
   "properties": {
-    "id": {
-      "type": "string",
-      "minLength": 1
-    },
-    "type": {
-      "const": "story"
-    },
+    "id": { "type": "string", "minLength": 1 },
+    "type": { "const": "story" },
     "refs": {
       "type": "object",
-      "properties": {
-        "journey": {},
-        "persona": {}
-      },
+      "description": "Open-ended map of reference kinds to values.",
       "additionalProperties": true
-    }
+    },
+    "$conformance": { "$ref": "#/$defs/conformance" },
+    "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
+  },
+  "$defs": {
+    "conformance": {
+      "description": "Conformance tier for the enclosing field. See SCHEMA.md.",
+      "enum": ["canonical", "legacy-compatible", "experimental"]
+    },
+    "conformanceNotes": { "type": "string" }
   }
 }

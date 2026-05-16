@@ -25,7 +25,7 @@ const {
   protocolDisplayName,
 } = require('./lib/contracts');
 const { findFiles, formatResults, parseFrontMatter } = require('./lib/parse-front-matter');
-const { getValidator: getSchemaValidator, formatAjvErrors } = require('./lib/schema-loader');
+const { getValidator: getSchemaValidator, categorize } = require('./lib/schema-loader');
 
 const args = process.argv.slice(2);
 let specsDir = null;
@@ -399,8 +399,16 @@ function validateFixture(fixturePath, index, schemas, ajv) {
 
   const schemaResult = getSchemaValidator('fixture')(fixture);
   if (!schemaResult.valid) {
-    const detail = formatAjvErrors(schemaResult.errors).join('; ');
-    return { valid: false, error: `Fixture schema: ${detail}` };
+    const c = categorize(schemaResult.errors, fixture, {
+      schemaUrl: 'https://github.com/slusset/intention-driven-design/schemas/v1/fixture.schema.json',
+    });
+    if (c.errors.length > 0) {
+      return { valid: false, error: `Fixture schema: ${c.errors.join('; ')}` };
+    }
+    const softMessages = [...c.warnings, ...c.info];
+    if (softMessages.length > 0) {
+      return { valid: true, warnings: softMessages };
+    }
   }
 
   if (fixture._meta && typeof fixture._meta === 'object' && fixture._meta.schema) {
