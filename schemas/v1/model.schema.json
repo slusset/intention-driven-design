@@ -100,10 +100,33 @@
     },
     "relationship": {
       "type": "object",
-      "required": ["type", "entity"],
+      "description": "A relationship between this model and another entity. Either a legacy `type` (back-compat) or an expanded kinded form (`kind` + attributes) — or both — must be present. The expanded form replaces the closed enum from v1.0 (see #38).",
+      "required": ["entity"],
+      "anyOf": [
+        { "required": ["type"] },
+        { "required": ["kind"] }
+      ],
       "additionalProperties": false,
       "properties": {
-        "type": { "type": "string" },
+        "type": {
+          "description": "Legacy relationship name. Recognized values are belongs-to, has-one, has-many, many-to-many. The validator expands each to its named combination of (kind, cardinality, ownership). New documents are encouraged to use the expanded form.",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Structural nature of the relationship. composition (lifecycle-bound), association (independent), aggregation (whole/part without lifecycle ownership), pointer (read-only reference, often to a specific revision).",
+          "enum": ["composition", "association", "aggregation", "pointer"]
+        },
+        "cardinality": {
+          "enum": ["one-to-one", "one-to-many", "many-to-one", "many-to-many"]
+        },
+        "temporality": {
+          "description": "How time enters the reference. `live` follows the target; `pinned` references a specific revision; `snapshotted` carries an embedded copy; `versioned` tracks a specific version identifier.",
+          "enum": ["live", "pinned", "snapshotted", "versioned"]
+        },
+        "ownership": {
+          "enum": ["owned", "not-owned"]
+        },
+        "required": { "type": "boolean" },
         "entity": { "type": "string" },
         "description": { "type": "string" },
         "$conformance": { "$ref": "#/$defs/conformance" },
