@@ -76,12 +76,16 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.5.0`** (declared in
+The current version is **`1.6.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
 actions, and assertions landed in 1.2; declarative lifecycle and journey-map
 shapes landed in 1.3; the reference graph + capability-scope closure rule
-landed in 1.4; enforcement bindings on model rules landed in 1.5.
+landed in 1.4; enforcement bindings on model rules landed in 1.5; schema
+completeness from downstream contact landed in 1.6 (constraints as array or
+object; primitive value-objects; canonical IDs, immutable, ref, versioning,
+invariants, retires, guards/effects/api on transitions, plus open-keyed
+actions/assertions/steps for author-extensible per-kind vocabularies).
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward

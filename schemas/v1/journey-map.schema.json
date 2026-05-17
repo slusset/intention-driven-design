@@ -10,6 +10,26 @@
     "id": { "type": "string", "minLength": 1 },
     "type": { "const": "journey-map" },
     "journey": { "type": "string", "minLength": 1 },
+    "description": {
+      "description": "Narrative summary of the journey this map describes.",
+      "type": "string"
+    },
+    "preconditions": {
+      "description": "Narrative or structured preconditions that must hold for this journey-map to apply.",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": ["string", "object"] } },
+        { "type": "object" }
+      ]
+    },
+    "state_diagram": {
+      "description": "Optional embedded state diagram or reference to one. Free-form structure.",
+      "type": ["string", "object", "array"]
+    },
+    "landing_decision_table": {
+      "description": "Decision table describing landing-page behavior. Free-form structure.",
+      "type": ["object", "array"]
+    },
     "shape": {
       "description": "Declarative journey-map shape (#39). Selects which step-ordering rule applies. Default is `sequential` for back-compat.",
       "enum": ["sequential", "branching", "hierarchical"],
@@ -59,11 +79,12 @@
       "items": {
         "type": "object",
         "required": ["id"],
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
           "story": { "type": "string" },
           "title": { "type": "string" },
+          "description": { "type": "string" },
           "journey_step": { "type": ["integer", "string"] },
           "branch": {
             "description": "Used with shape:branching. Distinguishes steps that share a journey_step number by naming the branch the step belongs to.",
@@ -81,10 +102,11 @@
       "additionalProperties": {
         "type": "object",
         "required": ["journey_step", "title"],
-        "additionalProperties": false,
+        "additionalProperties": true,
         "properties": {
           "journey_step": { "type": ["integer", "string"], "minimum": 1 },
           "title": { "type": "string" },
+          "description": { "type": "string" },
           "story": { "type": "string" },
           "branch": { "type": "string" },
           "actions": { "type": "array", "items": { "$ref": "#/$defs/action" } },
@@ -96,12 +118,12 @@
     },
     "action": {
       "type": "object",
-      "description": "A user or system action performed during a journey step. Either a legacy `type` (back-compat with the Playwright-vocab enum) or a kinded form (`kind` + attributes) must be present. The expanded form replaces the closed enum from v1.0 (see #38).",
+      "description": "A user or system action performed during a journey step. Either a legacy `type` (back-compat with the Playwright-vocab enum) or a kinded form (`kind` + attributes) must be present. The per-kind property vocabulary is author-extensible (target, url, value, timeout, until, variant, capture, …), so this object is intentionally open — typos won't be caught here.",
       "anyOf": [
         { "required": ["type"] },
         { "required": ["kind"] }
       ],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "type": {
           "description": "Legacy action verb. Recognized values are navigate, click, fill, select, check, uncheck, wait, hover, scroll, press, type, upload. New documents are encouraged to use the expanded form.",
@@ -116,19 +138,21 @@
           "type": "string"
         },
         "target": { "type": ["string", "object"] },
+        "url": { "type": "string", "description": "Target URL for navigation actions." },
         "value": {},
+        "description": { "type": "string" },
         "$conformance": { "$ref": "#/$defs/conformance" },
         "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
     },
     "assertion": {
       "type": "object",
-      "description": "An expectation checked during a journey step. Either a legacy `type` (back-compat with the Playwright-vocab enum) or a kinded form (`kind` + property + target) must be present. The expanded form replaces the closed enum from v1.0 (see #38) and admits domain assertions (cookie state, principal classification, lead tag, intake prefill, …) that the legacy enum could not express.",
+      "description": "An expectation checked during a journey step. Either a legacy `type` (back-compat with the Playwright-vocab enum) or a kinded form (`kind` + property + target) must be present. The per-kind property vocabulary is author-extensible (selector, endpoint, expected, expected_status, contains, pattern, equals, fields, tag, min_seconds, …), so this object is intentionally open — typos won't be caught here.",
       "anyOf": [
         { "required": ["type"] },
         { "required": ["kind"] }
       ],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "type": {
           "description": "Legacy assertion name. Recognized values are visible, hidden, text, url, api, count, polling, attribute, value, enabled, disabled. New documents are encouraged to use the expanded form.",
@@ -147,7 +171,21 @@
           "type": ["string", "object"]
         },
         "selector": { "type": ["string", "object"] },
+        "endpoint": { "type": "string", "description": "API endpoint the assertion checks." },
         "expected": {},
+        "expected_status": {
+          "description": "Expected HTTP status code for kind:api assertions.",
+          "type": ["integer", "string"]
+        },
+        "contains": {
+          "description": "Substring or fragment the assertion expects to find."
+        },
+        "pattern": {
+          "description": "Regex or shape pattern the assertion expects to match.",
+          "type": "string"
+        },
+        "name": { "type": "string", "description": "Optional name for the assertion (useful when grouping)." },
+        "description": { "type": "string" },
         "$conformance": { "$ref": "#/$defs/conformance" },
         "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }

@@ -23,11 +23,28 @@
         "stories": { "type": "array", "items": { "type": "string" } },
         "journeys": { "type": "array", "items": { "type": "string" } },
         "features": { "type": "array", "items": { "type": "string" } },
+        "reference": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "issues": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
         "$conformance": { "$ref": "#/$defs/conformance" },
         "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
     },
     "initial_state": { "type": "string", "minLength": 1 },
+    "invariants": {
+      "description": "Lifecycle-level invariants in narrative form.",
+      "type": "array",
+      "items": { "type": ["string", "object"] }
+    },
     "states": {
       "type": "object",
       "minProperties": 1,
@@ -71,6 +88,26 @@
         "to": { "$ref": "#/$defs/stateRef" },
         "trigger": { "type": "string" },
         "description": { "type": "string" },
+        "guards": {
+          "description": "Preconditions that must hold for the transition to fire. Narrative or structured (e.g., a list of named guard rules).",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": ["string", "object"] } },
+            { "type": "object" }
+          ]
+        },
+        "effects": {
+          "description": "Side effects produced by the transition (events emitted, state changes elsewhere). Narrative or structured.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": ["string", "object"] } },
+            { "type": "object" }
+          ]
+        },
+        "api": {
+          "description": "Reference to the API operation (OpenAPI / AsyncAPI / JSON-RPC) that drives this transition externally.",
+          "type": ["string", "object"]
+        },
         "$conformance": { "$ref": "#/$defs/conformance" },
         "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
