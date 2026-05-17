@@ -3,7 +3,7 @@
   "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/index.json",
   "title": "IDD Schema Registry (v1)",
   "description": "Registry of IDD schemas at v1. Each entry maps an artifact kind to its canonical $id and to the local path under schemas/v1/. Consumers should prefer the $id URL; local validators resolve via the path.",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "artifacts": {
     "persona": {

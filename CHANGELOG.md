@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-05-17
+
+Schema completeness pass driven by first contact with `slusset/edyoucate-ai`. Closed-world validation against the downstream repo surfaced 21 hard errors and 233 warnings — most were load-bearing IDD patterns the v1.0 schema simply didn't enumerate, not novel additions in the downstream repo. v1.1 promotes those patterns to canonical so downstream adopters don't have to tag them experimental.
+
+After bumping to v1.1.0 in a downstream repo, errors drop to zero with no spec changes; remaining warnings are genuine migration signals (shape declarations, novel domain assertions, etc.) rather than schema gaps.
+
+Schema registry: **1.5.0 → 1.6.0**. Toolkit/plugin: **1.0.0 → 1.1.0**.
+
+### Fixed
+
+- **`constraints` accepts both array and object form.** Array form (`constraints: [non-empty, immutable]`) was the only canonical shape in v1.0; object form (`constraints: { minLength: 2, maxLength: 200 }`) is widely used downstream and is strictly more expressive. Both are now first-class. This was the source of the 21 hard errors in the edyoucate-ai contact.
+
+### Added — canonical keys on model documents
+
+- `identity.{format, prefix, example, notes}` — ID format declaration (e.g., `prefixed-ulid` + `cust_` → `cust_01HZZ…`). Promoted from 25× downstream usage.
+- `attribute.{immutable, default, ref, format, prefix, example, itemType, sensitive, minimum, maximum, see, properties}` — semantic and shape hints on attributes. `ref` lets an attribute reference a shared value-object model.
+- Document root: `versioning`, `invariants`, `retires` — versioning policy, document-level invariants, retired-artifact declarations.
+- Primitive value-object form: `value_type` (`string | object | number | boolean | …`), top-level `format`, top-level `constraints`, top-level `required` (array of property names for `value_type: object`), `validation`, `equality`, `example`. Allows `email-address.model.yaml` (string + format: email + maxLength) and `money.model.yaml` (object + required + properties + validation) to validate as first-class value objects.
+
+### Added — canonical keys on lifecycle documents
+
+- `sources.{reference, issues}` — additional source references.
+- Document root `invariants` — lifecycle-level invariants.
+- `transition.{guards, effects, api}` — preconditions, side effects, and the API operation that drives a transition.
+
+### Added — canonical keys on capability documents
+
+- Document root `retires` and `scope.retires` — declares artifacts retired from the capability. Closure validator ignores these on both sides, matching `excluded:` semantics.
+
+### Added — canonical keys on journey-map documents
+
+- Document root: `description`, `preconditions`, `state_diagram`, `landing_decision_table`.
+- Step: `description` (on both step-array and step-object forms).
+- Action: `url`, `description`. The action object is now **open-keyed** by design — per-kind property vocabulary is author-extensible (variant, capture, timeout, until, …).
+- Assertion: `endpoint`, `expected_status`, `contains`, `pattern`, `name`, `description`. Like actions, assertions are now open-keyed.
+- Step (both forms) is now open-keyed for the same reason — step-level vocabulary varies per project.
+
+### Added — kinded grammar shorthands
+
+`tools/lib/kinds.js` gains six domain-assertion named combinations: `cookie-set`, `cookie-present`, `cookie-max-age`, `principal-classification`, `lead-tag-present`, `intake-prefill-available`. The validator now expands the legacy short names and reports the kinded structure (`kind:cookie, property:set`, etc.) instead of warning that the type is unknown.
+
+### Tests
+
+`tests/schemas/v1.6-canonical-keys.test.js` (13 cases) regression-pins every newly-canonical key against its real-world shape. Full suite: **88/88**.
+
+### Migration
+
+Downstream repos pinning `idd-toolkit#v1.0.0` should bump to `#v1.1.0`. No spec changes required — all additions are additive and back-compat. The closed-world principle still applies; v1.1 just enumerates more canonical keys.
+
 ## [1.0.0] - 2026-05-16
 
 The language-theoretic schema effort ([#24](https://github.com/slusset/intention-driven-design/issues/24)) lands as 1.0. The IDD specification format now has a single normative source, closed-world key validation, kinded vocabularies, declarative artifact shapes, and two cross-document obligations that JSON Schema cannot express. Schema registry at **v1.5.0**; toolkit and plugin promoted to **1.0.0**.

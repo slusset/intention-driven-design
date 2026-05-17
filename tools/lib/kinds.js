@@ -51,6 +51,7 @@ const ACTION_COMBINATIONS = {
 };
 
 const ASSERTION_COMBINATIONS = {
+  // Playwright-vocabulary (v1.2 originals)
   visible: { kind: 'dom', property: 'visibility', expected: 'visible' },
   hidden: { kind: 'dom', property: 'visibility', expected: 'hidden' },
   text: { kind: 'dom', property: 'text' },
@@ -62,6 +63,14 @@ const ASSERTION_COMBINATIONS = {
   value: { kind: 'dom', property: 'value' },
   enabled: { kind: 'dom', property: 'enabled', expected: true },
   disabled: { kind: 'dom', property: 'enabled', expected: false },
+  // Domain-assertion shorthands (v1.6) — promoted to named combinations after
+  // contact with downstream specs. The author can still write the expanded form.
+  'cookie-set': { kind: 'cookie', property: 'set' },
+  'cookie-present': { kind: 'cookie', property: 'present' },
+  'cookie-max-age': { kind: 'cookie', property: 'max-age' },
+  'principal-classification': { kind: 'classification', target: 'principal' },
+  'lead-tag-present': { kind: 'tag', property: 'present', target: 'lead' },
+  'intake-prefill-available': { kind: 'context', property: 'available', target: 'intake-prefill' },
 };
 
 const RELATIONSHIP_KINDS = new Set(['composition', 'association', 'aggregation', 'pointer']);

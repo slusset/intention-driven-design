@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/model.schema.json",
   "title": "IDD Domain Model",
-  "description": "Schema for IDD domain model documents (.model.yaml). A model is one of: entity, value-object, aggregate, catalog, or a shared value-objects bundle. The discriminating top-level key (entity / value_object / aggregate / catalog / value_objects) selects the variant. Closed-world key validation per #37: each enumerated key is allowed; unknown keys are reported and may be demoted via $conformance.",
+  "description": "Schema for IDD domain model documents (.model.yaml). A model is one of: entity, value-object (complex or primitive), aggregate, catalog, or a shared value-objects bundle. The discriminating top-level key (entity / value_object / aggregate / catalog / value_objects) selects the variant. Closed-world key validation per #37; unknown keys may be demoted via $conformance.",
   "type": "object",
   "required": ["id", "type"],
   "additionalProperties": false,
@@ -12,6 +12,15 @@
     "description": { "type": "string" },
     "sources": { "$ref": "#/$defs/sources" },
     "rules": { "type": "array", "items": { "$ref": "#/$defs/rule" } },
+    "invariants": {
+      "description": "Document-level invariants narrative — promotes to canonical from edyoucate-ai usage.",
+      "type": "array",
+      "items": { "type": ["string", "object"] }
+    },
+    "versioning": {
+      "description": "Declares the versioning policy for this model (e.g., immutable, append-only revisions, snapshot-per-event).",
+      "type": ["string", "object"]
+    },
     "entity": { "type": "string", "minLength": 1 },
     "aggregate": { "type": "string", "minLength": 1 },
     "catalog": { "type": "string", "minLength": 1 },
@@ -33,6 +42,38 @@
     },
     "entries": { "type": "object" },
     "items": { "type": "object" },
+    "value_type": {
+      "description": "Used on value-object documents to declare the underlying shape: a primitive type (string, number, integer, boolean) or `object`. Promotes the primitive-value-object pattern (e.g., email-address as string + format + constraints).",
+      "type": "string"
+    },
+    "format": {
+      "description": "For primitive value-objects: format hint (e.g., `email`, `iso-4217`). Mirrors JSON Schema's `format` keyword.",
+      "type": "string"
+    },
+    "constraints": { "$ref": "#/$defs/constraints" },
+    "required": {
+      "description": "For value-object documents with `value_type: object`, a list of required property names — mirrors JSON Schema's `required`.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "validation": {
+      "description": "Value-object validation rules in narrative form.",
+      "type": "array",
+      "items": { "type": ["string", "object"] }
+    },
+    "equality": {
+      "description": "Value-object equality semantics in narrative form.",
+      "type": ["string", "object"]
+    },
+    "example": {
+      "description": "For primitive value-objects: an example value.",
+      "type": ["string", "number", "boolean"]
+    },
+    "retires": {
+      "description": "Declares artifacts retired by this model (typically referenced from `specs/archive/`). The closure validator ignores entries listed here.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
     "$conformance": { "$ref": "#/$defs/conformance" },
     "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
   },
@@ -57,6 +98,13 @@
       "enum": ["canonical", "legacy-compatible", "experimental"]
     },
     "conformanceNotes": { "type": "string" },
+    "constraints": {
+      "description": "Constraint declarations. Two accepted forms: an array of narrative tags (e.g., [non-empty, immutable]) or an object whose keys are constraint names with values (e.g., { minLength: 2, maxLength: 200, pattern: ... }). Both are canonical.",
+      "oneOf": [
+        { "type": "array", "items": { "type": ["string", "object"] } },
+        { "type": "object" }
+      ]
+    },
     "sources": {
       "type": "object",
       "additionalProperties": false,
@@ -64,6 +112,20 @@
         "stories": { "type": "array", "items": { "type": "string" } },
         "journeys": { "type": "array", "items": { "type": "string" } },
         "features": { "type": "array", "items": { "type": "string" } },
+        "reference": {
+          "description": "Additional reference document(s) for this model.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "issues": {
+          "description": "Associated issue tracker references.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
         "$conformance": { "$ref": "#/$defs/conformance" },
         "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
@@ -75,6 +137,19 @@
       "properties": {
         "field": { "type": "string" },
         "type": { "type": "string" },
+        "format": {
+          "description": "ID format declaration (e.g., `prefixed-ulid`, `uuid-v4`). Drives ID generation and validation downstream.",
+          "type": "string"
+        },
+        "prefix": {
+          "description": "Prefix string applied to generated IDs (e.g., `cust_` produces `cust_01HZZ...`).",
+          "type": "string"
+        },
+        "example": {
+          "description": "Concrete example of a valid identifier.",
+          "type": ["string", "number"]
+        },
+        "notes": { "type": "string" },
         "$conformance": { "$ref": "#/$defs/conformance" },
         "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
@@ -86,9 +161,52 @@
       "properties": {
         "type": { "type": "string" },
         "required": { "type": "boolean" },
-        "constraints": { "type": "array", "items": { "type": ["string", "object"] } },
+        "constraints": { "$ref": "#/$defs/constraints" },
         "values": { "type": "array" },
         "description": { "type": "string" },
+        "default": {
+          "description": "Default value when the attribute is not explicitly set."
+        },
+        "immutable": {
+          "description": "Once set, the value cannot change for the lifetime of the entity (e.g., createdAt).",
+          "type": "boolean"
+        },
+        "ref": {
+          "description": "Reference to a shared model/type artifact that defines the attribute's shape (e.g., specs/models/shared/email-address.model.yaml).",
+          "type": "string"
+        },
+        "format": {
+          "description": "Format hint mirroring JSON Schema's `format` keyword (e.g., email, uri, date-time).",
+          "type": "string"
+        },
+        "prefix": {
+          "description": "For ID-like attributes carrying a prefixed identifier (e.g., `trev_`).",
+          "type": "string"
+        },
+        "example": {
+          "description": "Example value for documentation and seed-data purposes."
+        },
+        "itemType": {
+          "description": "For array-typed attributes, the type of each element.",
+          "type": ["string", "object"]
+        },
+        "properties": {
+          "description": "For object-typed attributes, the nested property schema.",
+          "type": "object"
+        },
+        "sensitive": {
+          "description": "Marks the attribute as carrying sensitive data (e.g., tokens, secrets). Drives logging redaction policy downstream.",
+          "type": "boolean"
+        },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "see": {
+          "description": "Cross-reference to related artifacts.",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
         "$conformance": { "$ref": "#/$defs/conformance" },
         "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }

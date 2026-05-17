@@ -10,6 +10,10 @@
     "id": { "type": "string", "minLength": 1 },
     "type": { "const": "capability" },
     "description": { "type": "string" },
+    "retires": {
+      "description": "Top-level list of artifacts retired by this capability. Mirrors `scope.retires` and is treated equivalently by the closure validator.",
+      "$ref": "#/$defs/refList"
+    },
     "scope": {
       "type": "object",
       "minProperties": 1,
@@ -24,6 +28,10 @@
         "fixtures": { "$ref": "#/$defs/refList" },
         "journey_maps": { "$ref": "#/$defs/refList" },
         "excluded": { "$ref": "#/$defs/refList" },
+        "retires": {
+          "description": "Artifacts being retired from this capability's scope. The closure validator ignores entries listed here when checking reachability.",
+          "$ref": "#/$defs/refList"
+        },
         "$conformance": { "$ref": "#/$defs/conformance" },
         "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
