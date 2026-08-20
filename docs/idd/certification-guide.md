@@ -8,15 +8,23 @@ Certification is the evidence layer that makes "done means verified" (C12) real.
 
 **No merge without verifiable evidence tied to intent.**
 
-Evidence is not "tests pass." Evidence is a published record that traces specific test results back to specific intent artifacts — and that record is committed alongside the code.
+Evidence is not "tests pass." Evidence is a published record that traces specific test results back to specific intent artifacts — and that record is published with the change as part of the CI report.
 
-## Artifact location
+## Evidence lifecycle: generated, validated, published — never committed
+
+Evidence is **derived output**. It is recomputed from the capability scope and test results on every certification run, so it always describes exactly one commit. Committing it to the repo would freeze a claim that goes stale on the next push; keeping it in the CI report keeps the claim honest.
+
+The three surfaces of the published record:
+
+1. **Job summary + PR comment** — per-capability certification status, traceability ratios, test counts, and declared gaps. Rendered by the `idd-check` GitHub Action on every PR.
+2. **Workflow artifact** (`idd-evidence`) — the full `evidence.yaml` manifests plus raw validator output for the run. This is the durable, auditable record; CI run history preserves past certifications.
+3. **Local workspace** (`.idd/evidence/`, gitignored) — where local certification runs write manifests for inspection before CI takes over.
 
 ```
-certification/
+.idd/evidence/                  ← gitignored workspace (local or CI runner)
 ├── {capability-name}/
 │   ├── evidence.yaml          ← structured evidence manifest
-│   ├── reports/               ← raw test output (CI-generated)
+│   ├── reports/               ← raw test output
 │   │   ├── unit.xml           ← JUnit/xUnit results
 │   │   ├── contract.xml       ← contract test results
 │   │   ├── e2e.xml            ← Playwright results
@@ -25,12 +33,14 @@ certification/
 │       └── journey-step-*.png
 ```
 
+Only intent artifacts (`specs/`) are committed. The capability file declares *what* is certified; the CI report proves *that* it is.
+
 ## Evidence manifest
 
 The `evidence.yaml` file is the structured link between intent and verification:
 
 ```yaml
-# certification/{capability-name}/evidence.yaml
+# .idd/evidence/{capability-name}/evidence.yaml (generated — not committed)
 
 capability: specs/capabilities/trade-show-signup.capability.yaml
 certified_at: 2026-03-01T14:30:00Z
@@ -155,60 +165,69 @@ Certify when:
 - All stories in the capability have corresponding features.
 - All features have contract and unit test coverage.
 - The journey has end-to-end coverage.
-- Evidence is collected and the manifest is committed.
+- Evidence is generated and validated in CI, and the report is published on the PR.
 
 ## CI integration
 
-Generate evidence automatically in CI:
+The `idd-check` GitHub Action does this automatically: it discovers every `specs/capabilities/*.capability.yaml`, generates a manifest per capability, validates it against the certification thresholds, renders the result into the job summary and PR comment, and uploads the manifests as the `idd-evidence` workflow artifact.
 
 ```yaml
 # In CI workflow
 certify:
   needs: [unit-tests, contract-tests, e2e-tests]
   steps:
-    - name: Collect evidence
-      run: |
-        mkdir -p certification/${{ env.CAPABILITY }}/reports
-        cp backend/target/surefire-reports/*.xml certification/${{ env.CAPABILITY }}/reports/unit.xml
-        cp backend/target/contract-reports/*.xml certification/${{ env.CAPABILITY }}/reports/contract.xml
-        cp frontend/playwright-report/results.xml certification/${{ env.CAPABILITY }}/reports/e2e.xml
-        cp frontend/coverage/coverage-summary.json certification/${{ env.CAPABILITY }}/reports/coverage.json
+    - uses: actions/checkout@v4
 
-    - name: Generate evidence manifest
+    - name: Collect test reports
       run: |
-        # Tool that reads capability scope + available reports
-        # and scaffolds evidence.yaml
-        node tools/generate-evidence.js \
-          --capability ${{ env.CAPABILITY }} \
-          --reports-dir certification/${{ env.CAPABILITY }}/reports/ \
-          --output certification/${{ env.CAPABILITY }}/evidence.yaml \
-          --certified-by CI \
+        mkdir -p test-reports/${{ env.CAPABILITY }}
+        cp backend/target/surefire-reports/*.xml test-reports/${{ env.CAPABILITY }}/unit.xml
+        cp backend/target/contract-reports/*.xml test-reports/${{ env.CAPABILITY }}/contract.xml
+        cp frontend/playwright-report/results.xml test-reports/${{ env.CAPABILITY }}/e2e.xml
+        cp frontend/coverage/coverage-summary.json test-reports/${{ env.CAPABILITY }}/coverage.json
+
+    - name: IDD checks + certification evidence report
+      uses: slusset/intention-driven-design/.github/actions/idd-check@v1
+      with:
+        evidence-reports-dir: test-reports
+        # Report-only by default; flip on once capabilities are certifiable:
+        # evidence-gate: 'true'
+```
+
+Evidence reporting is **report-only by default** (`evidence-gate: 'false'`): every PR shows per-capability certification status without blocking while coverage is still being built out. Setting `evidence-gate: 'true'` makes an uncertifiable capability fail the check — that is the enforcement of "no merge without evidence" once a project is ready to hold the line.
+
+The equivalent by hand, for pipelines that don't use the action:
+
+```yaml
+    - name: Generate + validate evidence manifest
+      run: |
+        idd generate-evidence \
+          --capability specs/capabilities/${{ env.CAPABILITY }}.capability.yaml \
+          --reports-dir test-reports/${{ env.CAPABILITY }} \
+          --output .idd/evidence/${{ env.CAPABILITY }}/evidence.yaml \
           --write
+        idd validate evidence \
+          --evidence .idd/evidence/${{ env.CAPABILITY }}/evidence.yaml
 
-    - name: Verify traceability
-      run: |
-        # Validate certification thresholds
-        node tools/validate-evidence.js \
-          --evidence certification/${{ env.CAPABILITY }}/evidence.yaml
-
-    - name: Commit evidence
-      run: |
-        git add certification/${{ env.CAPABILITY }}/
-        git commit -m "cert: ${{ env.CAPABILITY }} evidence"
+    - name: Publish evidence with the run
+      uses: actions/upload-artifact@v4
+      with:
+        name: idd-evidence
+        path: .idd/evidence/
 ```
 
 The current `generate-evidence.js` tool is a scaffold generator, not full certification automation. It can derive capability-scoped links and seed the manifest from available reports, but some fields still require human review or a later validator pass. Pair it with `validate-evidence.js` to enforce the current certification thresholds.
 
 ## Manual certification (for early adoption)
 
-If CI automation isn't set up yet, create the evidence manifest by hand:
+If CI automation isn't set up yet, produce and publish the evidence record by hand:
 
 1. Run tests and collect results.
-2. Generate a starting manifest with `node tools/generate-evidence.js --capability specs/capabilities/{capability}.capability.yaml --write` or create `certification/{capability}/evidence.yaml` by hand using the template above.
+2. Generate a starting manifest with `node tools/generate-evidence.js --capability specs/capabilities/{capability}.capability.yaml --write` (defaults to `.idd/evidence/{capability}/evidence.yaml`, which is gitignored) or write it by hand using the template above.
 3. Fill in test counts from actual results.
-4. Validate it with `node tools/validate-evidence.js --evidence certification/{capability}/evidence.yaml`.
+4. Validate it with `node tools/validate-evidence.js --evidence .idd/evidence/{capability}/evidence.yaml`.
 5. Document gaps honestly. If human approval exists for explicit gaps, validate with `--allow-gaps`.
-6. Commit alongside the implementation.
+6. Publish the result where the merge decision happens — paste the manifest (or its summary) into the PR description or a PR comment. Do not commit it.
 
 The manifest format is the same whether generated by CI or written by hand. Automation removes human effort; it doesn't change the standard.
 

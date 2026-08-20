@@ -11,7 +11,10 @@
 7. `specs/fixtures/`
 8. `specs/journey-maps/`
 9. `specs/capabilities/` (created as a stub after narrative, finalized after models/contracts/features exist)
-10. `certification/` (automated evidence tied to intent)
+
+Evidence is not part of the committed spine: it is generated per capability
+(into gitignored `.idd/evidence/`) and published through the CI evidence
+report — job summary, PR comment, and workflow artifact.
 
 ## Delivery loop (intention → artifact → verification → evidence)
 
@@ -22,7 +25,7 @@
 5. If work is delegated or parallelized, define role contracts before edits begin.
 6. Implement code from contracts and feature expectations.
 7. Produce executable verification: unit, contract, e2e, regression.
-8. Publish evidence under `certification/` before merge (`/certification`).
+8. Publish evidence via the CI evidence report before merge (`/certification`).
 
 ## Done criteria
 
@@ -30,6 +33,6 @@
 - Every contract operation references source story/feature.
 - Every automated test maps to an explicit intent artifact.
 - No feature is accepted on manual confidence alone.
-- Certification evidence manifest is committed with traceability verified.
+- Certification evidence is published in the CI report with traceability verified.
 - Gaps are declared honestly, not hidden.
 - Delegated roles preserve declared boundaries and invariants.

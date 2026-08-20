@@ -255,7 +255,8 @@ Discovery answers "what skills are available." Selection answers "which one shou
    ├── Collect test evidence
    ├── Generate evidence manifest (references capability file)
    ├── Verify traceability chain
-   └── Output: certification/{capability}/
+   └── Output: CI evidence report (job summary, PR comment, workflow
+       artifact) — generated via .idd/evidence/, never committed
 ```
 
 ### Modifying Existing Features
@@ -290,7 +291,7 @@ Discovery answers "what skills are available." Selection answers "which one shou
 5. Update tests:
    - Journey affected? → /e2e-journey-testing
 
-6. Update certification evidence if capability scope changed.
+6. Re-run `/certification` if capability scope changed — the next CI evidence report picks up the new scope.
 ```
 
 ### Bug Fixes (Fix Forward)
@@ -328,7 +329,7 @@ Bug fixes follow the Fix Forward principle (C13): fix the spec first, then the c
 
 6. Recertify
    ├── Re-run the relevant verification layer(s)
-   ├── Update `certification/{capability}/evidence.yaml` via `/certification`
+   ├── Regenerate evidence via `/certification` — the CI evidence report is the published record
    └── Confirm the repaired gap is now represented in both traceability and evidence
 ```
 
@@ -349,7 +350,7 @@ Use this decision table when a defect is discovered:
 | Scenario, API contract, error behavior, or fixture missing | `/behavior-contract` | `specs/features/`, `specs/contracts/`, `specs/fixtures/` |
 | Journey-map step or e2e assertion missing | `/e2e-journey-testing` | `specs/journey-maps/`, `frontend/e2e/` |
 | Spec is correct and code is wrong | Resolved technical skill | implementation + tests |
-| Evidence out of date after the repair | `/certification` | `certification/{capability}/` |
+| Evidence out of date after the repair | `/certification` | CI evidence report (regenerated) |
 
 ## Artifact Locations
 
@@ -373,10 +374,14 @@ frontend/                       ← Frontend architecture skill
 ├── src/                        ← Implementation from specs/
 └── e2e/                        ← /e2e-journey-testing
 
-certification/                  ← Evidence layer
+.idd/evidence/                  ← Evidence layer (gitignored — generated, never committed)
 └── {capability}/
     ├── evidence.yaml           ← Manifest linking tests to intent
     └── reports/                ← Raw test output
+
+Published record: the CI evidence report — job summary + PR comment
+rendered by the idd-check action, manifests attached as the
+`idd-evidence` workflow artifact.
 ```
 
 ## Traceability Requirements
@@ -418,7 +423,7 @@ A: It should:
 2. Comply with the OpenAPI contract
 3. Follow the journey map in e2e tests
 4. Respect business rules in the model
-5. Have certification evidence committed
+5. Have certification evidence published in the CI report
 
 **Q: Can I skip the narrative layer for small changes?**
 A: For pure bug fixes or minor UI tweaks, yes. For anything that changes behavior, no — update the spec first. When in doubt, ask: "Would someone need to update the feature file for this?"

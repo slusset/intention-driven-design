@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — certification evidence moves from committed artifacts to the CI report
+
+Evidence is derived output — recomputed from specs and test reports on every
+run — so it now lives in the CI report instead of the repository. Committed
+`certification/` directories went stale the moment the next commit landed;
+the CI report always describes the commit it ran against.
+
+- **`idd-check` action generates the evidence report.** New steps discover
+  every `specs/capabilities/*.capability.yaml`, run `generate-evidence` +
+  `validate-evidence` per capability, render per-capability certification
+  status (traceability ratios, test counts, declared gaps, findings) into the
+  job summary and PR comment, and upload the manifests as the `idd-evidence`
+  workflow artifact. New inputs: `evidence` (default `true`), `evidence-gate`
+  (default `false` — report-only unless enabled), `evidence-reports-dir`,
+  `upload-evidence`. New output: `evidence-certified`.
+- **`generate-evidence` default output moved** from
+  `certification/{id}/evidence.yaml` to the gitignored
+  `.idd/evidence/{id}/evidence.yaml`; its `--json` output now includes the
+  full manifest so report renderers don't re-parse YAML.
+- **`idd init` no longer scaffolds `certification/`** and instead adds
+  `.idd/` to the target repo's `.gitignore`; the scaffolded workflow no
+  longer watches `certification/**` paths.
+- **Skills and docs updated** (`certification`, `idd-workflow`, `pr-review`
+  skills; certification guide, project template, concepts, README): evidence
+  is generated and validated on the certified commit and published via the
+  CI report — never committed. `.gitignore` now covers `.idd/` and the legacy
+  `certification/` path.
+
 ## [1.1.0] - 2026-05-17
 
 Schema completeness pass driven by first contact with `slusset/edyoucate-ai`. Closed-world validation against the downstream repo surfaced 21 hard errors and 233 warnings — most were load-bearing IDD patterns the v1.0 schema simply didn't enumerate, not novel additions in the downstream repo. v1.1 promotes those patterns to canonical so downstream adopters don't have to tag them experimental.

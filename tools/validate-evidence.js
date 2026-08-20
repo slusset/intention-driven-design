@@ -3,8 +3,12 @@
 /**
  * Validate a certification evidence manifest against IDD certification thresholds.
  *
+ * Evidence manifests are generated (see generate-evidence.js), not committed —
+ * this validator normally runs against the gitignored `.idd/evidence/`
+ * workspace or a CI-generated manifest.
+ *
  * Usage:
- *   node tools/validate-evidence.js --evidence certification/foo/evidence.yaml
+ *   node tools/validate-evidence.js --evidence .idd/evidence/foo/evidence.yaml
  *
  * Options:
  *   --evidence <path>  Required evidence manifest path

@@ -271,7 +271,7 @@ PR review and certification are complementary, not redundant:
 | **When** | Every PR, before merge | After all tests pass, before release |
 | **Scope** | Changed files in the PR diff | Entire capability boundary |
 | **Depth** | Link existence + optional semantics | Full evidence collection with test reports |
-| **Output** | PR comments | `certification/{capability}/evidence.yaml` |
+| **Output** | PR comments | CI evidence report (job summary, PR comment, `idd-evidence` workflow artifact) |
 | **Blocks merge?** | Layer 1 can block; Layer 2 advises | Always blocks if gaps exist |
 | **Cost** | Fast (Layer 1: ms; Layer 2: one LLM call) | Heavier (collects test reports, walks full chain) |
 

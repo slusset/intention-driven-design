@@ -5,3 +5,7 @@
 build/
 node_modules/
 tools/node_modules/
+
+# Generated certification evidence — published via the CI report, never committed
+.idd/
+certification/

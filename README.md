@@ -76,7 +76,7 @@ IDD breaks this into a traceable chain:
 | Contract | `specs/fixtures/onboarding/mobile-signup.json` | Test data: request/response pairs |
 | Implementation | Backend + Frontend code | Derived from contracts |
 | Validation | `frontend/e2e/journeys/trade-show-signup.spec.ts` | E2E test following the journey |
-| Certification | `certification/trade-show-signup/` | Automated evidence tied to intent |
+| Certification | CI evidence report (per capability) | Automated evidence tied to intent — generated in CI, published as job summary, PR comment, and workflow artifact; never committed |
 
 Every artifact in the chain references the one above it. An agent — or a human — can trace any line of code back to the persona goal that motivated it.
 
@@ -161,7 +161,8 @@ idd install-skills <target>   Install skills to claude/codex/all
   --with-technical             Include stack-specific skills
   --link                       Symlink instead of copy (dev mode)
   --check                      Check if installed skills are current
-idd generate-evidence          Scaffold certification evidence manifest
+idd generate-evidence          Generate certification evidence manifest
+                               (into .idd/evidence/ — CI report input, not committed)
 idd init [dir]                 Scaffold IDD directory structure
 idd version                    Print version
 ```
@@ -290,7 +291,7 @@ tools/                       Validators and generators
 ├── validate-fixtures.js     Validate fixtures against protocol-specific contract schemas
 ├── validate-models.js       Validate model/lifecycle structural rules
 ├── validate-journey-maps.js Validate journey map structural rules
-├── generate-evidence.js     Scaffold certification evidence manifests
+├── generate-evidence.js     Generate certification evidence manifests (CI report input)
 ├── graph-generation/        Mermaid spec traceability graph generators
 └── lib/                     Shared parsing and formatting helpers
 
