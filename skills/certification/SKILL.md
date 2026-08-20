@@ -1,6 +1,6 @@
 ---
 name: certification
-description: "Verify traceability and produce evidence that implementation fulfills declared intent. Use after implementation and tests are complete, before merge. Cross-cuts all layers to close the chain from persona to proof."
+description: "Verify traceability and produce evidence that implementation fulfills declared intent, published through the CI report rather than committed to the repo. Use after implementation and tests are complete, before merge. Cross-cuts all layers to close the chain from persona to proof."
 argument-hint: "[capability-name]"
 allowed-tools:
   - Read
@@ -13,9 +13,11 @@ allowed-tools:
 
 ## Purpose
 
-Close the traceability chain by verifying that every intent artifact has corresponding implementation and test evidence, then publish a structured evidence manifest. This is the operational enforcement of agent non-negotiable #3: **no merge without verifiable evidence tied to intent.**
+Close the traceability chain by verifying that every intent artifact has corresponding implementation and test evidence, then publish a structured evidence manifest **through the CI report**. This is the operational enforcement of agent non-negotiable #3: **no merge without verifiable evidence tied to intent.**
 
 Certification is cross-cutting — it doesn't produce narrative, model, contract, or test artifacts. It **verifies the connections between them** and produces the evidence record.
+
+Evidence is **derived output, not a source artifact**. It is recomputed from specs and test results on every certification run and published via the CI report (job summary, PR comment, workflow artifact). It is never committed to the repository — committing derived evidence invites drift the moment the next commit lands.
 
 ## When to Use
 
@@ -49,17 +51,24 @@ Test results (from CI or local runs):
 
 ## Output
 
+The evidence manifest is generated into a gitignored workspace and published through CI — none of it is committed:
+
 ```
-certification/
+.idd/evidence/                  ← gitignored workspace (local or CI runner)
 └── {capability-name}/
-    ├── evidence.yaml      ← structured evidence manifest
-    ├── reports/            ← raw test output
+    ├── evidence.yaml           ← structured evidence manifest
+    ├── reports/                ← raw test output (when collected)
     │   ├── unit.xml
     │   ├── contract.xml
     │   ├── e2e.xml
     │   └── coverage.json
-    └── screenshots/        ← visual evidence (optional)
+    └── screenshots/            ← visual evidence (optional)
 ```
+
+Published as part of the CI report:
+
+- **Job summary + PR comment** — per-capability certification status, traceability ratios, test counts, and declared gaps (rendered by the `idd-check` action).
+- **Workflow artifact** (`idd-evidence`) — the full manifests and raw results, the durable record for each run.
 
 ## Workflow
 
@@ -184,7 +193,7 @@ Gather test results from the most recent run. Location varies by stack:
 | Playwright | — | — | `playwright-report/` |
 | pytest | `pytest-results.xml` | — | — |
 
-Copy relevant reports to `certification/{capability}/reports/`.
+Copy relevant reports to `.idd/evidence/{capability}/reports/` (or point the generator at them with `--reports-dir`).
 
 If reports aren't available (tests were run but output wasn't captured), record the counts manually from the test run output. The manifest format is the same either way.
 
@@ -203,10 +212,19 @@ Review the traceability results and test coverage. Any of the following count as
 
 ### Step 6: Generate the evidence manifest
 
-Create `certification/{capability}/evidence.yaml`:
+Generate `.idd/evidence/{capability}/evidence.yaml` — preferably with the toolkit so ratios are computed deterministically:
+
+```bash
+idd generate-evidence \
+  --capability specs/capabilities/{capability}.capability.yaml \
+  --reports-dir .idd/evidence/{capability}/reports \
+  --write
+```
+
+The manifest shape:
 
 ```yaml
-# certification/{capability-name}/evidence.yaml
+# .idd/evidence/{capability-name}/evidence.yaml
 
 capability: specs/capabilities/{capability-name}.capability.yaml
 certified_at: {ISO 8601 timestamp}
@@ -259,27 +277,28 @@ gaps:
   - "{description of what isn't verified yet}"
 ```
 
-### Step 7: Validate and commit
+### Step 7: Validate and publish
 
-Before committing, verify:
+Validate the manifest against the certification thresholds:
+
+```bash
+idd validate evidence --evidence .idd/evidence/{capability}/evidence.yaml
+```
+
+Before declaring the capability certified, verify:
 
 - [ ] All `traceability` ratios are 100% (X/Y where X equals Y)
 - [ ] All orphan counts are 0
 - [ ] No test failures (failed: 0 across all evidence sections)
 - [ ] Gaps are documented if any exist
-- [ ] Intent section lists every in-scope artifact
-- [ ] Reports are present in `reports/` directory
+- [ ] The capability scope covers every in-scope artifact
+- [ ] Reports are present in `reports/` (or counts recorded from the run)
 
 If any traceability ratio is below 100%, the capability is **not certifiable**. Either:
 1. Add the missing spec/test artifacts to close the gap, or
 2. Document the gap explicitly and get human approval to proceed.
 
-Commit the evidence alongside the implementation:
-
-```bash
-git add certification/{capability}/
-git commit -m "cert: {capability} evidence"
-```
+**Publishing is CI's job, not git's.** The `idd-check` action regenerates and validates evidence for every capability on each PR and publishes the result as the CI report: certification status in the job summary and PR comment, full manifests in the `idd-evidence` workflow artifact. Do **not** commit `evidence.yaml`, test reports, or screenshots — `.idd/` is gitignored precisely so local certification runs stay out of version control. When run locally, report the manifest's findings in your summary to the user instead of committing anything.
 
 ## Traceability Thresholds
 
@@ -303,7 +322,7 @@ Recertify when:
 - Contract breaking changes occur (version bump)
 - E2E journey steps change
 
-The previous evidence.yaml is not deleted — it's overwritten with the new certification. Git history preserves the record.
+Each certification run regenerates the manifest from scratch — evidence always describes the commit it was computed from. The CI run history and its `idd-evidence` workflow artifacts preserve the record of past certifications; there is nothing to delete or overwrite in the repo.
 
 ## Guardrails
 
@@ -312,7 +331,7 @@ The previous evidence.yaml is not deleted — it's overwritten with the new cert
 - Never fabricate evidence. If tests weren't run, say so.
 - Coverage percentage is informational, never a gate. Traceability matters more than coverage.
 - Gaps are honest declarations. A gap is a future story, not a failure.
-- The evidence manifest must be committed alongside code, not after the fact.
+- Evidence must be generated from the same commit it certifies and published through the CI report — never after the fact, and never committed to the repository. Intent artifacts (`specs/`) are source; evidence is derived.
 
 ## Relationship to Other Skills
 

@@ -253,7 +253,6 @@ function cmdInit(argv) {
     'specs/models',
     'specs/capabilities',
     'specs/skills',
-    'certification',
   ];
 
   let created = 0;
@@ -265,6 +264,19 @@ function cmdInit(argv) {
       fs.writeFileSync(path.join(full, '.gitkeep'), '');
       created++;
     }
+  }
+
+  // Evidence manifests are generated into .idd/evidence/ (CI report input),
+  // never committed — keep the workspace out of version control.
+  const gitignorePath = path.join(root, '.gitignore');
+  const gitignoreEntry = '.idd/';
+  const existingGitignore = fs.existsSync(gitignorePath)
+    ? fs.readFileSync(gitignorePath, 'utf8')
+    : '';
+  if (!existingGitignore.split(/\r?\n/).some((line) => line.trim() === gitignoreEntry)) {
+    const separator = existingGitignore && !existingGitignore.endsWith('\n') ? '\n' : '';
+    fs.writeFileSync(gitignorePath, `${existingGitignore}${separator}${gitignoreEntry}\n`);
+    console.log(`  Added ${gitignoreEntry} to ${path.relative(root, gitignorePath) || '.gitignore'}`);
   }
 
   // Scaffold repo overlay template if missing
@@ -287,10 +299,10 @@ function cmdInit(argv) {
 
 on:
   pull_request:
-    paths: ['specs/**', 'backend/src/**', 'frontend/src/**', 'certification/**']
+    paths: ['specs/**', 'backend/src/**', 'frontend/src/**']
   push:
     branches: [main]
-    paths: ['specs/**', 'backend/src/**', 'frontend/src/**', 'certification/**']
+    paths: ['specs/**', 'backend/src/**', 'frontend/src/**']
 
 permissions:
   contents: read
@@ -328,7 +340,8 @@ Usage: idd <command> [options]
 Commands:
   validate <check...>          Run IDD validators (or "all")
   install-skills <target>      Install skills to claude/codex/all
-  generate-evidence            Scaffold certification evidence manifest
+  generate-evidence            Generate certification evidence manifest
+                               (into .idd/evidence/ — CI report input, not committed)
   init [dir]                   Scaffold IDD directory structure
   version                      Print version
   help                         Show this help

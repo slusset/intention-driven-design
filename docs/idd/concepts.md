@@ -59,7 +59,7 @@ Verification is evidence-based, not opinion-based. Feedback loops are automated,
 deterministic, and run continuously.
 
 **Manifesto principle**: 5
-**Artifacts involved**: certification/, CI pipelines
+**Artifacts involved**: CI evidence reports, CI pipelines
 
 ---
 
@@ -194,7 +194,7 @@ for "what are we building and certifying?" Evidence manifests reference
 capabilities; capabilities enumerate their constituent artifacts.
 
 **Artifacts involved**: `specs/capabilities/{name}.capability.yaml`,
-`certification/{capability}/evidence.yaml`
+generated evidence manifests (published via the CI evidence report)
 **Defined in**: front-matter-spec.md (capability schema), certification-guide.md
 (certification workflow)
 **Related concepts**: C8 (closes the chain at scope level), C11 (adds a

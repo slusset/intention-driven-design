@@ -26,6 +26,22 @@ inputs:
     description: 'Path to gherkin-lint config'
     required: false
     default: '.gherkin-lintrc'
+  evidence:
+    description: 'Generate and validate certification evidence per capability and include it in the report'
+    required: false
+    default: 'true'
+  evidence-gate:
+    description: 'Fail the action when any capability is not certifiable (default: report only)'
+    required: false
+    default: 'false'
+  evidence-reports-dir:
+    description: 'Directory containing test reports (unit.xml, contract.xml, e2e.xml, coverage.json), or a parent directory with one subdirectory per capability id'
+    required: false
+    default: ''
+  upload-evidence:
+    description: 'Upload generated evidence manifests as a workflow artifact (idd-evidence)'
+    required: false
+    default: 'true'
 
 outputs:
   total-errors:
@@ -37,6 +53,9 @@ outputs:
   passed:
     description: 'Whether all checks passed'
     value: ${{ steps.summarize.outputs.passed }}
+  evidence-certified:
+    description: 'Whether every capability passed evidence validation'
+    value: ${{ steps.summarize.outputs.evidence_certified }}
 
 runs:
   using: 'composite'
@@ -148,6 +167,64 @@ runs:
           echo "spec_changes=0" >> "$GITHUB_OUTPUT"
           echo "spec_warning=false" >> "$GITHUB_OUTPUT"
         fi
+
+        exit 0
+
+    # Certification evidence is derived output: generated from the capability
+    # scope and test reports on this commit, published via the CI report
+    # (summary, PR comment, workflow artifact) — never committed to the repo.
+    - name: Generate certification evidence
+      id: evidence
+      if: inputs.evidence == 'true'
+      shell: bash
+      run: |
+        set +e
+
+        # Resolve the idd CLI (same logic as the validate step)
+        if [ -f "${{ github.action_path }}/../../../bin/idd.js" ]; then
+          IDD="node ${{ github.action_path }}/../../../bin/idd.js"
+        else
+          IDD="npx idd"
+        fi
+
+        SPECS_DIR="${{ inputs.specs-dir }}"
+        REPORTS_ROOT="${{ inputs.evidence-reports-dir }}"
+        EVIDENCE_DIR=/tmp/idd-results/evidence
+        mkdir -p "$EVIDENCE_DIR"
+        : > /tmp/idd-results/evidence-exits.txt
+
+        shopt -s nullglob
+        for CAP_FILE in "$SPECS_DIR"/capabilities/*.capability.yaml; do
+          CAP_ID=$(basename "$CAP_FILE" .capability.yaml)
+          MANIFEST="$EVIDENCE_DIR/$CAP_ID/evidence.yaml"
+
+          REPORTS_ARGS=()
+          if [ -n "$REPORTS_ROOT" ]; then
+            if [ -d "$REPORTS_ROOT/$CAP_ID" ]; then
+              REPORTS_ARGS=(--reports-dir "$REPORTS_ROOT/$CAP_ID")
+            elif [ -d "$REPORTS_ROOT" ]; then
+              REPORTS_ARGS=(--reports-dir "$REPORTS_ROOT")
+            fi
+          fi
+
+          $IDD generate-evidence \
+            --capability "$CAP_FILE" \
+            --output "$MANIFEST" \
+            "${REPORTS_ARGS[@]}" \
+            --write --json > "$EVIDENCE_DIR/$CAP_ID.generate.json" 2>&1
+          GEN_EXIT=$?
+
+          VAL_EXIT=0
+          if [ "$GEN_EXIT" -eq 0 ] && [ -f "$MANIFEST" ]; then
+            $IDD validate evidence --evidence "$MANIFEST" --json > "$EVIDENCE_DIR/$CAP_ID.validate.json" 2>&1
+            VAL_EXIT=$?
+          else
+            VAL_EXIT=1
+          fi
+
+          echo "$CAP_ID $GEN_EXIT $VAL_EXIT" >> /tmp/idd-results/evidence-exits.txt
+        done
+        shopt -u nullglob
 
         exit 0
 
@@ -272,6 +349,99 @@ runs:
           } catch (_) {}
         }
 
+        // ── Certification evidence rows ──
+        // Evidence is derived per capability and reported here; only the
+        // evidence-gate input turns findings into failures.
+        const evidenceEnabled = '${{ inputs.evidence }}' === 'true';
+        const evidenceGate = '${{ inputs.evidence-gate }}' === 'true';
+        const uploadEvidence = '${{ inputs.upload-evidence }}' === 'true';
+        let evidenceCertified = 'skipped';
+        let uncertifiedCount = 0;
+        let capabilityCount = 0;
+
+        if (evidenceEnabled) {
+          let exitLines = [];
+          try {
+            exitLines = fs.readFileSync(path.join(RESULTS_DIR, 'evidence-exits.txt'), 'utf8')
+              .split(/\r?\n/).filter(Boolean);
+          } catch (_) {}
+
+          evidenceCertified = 'true';
+          for (const line of exitLines) {
+            const [capId, genExitStr, valExitStr] = line.split(/\s+/);
+            const genExit = Number(genExitStr || 0);
+            const valExit = Number(valExitStr || 0);
+            capabilityCount += 1;
+
+            const generateResult = readJson(path.join(RESULTS_DIR, 'evidence', `${capId}.generate.json`)) || {};
+            const validateResult = readJson(path.join(RESULTS_DIR, 'evidence', `${capId}.validate.json`)) || {};
+            const valErrors = Array.isArray(validateResult.errors) ? validateResult.errors : [];
+            const valWarnings = Array.isArray(validateResult.warnings) ? validateResult.warnings : [];
+            const manifest = generateResult.manifest || null;
+
+            const certifiable = genExit === 0 && valExit === 0;
+            if (!certifiable) {
+              evidenceCertified = 'false';
+              uncertifiedCount += 1;
+              if (evidenceGate) failedChecks.push(`Evidence: ${capId}`);
+            }
+            const icon = certifiable ? '✅' : (evidenceGate ? '❌' : '⚠️');
+            if (evidenceGate) {
+              totalErrors += valErrors.length;
+              totalWarnings += valWarnings.length;
+            }
+
+            body += `| Evidence: ${capId} | ${icon} | ${valErrors.length} | ${valWarnings.length} |\n`;
+
+            const parts = [];
+            if (genExit !== 0) {
+              const genErrors = Array.isArray(generateResult.errors) ? generateResult.errors : [];
+              parts.push('**Generation failed**\n' + (summarizeLines(genErrors) || '- See evidence generation logs'));
+            }
+            if (manifest && manifest.traceability) {
+              const t = manifest.traceability;
+              parts.push([
+                '**Traceability**',
+                '| Link | Result |',
+                '|------|--------|',
+                `| Stories with features | ${t.stories_with_features} |`,
+                `| Features with contracts | ${t.features_with_contracts} |`,
+                `| Endpoints with tests | ${t.endpoints_with_tests} |`,
+                `| Journeys with e2e | ${t.journeys_with_e2e} |`,
+                `| Orphans (tests/features/endpoints) | ${t.orphan_tests}/${t.orphan_features}/${t.orphan_endpoints} |`,
+              ].join('\n'));
+            }
+            if (manifest && manifest.evidence) {
+              const testLines = [];
+              for (const [section, data] of Object.entries(manifest.evidence)) {
+                if (!data || section === 'coverage') continue;
+                if (data.passed == null && data.failed == null) continue;
+                testLines.push(`${section}: ${data.passed ?? '—'} passed, ${data.failed ?? '—'} failed`);
+              }
+              const cov = manifest.evidence.coverage;
+              if (cov && (cov.line != null || cov.branch != null)) {
+                testLines.push(`coverage: line ${cov.line ?? '—'}%, branch ${cov.branch ?? '—'}% (informational)`);
+              }
+              if (testLines.length > 0) {
+                parts.push('**Test evidence**\n' + summarizeLines(testLines));
+              }
+            }
+            if (manifest && Array.isArray(manifest.gaps) && manifest.gaps.length > 0) {
+              parts.push('**Declared gaps**\n' + summarizeLines(manifest.gaps));
+            }
+            if (valErrors.length > 0) {
+              parts.push('**Certification findings**\n' + summarizeLines(valErrors));
+            }
+            if (valWarnings.length > 0) {
+              parts.push('**Warnings**\n' + summarizeLines(valWarnings));
+            }
+
+            if (parts.length > 0) {
+              detailSections.push({ label: `Evidence: ${capId}`, icon, content: parts.join('\n\n') });
+            }
+          }
+        }
+
         body += '\n';
 
         // Detail sections as collapsible
@@ -306,6 +476,16 @@ runs:
         if (failedChecks.length > 0) {
           body += `**${failedChecks.length} check(s) failed:** ${failedChecks.join(', ')}  \n`;
         }
+        if (evidenceEnabled && capabilityCount > 0) {
+          if (evidenceCertified === 'true') {
+            body += `Evidence: all ${capabilityCount} capability(ies) certifiable.  \n`;
+          } else if (!evidenceGate) {
+            body += `Evidence: ${uncertifiedCount}/${capabilityCount} capability(ies) not yet certifiable (report only — enable \`evidence-gate\` to block).  \n`;
+          }
+          if (uploadEvidence) {
+            body += 'Evidence manifests for this run are attached as the `idd-evidence` workflow artifact.  \n';
+          }
+        }
         body += `Total: ${totalErrors} error(s), ${totalWarnings} warning(s)\n\n`;
         body += '*Automated by [IDD Toolkit](https://github.com/slusset/intention-driven-design)*\n';
 
@@ -316,9 +496,18 @@ runs:
         fs.appendFileSync(outputFile, `total_errors=${totalErrors}\n`);
         fs.appendFileSync(outputFile, `total_warnings=${totalWarnings}\n`);
         fs.appendFileSync(outputFile, `passed=${passed}\n`);
+        fs.appendFileSync(outputFile, `evidence_certified=${evidenceCertified}\n`);
         NODE
 
         cat /tmp/idd-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload evidence artifact
+      if: inputs.evidence == 'true' && inputs.upload-evidence == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: idd-evidence
+        path: /tmp/idd-results/evidence/
+        if-no-files-found: ignore
 
     - name: Post PR comment
       if: github.event_name == 'pull_request' && inputs.post-comment == 'true'

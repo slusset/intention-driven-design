@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * Scaffold a certification evidence manifest from a capability definition.
+ * Generate a certification evidence manifest from a capability definition.
+ *
+ * Evidence is derived output — recomputed from specs and test reports on the
+ * commit being certified. It feeds the CI evidence report (job summary, PR
+ * comment, workflow artifact) and is never committed to the repository. The
+ * default output location is the gitignored `.idd/evidence/` workspace.
  *
  * This is intentionally a first-pass generator:
  * - Loads the capability scope
@@ -17,7 +22,7 @@
  *
  * Options:
  *   --capability <path>      Required capability file
- *   --output <path>          Output evidence path
+ *   --output <path>          Output evidence path (default: .idd/evidence/{id}/evidence.yaml)
  *   --reports-dir <path>     Directory containing report files
  *   --unit-report <path>     Unit/integration report file
  *   --contract-report <path> Contract/API report file
@@ -26,7 +31,7 @@
  *   --certified-by <value>   Defaults to CI when GITHUB_ACTIONS=true, else Codex
  *   --certified-at <value>   Defaults to current UTC timestamp
  *   --write                  Write evidence manifest to disk
- *   --json                   Output machine-readable results instead of YAML
+ *   --json                   Output machine-readable results (includes the full manifest)
  *
  * Exit: 0 = generated, 1 = invalid capability or blocking errors
  */
@@ -376,7 +381,7 @@ function toManifestReportPath(reportPath, capabilityOutputDir) {
 function buildEvidenceManifest(capability, traceability) {
   const capabilityRel = toProjectRelative(capabilityPath);
   const resolvedOutputPath = outputPath
-    || path.join(process.cwd(), 'certification', capability.id, 'evidence.yaml');
+    || path.join(process.cwd(), '.idd', 'evidence', capability.id, 'evidence.yaml');
   const capabilityOutputDir = path.dirname(resolvedOutputPath);
 
   const resolvedUnitReport = resolveReportPath(unitReportPath, 'unit.xml');
@@ -493,6 +498,7 @@ function finish(manifest, resolvedOutputPath, yamlOutput) {
       ...results,
       evidence_path: resolvedOutputPath ? toProjectRelative(resolvedOutputPath) : null,
       traceability: manifest ? manifest.traceability : null,
+      manifest: manifest || null,
     }, null, 2));
   } else if (results.errors.length > 0) {
     console.log(formatResults(results));
