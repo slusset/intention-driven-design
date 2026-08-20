@@ -511,8 +511,11 @@ runs:
         path: /tmp/idd-results/evidence/
         if-no-files-found: ignore
 
+    # Best-effort mirror of the job summary — a transient GitHub API error
+    # here must not fail the compliance verdict (Enforce failure carries it).
     - name: Post PR comment
       if: github.event_name == 'pull_request' && inputs.post-comment == 'true'
+      continue-on-error: true
       uses: actions/github-script@v7
       with:
         script: |
