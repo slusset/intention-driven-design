@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — capability-closure and enforcement-bindings join the CLI and CI
+
+`tools/validate-capability-closure.js` (#40) and
+`tools/validate-enforcement-bindings.js` (#41) existed with tests but were
+never registered, so `idd validate` and CI could not run them. Both are now
+in the `VALIDATORS` map (`idd validate capability-closure`,
+`idd validate enforcement-bindings`, included in `idd validate all`) and in
+the `idd-check` action's default check list, giving rules/invariants
+enforcement the same CI report surface as the other validators. Both remain
+advisory-by-default: unbound (narrative/pending) rules and closure drift
+report as info/warnings unless a repo opts into `--strict`.
+
 ### Changed — certification evidence moves from committed artifacts to the CI report
 
 Evidence is derived output — recomputed from specs and test reports on every

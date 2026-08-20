@@ -109,7 +109,7 @@ runs:
         # Determine which core checks to run
         CHECKS="${{ inputs.checks }}"
         if [ "$CHECKS" = "all" ]; then
-          CHECKS="contracts traceability front-matter capability-scope fixtures models journey-maps"
+          CHECKS="contracts traceability front-matter capability-scope capability-closure fixtures models enforcement-bindings journey-maps"
         fi
 
         # Run each core validator individually, capturing JSON per check
@@ -245,8 +245,10 @@ runs:
           'contracts': 'Contracts',
           'front-matter': 'Front-Matter',
           'capability-scope': 'Capability Scope',
+          'capability-closure': 'Capability Closure',
           'fixtures': 'Fixtures',
           'models': 'Models',
+          'enforcement-bindings': 'Enforcement Bindings',
           'journey-maps': 'Journey Maps',
           'evidence': 'Evidence',
         };

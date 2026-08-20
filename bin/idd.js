@@ -42,8 +42,10 @@ function cmdValidate(argv) {
     traceability: 'validate-traceability.js',
     'front-matter': 'validate-front-matter.js',
     'capability-scope': 'validate-capability-scope.js',
+    'capability-closure': 'validate-capability-closure.js',
     fixtures: 'validate-fixtures.js',
     models: 'validate-models.js',
+    'enforcement-bindings': 'validate-enforcement-bindings.js',
     'journey-maps': 'validate-journey-maps.js',
     evidence: 'validate-evidence.js',
   };

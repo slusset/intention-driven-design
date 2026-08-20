@@ -287,9 +287,11 @@ tools/                       Validators and generators
 ├── validate-front-matter.js Validate required/recommended metadata fields
 ├── validate-traceability.js Validate cross-artifact reference integrity
 ├── validate-capability-scope.js Validate capability scope coverage
+├── validate-capability-closure.js Validate capability scope as a reference closure
 ├── validate-contracts.js    Validate OpenAPI, AsyncAPI, and JSON-RPC contracts
 ├── validate-fixtures.js     Validate fixtures against protocol-specific contract schemas
 ├── validate-models.js       Validate model/lifecycle structural rules
+├── validate-enforcement-bindings.js Validate model rule enforced: bindings resolve to real artifacts
 ├── validate-journey-maps.js Validate journey map structural rules
 ├── generate-evidence.js     Generate certification evidence manifests (CI report input)
 ├── graph-generation/        Mermaid spec traceability graph generators
@@ -313,7 +315,7 @@ idd validate traceability front-matter --json
 idd validate fixtures models --strict
 ```
 
-Available validators: `contracts`, `traceability`, `front-matter`, `capability-scope`, `fixtures`, `models`, `journey-maps`, `evidence`.
+Available validators: `contracts`, `traceability`, `front-matter`, `capability-scope`, `capability-closure`, `fixtures`, `models`, `enforcement-bindings`, `journey-maps`, `evidence`.
 
 Common CLI options:
 - `--files <paths...>` limit checks to specific files
