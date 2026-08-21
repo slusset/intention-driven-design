@@ -8,10 +8,37 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const pkg = require(path.join(REPO_ROOT, 'package.json'));
 const pluginManifest = require(path.join(REPO_ROOT, '.claude-plugin', 'plugin.json'));
 const marketplace = require(path.join(REPO_ROOT, '.claude-plugin', 'marketplace.json'));
+const codexManifest = require(path.join(REPO_ROOT, '.codex-plugin', 'plugin.json'));
+const codexMarketplace = require(path.join(REPO_ROOT, '.agents', 'plugins', 'marketplace.json'));
 
 test('plugin.json version stays in lockstep with package.json', () => {
   assert.equal(pluginManifest.version, pkg.version,
     'Bump both with `just release <version>` — plugin users only see updates when plugin.json changes');
+  assert.equal(codexManifest.version, pkg.version,
+    'Bump all three with `just release <version>` — Codex plugin users need the new manifest version');
+});
+
+test('Codex manifest exposes core skills only', () => {
+  assert.equal(codexManifest.skills, './skills/');
+  assert.doesNotMatch(JSON.stringify(codexManifest), /technical-skills/);
+  assert.equal(codexManifest.interface.displayName, 'Intention-Driven Design');
+});
+
+test('repo marketplace exposes the Codex plugin with explicit install policy', () => {
+  const entry = codexMarketplace.plugins.find((p) => p.name === codexManifest.name);
+  assert.ok(entry, `marketplace.json has no entry for plugin '${codexManifest.name}'`);
+  assert.deepEqual(entry.source, { source: 'local', path: './' });
+  assert.deepEqual(entry.policy, { installation: 'AVAILABLE', authentication: 'ON_INSTALL' });
+  assert.equal(entry.category, 'Productivity');
+});
+
+test('repository plugin manifest/tooling gate passes', () => {
+  const output = execFileSync(process.execPath, [
+    path.join(REPO_ROOT, 'tools', 'validate-plugin-manifests.js'),
+    '--json',
+  ], { cwd: REPO_ROOT, encoding: 'utf8' });
+  const result = JSON.parse(output);
+  assert.equal(result.ok, true, result.errors.join('\n'));
 });
 
 test('marketplace entry names match and only one place declares a version', () => {

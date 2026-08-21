@@ -69,7 +69,7 @@ that violate the declared execution contract.
 
 ## Layer 1: Deterministic Checks
 
-These run without an LLM. They invoke validators bundled with this plugin at `${CLAUDE_PLUGIN_ROOT}/tools/validate-*.js`, scoped to the PR diff rather than the full repo. (In CI or outside the plugin, the same scripts are also available via `npx idd validate <name>` when `idd-toolkit` is installed.)
+These run without an LLM. The plugin bundles the validators under `tools/` and the `idd` CLI under `bin/`. Resolve the tool root from the active host (`PLUGIN_ROOT` for Codex when exposed, `CLAUDE_PLUGIN_ROOT` for Claude), use an `idd` already on `PATH`, or fall back to `npx idd` in CI/outside a plugin. Keep the checks scoped to the PR diff rather than the full repo.
 
 ### Check 1: Front-Matter Presence
 
@@ -94,8 +94,10 @@ See `docs/idd/front-matter-spec.md` for the full schema.
 
 Every `refs` path, `sources` path, `_meta.story`, `_meta.feature`, `# story:`, and `# journey:` value must point to a file that exists in the repo.
 
+If the active plugin host exposes its root, run the bundled validator with the corresponding root (`$PLUGIN_ROOT` in Codex or `$CLAUDE_PLUGIN_ROOT` in Claude); otherwise use:
+
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/tools/validate-traceability.js" --json
+npx idd validate traceability --json
 ```
 
 **Pass criteria**: Zero broken links (exit code 0).

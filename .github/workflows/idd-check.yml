@@ -13,6 +13,8 @@ on:
       - 'skills/**'
       - 'technical-skills/**'
       - '.claude-plugin/**'
+      - '.codex-plugin/**'
+      - '.agents/plugins/**'
       - '.github/workflows/idd-check.yml'
       - '.github/actions/idd-check/**'
   push:
@@ -26,6 +28,8 @@ on:
       - 'skills/**'
       - 'technical-skills/**'
       - '.claude-plugin/**'
+      - '.codex-plugin/**'
+      - '.agents/plugins/**'
       - '.github/workflows/idd-check.yml'
       - '.github/actions/idd-check/**'
 
@@ -65,10 +69,13 @@ jobs:
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code
 
+      - name: Validate Codex/ChatGPT plugin manifest and bundled tooling
+        run: node tools/validate-plugin-manifests.js
+
       # Validating a bare skills directory behaves differently across CLI
-      # versions (components mode vs. plugin-root mode), so CI sticks to the
-      # two manifests; plugin-manifest validation already resolves each
-      # declared skills root.
+      # versions (components mode vs. plugin-root mode), so Claude CI sticks
+      # to the legacy manifests; the repository check above validates the
+      # Codex manifest and its core-only skills root.
       - name: Validate marketplace and plugin manifests
         run: |
           claude plugin validate --strict .

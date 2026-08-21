@@ -114,6 +114,26 @@ The narrative, model, and contract layers are completely technology-independent.
 
 ## Installation
 
+### As a ChatGPT / Codex plugin (core skills)
+
+The repo also exposes a Codex plugin through `.codex-plugin/plugin.json` and a
+repo-scoped marketplace at `.agents/plugins/marketplace.json`. This surface
+loads the core methodology skills from `skills/` and intentionally leaves out
+`technical-skills/`; the existing Claude plugin and legacy copy flow retain
+their current technical-skill behavior. The plugin source also carries the
+IDD CLI, validators, schemas, docs, and reusable GitHub Action.
+
+From a checkout:
+
+```bash
+codex plugin marketplace add .
+codex plugin add idd-skills@idd
+```
+
+In the ChatGPT desktop app, restart after adding the repo marketplace, then
+install `idd-skills` from the Intention-Driven Design marketplace. Use a new
+conversation after installation so the host loads the current skill set.
+
 ### As a Claude Code plugin (recommended)
 
 The repo is a self-contained Claude Code plugin — `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` are at the repo root. One install brings everything: the methodology skills (`skills/`), the stack-specific technical skills (`technical-skills/`), the schemas, and the `idd` validator CLI (the plugin's `bin/` is added to Bash PATH while active, so skills and you can run `idd validate all` with no separate install). Node dependencies install automatically from the committed lockfile.
@@ -135,6 +155,11 @@ For plugin development from a local checkout: `/plugin marketplace add ~/dev/idd
 npm install --save-dev github:slusset/intention-driven-design
 npx idd validate all          # run validators outside of Claude Code
 ```
+
+The npm package and both plugin manifests are versioned together by
+`just release <version>`. `just validate-plugin` checks the Codex/ChatGPT
+manifest, the core-only skills boundary, bundled tooling, and the existing
+Claude plugin manifests.
 
 ### Local development (from checkout)
 

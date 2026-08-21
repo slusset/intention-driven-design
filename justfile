@@ -48,14 +48,15 @@ lint-openapi:
 lint-gherkin:
     npx gherkin-lint specs/features/
 
-# Validate the Claude Code plugin/marketplace manifests (matches the CI job)
+# Validate the Claude Code and Codex/ChatGPT plugin/marketplace manifests
 validate-plugin:
+    node tools/validate-plugin-manifests.js
     claude plugin validate --strict .
     claude plugin validate --strict .claude-plugin/plugin.json
 
-# Bump package.json and .claude-plugin/plugin.json in lockstep (e.g. `just release 1.2.0`)
+# Bump package.json and both plugin manifests in lockstep (e.g. `just release 1.2.0`)
 release version:
-    node -e "for (const f of ['package.json', '.claude-plugin/plugin.json']) { const fs = require('fs'); const data = JSON.parse(fs.readFileSync(f, 'utf8')); data.version = '{{version}}'; fs.writeFileSync(f, JSON.stringify(data, null, 2) + '\n'); console.log(f + ' -> {{version}}'); }"
+    node -e "for (const f of ['package.json', '.claude-plugin/plugin.json', '.codex-plugin/plugin.json']) { const fs = require('fs'); const data = JSON.parse(fs.readFileSync(f, 'utf8')); data.version = '{{version}}'; fs.writeFileSync(f, JSON.stringify(data, null, 2) + '\n'); console.log(f + ' -> {{version}}'); }"
     @echo ""
     @echo "Next steps:"
     @echo "  1. Move the [Unreleased] CHANGELOG entries under [{{version}}]"
