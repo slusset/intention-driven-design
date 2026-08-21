@@ -226,6 +226,15 @@ function cmdInstallSkills(argv) {
     }, null, 2) + '\n');
     console.log(`  ${marker}`);
     console.log(`Installed to ${destRoot}`);
+
+    if (agent === 'claude') {
+      console.log('');
+      console.log('Note: for Claude Code, the plugin install is now preferred over copied skills:');
+      console.log('  /plugin marketplace add slusset/intention-driven-design');
+      console.log('  /plugin install idd-skills@idd');
+      console.log('Copied skills coexist with plugin skills under different names and can');
+      console.log('double-trigger — remove the copies from ~/.claude/skills when switching.');
+    }
   }
 }
 

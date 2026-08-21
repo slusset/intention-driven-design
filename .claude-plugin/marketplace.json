@@ -1,5 +1,6 @@
 {
   "name": "idd",
+  "description": "Intention-Driven Design: skills, validators, and schemas for narrative-first, traceable software development.",
   "owner": {
     "name": "Ted Slusser",
     "email": "ted@si-c.io"

@@ -1,12 +1,22 @@
 {
   "name": "idd-skills",
   "version": "1.1.0",
-  "description": "Intention-Driven Design methodology skills. Narrative-first development: personas, journeys, stories, domain models, behavior contracts, and e2e journey testing. Bundles validator scripts invoked via ${CLAUDE_PLUGIN_ROOT}.",
+  "description": "Intention-Driven Design methodology and technical skills. Narrative-first development: personas, journeys, stories, domain models, behavior contracts, and e2e journey testing. Bundles the idd validator CLI (bin/idd on PATH), tools, and schemas.",
   "author": {
     "name": "Ted Slusser",
     "url": "https://github.com/slusset"
   },
   "repository": "https://github.com/slusset/intention-driven-design",
   "license": "MIT",
-  "keywords": ["idd", "intention-driven-design", "narrative-driven", "bdd", "domain-modeling"]
+  "keywords": [
+    "idd",
+    "intention-driven-design",
+    "narrative-driven",
+    "bdd",
+    "domain-modeling"
+  ],
+  "skills": [
+    "./skills",
+    "./technical-skills"
+  ]
 }

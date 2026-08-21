@@ -30,6 +30,7 @@
     "test": "node --test"
   },
   "files": [
+    ".claude-plugin/",
     "bin/",
     "tools/lib/",
     "tools/validate-*.js",
