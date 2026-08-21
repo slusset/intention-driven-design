@@ -1,0 +1,5 @@
+#!/usr/bin/env node
+// PATH-visible entrypoint: a Claude Code plugin's bin/ directory is added to
+// Bash PATH by executable name, so `idd` must exist extension-less alongside
+// the npm bin mapping in package.json.
+require('./idd.js');

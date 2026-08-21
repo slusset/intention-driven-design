@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added — single standard Claude Code plugin: skills + technical skills + tools + schemas
+
+One `/plugin install idd-skills@idd` now delivers the whole toolkit — no more
+copying skills into `~/.claude/skills`.
+
+- **`plugin.json` declares `skills: ["./skills", "./technical-skills"]`** —
+  technical skills ship in the same plugin (validated: the manifest loader
+  resolves multiple skill roots). Skills namespace as `idd-skills:<name>`.
+- **`bin/idd` PATH shim** — a plugin's `bin/` is added to Bash PATH while
+  active, so `idd validate all` works inside plugin sessions with no npm
+  install; validator dependencies auto-install from the committed lockfile.
+- **`claude plugin validate --strict` in CI** — new `validate-plugin` job
+  checks the marketplace manifest, plugin manifest, and skills on every PR
+  touching them; `just validate-plugin` runs the same locally.
+- **`just release <version>`** — bumps `package.json` and `plugin.json` in
+  lockstep and prints the release checklist; a new test pins the lockstep and
+  guards against declaring `version` in the marketplace entry (plugin.json
+  silently wins).
+- **`idd install-skills claude` is deprecated** in favor of the plugin (a
+  notice now points at the migration); the copy flow remains for codex.
+  README installation docs rewritten around the plugin flow.
+- `.claude-plugin/` ships in the npm tarball so npm-source plugin installs
+  also work; marketplace manifest gained a description (strict-clean).
+
 ### Added — capability-closure and enforcement-bindings join the CLI and CI
 
 `tools/validate-capability-closure.js` (#40) and

@@ -114,22 +114,20 @@ The narrative, model, and contract layers are completely technology-independent.
 
 ## Installation
 
-### As a Claude Code plugin (recommended for personal use)
+### As a Claude Code plugin (recommended)
 
-The repo is a self-contained Claude Code plugin — `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` are at the repo root. Skills invoke the bundled validators via `${CLAUDE_PLUGIN_ROOT}`, so no separate CLI install is needed.
+The repo is a self-contained Claude Code plugin — `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` are at the repo root. One install brings everything: the methodology skills (`skills/`), the stack-specific technical skills (`technical-skills/`), the schemas, and the `idd` validator CLI (the plugin's `bin/` is added to Bash PATH while active, so skills and you can run `idd validate all` with no separate install). Node dependencies install automatically from the committed lockfile.
 
-```bash
-git clone git@github.com:slusset/intention-driven-design.git ~/dev/idd
-```
-
-Then in Claude Code:
+In Claude Code:
 
 ```
-/plugin marketplace add ~/dev/idd
+/plugin marketplace add slusset/intention-driven-design
 /plugin install idd-skills@idd
 ```
 
-After editing plugin files, refresh with `/plugin marketplace update idd`. For an ephemeral single-session load, run `claude --plugin-dir ~/dev/idd` instead.
+Skills are namespaced as `idd-skills:<name>` (e.g. `/idd-skills:certification`). If you previously copied skills via `idd install-skills claude`, remove those copies from `~/.claude/skills/` — copied and plugin skills coexist under different names and can double-trigger.
+
+For plugin development from a local checkout: `/plugin marketplace add ~/dev/idd`, refresh after edits with `/plugin marketplace update idd`, or use `claude --plugin-dir ~/dev/idd` for an ephemeral single-session load. Validate changes with `just validate-plugin` (runs `claude plugin validate --strict` on the marketplace, plugin manifest, and skills — CI runs the same checks).
 
 ### As an npm package (for CI and local dev ergonomics)
 
@@ -169,10 +167,12 @@ idd version                    Print version
 
 ### Installing skills for AI agents
 
-**Claude Code / Codex:**
+**Claude Code:** prefer the plugin install above. The copy flow below still works but is deprecated for Claude Code — copied skills coexist with plugin skills under different names and can double-trigger.
+
+**Codex (and Claude Code legacy copy flow):**
 ```bash
-idd install-skills claude      # copies versioned skills to ~/.claude/skills/
-idd install-skills codex       # copies to ~/.codex/skills/
+idd install-skills codex       # copies versioned skills to ~/.codex/skills/
+idd install-skills claude      # deprecated for Claude Code — use the plugin
 idd install-skills all         # both
 ```
 

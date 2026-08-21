@@ -10,6 +10,9 @@ on:
       - 'frontend/src/**'
       - 'tools/**/*.js'
       - 'bin/**'
+      - 'skills/**'
+      - 'technical-skills/**'
+      - '.claude-plugin/**'
       - '.github/workflows/idd-check.yml'
       - '.github/actions/idd-check/**'
   push:
@@ -20,6 +23,9 @@ on:
       - 'frontend/src/**'
       - 'tools/**/*.js'
       - 'bin/**'
+      - 'skills/**'
+      - 'technical-skills/**'
+      - '.claude-plugin/**'
       - '.github/workflows/idd-check.yml'
       - '.github/actions/idd-check/**'
 
@@ -42,3 +48,25 @@ jobs:
           checks: all
           spectral-ruleset: .spectral.yaml
           gherkin-config: .gherkin-lintrc
+
+  validate-plugin:
+    name: Validate plugin manifests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Validate marketplace, plugin manifest, and skills
+        run: |
+          claude plugin validate --strict .
+          claude plugin validate --strict .claude-plugin/plugin.json
+          claude plugin validate --strict skills
