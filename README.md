@@ -127,7 +127,7 @@ In Claude Code:
 
 Skills are namespaced as `idd-skills:<name>` (e.g. `/idd-skills:certification`). If you previously copied skills via `idd install-skills claude`, remove those copies from `~/.claude/skills/` — copied and plugin skills coexist under different names and can double-trigger.
 
-For plugin development from a local checkout: `/plugin marketplace add ~/dev/idd`, refresh after edits with `/plugin marketplace update idd`, or use `claude --plugin-dir ~/dev/idd` for an ephemeral single-session load. Validate changes with `just validate-plugin` (runs `claude plugin validate --strict` on the marketplace, plugin manifest, and skills — CI runs the same checks).
+For plugin development from a local checkout: `/plugin marketplace add ~/dev/idd`, refresh after edits with `/plugin marketplace update idd`, or use `claude --plugin-dir ~/dev/idd` for an ephemeral single-session load. Validate changes with `just validate-plugin` (runs `claude plugin validate --strict` on the marketplace and plugin manifests — CI runs the same checks).
 
 ### As an npm package (for CI and local dev ergonomics)
 

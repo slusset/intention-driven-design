@@ -65,8 +65,11 @@ jobs:
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code
 
-      - name: Validate marketplace, plugin manifest, and skills
+      # Validating a bare skills directory behaves differently across CLI
+      # versions (components mode vs. plugin-root mode), so CI sticks to the
+      # two manifests; plugin-manifest validation already resolves each
+      # declared skills root.
+      - name: Validate marketplace and plugin manifests
         run: |
           claude plugin validate --strict .
           claude plugin validate --strict .claude-plugin/plugin.json
-          claude plugin validate --strict skills

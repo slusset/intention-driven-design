@@ -48,11 +48,10 @@ lint-openapi:
 lint-gherkin:
     npx gherkin-lint specs/features/
 
-# Validate the Claude Code plugin/marketplace manifests and skills
+# Validate the Claude Code plugin/marketplace manifests (matches the CI job)
 validate-plugin:
     claude plugin validate --strict .
     claude plugin validate --strict .claude-plugin/plugin.json
-    claude plugin validate --strict skills
 
 # Bump package.json and .claude-plugin/plugin.json in lockstep (e.g. `just release 1.2.0`)
 release version:
