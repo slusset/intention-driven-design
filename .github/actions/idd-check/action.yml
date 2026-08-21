@@ -109,7 +109,7 @@ runs:
         # Determine which core checks to run
         CHECKS="${{ inputs.checks }}"
         if [ "$CHECKS" = "all" ]; then
-          CHECKS="contracts traceability front-matter capability-scope fixtures models journey-maps"
+          CHECKS="contracts traceability front-matter capability-scope capability-closure fixtures models enforcement-bindings journey-maps"
         fi
 
         # Run each core validator individually, capturing JSON per check
@@ -245,8 +245,10 @@ runs:
           'contracts': 'Contracts',
           'front-matter': 'Front-Matter',
           'capability-scope': 'Capability Scope',
+          'capability-closure': 'Capability Closure',
           'fixtures': 'Fixtures',
           'models': 'Models',
+          'enforcement-bindings': 'Enforcement Bindings',
           'journey-maps': 'Journey Maps',
           'evidence': 'Evidence',
         };
@@ -509,8 +511,11 @@ runs:
         path: /tmp/idd-results/evidence/
         if-no-files-found: ignore
 
+    # Best-effort mirror of the job summary — a transient GitHub API error
+    # here must not fail the compliance verdict (Enforce failure carries it).
     - name: Post PR comment
       if: github.event_name == 'pull_request' && inputs.post-comment == 'true'
+      continue-on-error: true
       uses: actions/github-script@v7
       with:
         script: |
