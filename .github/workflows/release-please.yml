@@ -1,9 +1,17 @@
 name: Release Please
+run-name: Release Please (${{ inputs.operation }})
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Prepare the release PR or publish a merged release PR
+        required: true
+        type: choice
+        default: prepare
+        options:
+          - prepare
+          - publish
 
 permissions:
   contents: write
@@ -14,13 +22,22 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - name: Open or update the release PR
+      - name: Require the main branch
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: |
+          echo "Release Please must be dispatched from main."
+          exit 1
+
+      - name: Prepare or publish the release
         id: release
         uses: googleapis/release-please-action@v4
         with:
+          target-branch: main
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+          skip-github-release: ${{ inputs.operation == 'prepare' }}
+          skip-github-pull-request: ${{ inputs.operation == 'publish' }}
 
       - name: Check out the released tag
         if: ${{ steps.release.outputs.release_created }}

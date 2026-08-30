@@ -17,22 +17,31 @@ it loaded.
 ## Release lifecycle
 
 1. Merge feature and fix commits to `main` using Conventional Commit prefixes.
-   While the current version is a UAT prerelease, Release Please advances the
-   prerelease counter. Pre-1.0 breaking changes remain within `0.x`; promotion
-   to `1.0.0` must be an explicit maturity decision.
-2. Release Please opens or updates a draft release PR. That PR owns changes to
+   No release automation runs on push.
+2. Manually dispatch Release Please with `operation=prepare`. It opens or
+   updates a draft release PR that owns changes to
    `CHANGELOG.md`, `package.json`, `package-lock.json`, both plugin manifests,
    and `.release-please-manifest.json`.
 3. Review the release PR, run the normal repository checks, and mark it ready.
-4. Merging the release PR creates the immutable `v0.1.0-uat.N` tag and a GitHub
-   prerelease. The release workflow re-runs the source checks and attaches the
-   npm tarball. It does not create a floating major Action tag for prerelease or
-   `0.x` releases.
+4. Merge the release PR. No tag or release is created automatically.
+5. Manually dispatch Release Please with `operation=publish`. It creates the
+   immutable `v0.1.0-uat.N` tag and GitHub prerelease, re-runs source checks,
+   and attaches the npm tarball. It does not create a floating major Action tag
+   for prerelease or `0.x` releases.
+
+Run either operation from the GitHub Actions UI on `main`, or with GitHub CLI:
+
+```bash
+gh workflow run release-please.yml --ref main -f operation=prepare
+# review and merge the generated release PR
+gh workflow run release-please.yml --ref main -f operation=publish
+```
 
 Set a repository secret named `RELEASE_PLEASE_TOKEN` to a fine-grained token
 that can write contents, issues, and pull requests if checks must run
-automatically on Release Please PRs. The workflow falls back to `GITHUB_TOKEN`,
-but GitHub does not emit new workflow events for changes made with that token.
+automatically on prepared Release Please PRs. The workflow falls back to
+`GITHUB_TOKEN`, but GitHub does not emit new workflow events for changes made
+with that token.
 
 The repository is bootstrapped at `0.1.0-uat.0`; its immutable tag is a ledger
 and changelog-comparison baseline, not a GitHub Release or installable

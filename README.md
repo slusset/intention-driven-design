@@ -182,6 +182,14 @@ together on the `0.1.0-uat.N` line. `just validate-plugin` checks the
 Codex/ChatGPT manifest, the core-only skills boundary, bundled tooling, and the
 existing Claude plugin manifests.
 
+Release preparation and publication are both manual:
+
+```bash
+gh workflow run release-please.yml --ref main -f operation=prepare
+# review and merge the generated release PR
+gh workflow run release-please.yml --ref main -f operation=publish
+```
+
 ### Local development (from checkout)
 
 ```bash
