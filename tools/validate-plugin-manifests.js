@@ -7,6 +7,7 @@ const path = require('path');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const PACKAGE_PATH = path.join(REPO_ROOT, 'package.json');
+const CLAUDE_MANIFEST_PATH = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
 const CODEX_MANIFEST_PATH = path.join(REPO_ROOT, '.codex-plugin', 'plugin.json');
 const MARKETPLACE_PATH = path.join(REPO_ROOT, '.agents', 'plugins', 'marketplace.json');
 
@@ -94,6 +95,27 @@ function validateCodexManifest(pkg) {
   }
 }
 
+function validateClaudeManifest(pkg) {
+  const manifest = readJson(CLAUDE_MANIFEST_PATH, 'Claude plugin manifest');
+  if (!manifest) return;
+
+  requireString(manifest.name, 'Claude plugin name');
+  requireString(manifest.version, 'Claude plugin version');
+  requireString(manifest.description, 'Claude plugin description');
+  if (manifest.name !== 'idd-skills') {
+    errors.push(`Claude plugin name must be idd-skills, got ${manifest.name}`);
+  }
+  if (manifest.version !== pkg.version) {
+    errors.push(`Claude plugin version ${manifest.version} does not match package.json ${pkg.version}`);
+  }
+  if (!Array.isArray(manifest.skills) || manifest.skills.length !== 1 || manifest.skills[0] !== './skills') {
+    errors.push('Claude plugin skills must be exactly ["./skills"]');
+  }
+  if (JSON.stringify(manifest).includes('technical-skills')) {
+    errors.push('Claude plugin manifest must not declare technical-skills');
+  }
+}
+
 function validateMarketplace() {
   const marketplace = readJson(MARKETPLACE_PATH, 'Codex repo marketplace');
   if (!marketplace) return;
@@ -130,6 +152,10 @@ function validateTooling() {
   requireFile('.github/actions/idd-check/action.yml', 'IDD GitHub Action');
   requireFile('schemas/v1/index.json', 'IDD schema registry');
 
+  if (fs.existsSync(path.join(REPO_ROOT, 'technical-skills'))) {
+    errors.push('Bundled technical-skills directory must be removed; consumers bind stack skills in repo-overlay');
+  }
+
   const validatorCount = fs.readdirSync(path.join(REPO_ROOT, 'tools'))
     .filter((name) => name.startsWith('validate-') && name.endsWith('.js'))
     .length;
@@ -141,7 +167,10 @@ function validateTooling() {
 }
 
 const pkg = readJson(PACKAGE_PATH, 'package.json');
-if (pkg) validateCodexManifest(pkg);
+if (pkg) {
+  validateClaudeManifest(pkg);
+  validateCodexManifest(pkg);
+}
 validateMarketplace();
 validateTooling();
 

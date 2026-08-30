@@ -360,8 +360,8 @@ When models are complete:
 
 1. **behavior-contract**: Use model attributes to define OpenAPI schemas
 2. **behavior-contract**: Use lifecycle transitions to define action endpoints
-3. **spring-boot-architecture**: Use models as blueprint for domain layer
-4. **angular-architecture**: Use models to define TypeScript interfaces
+3. **Backend implementation binding from repo-overlay**: Use models as blueprint for the domain layer
+4. **Frontend implementation binding from repo-overlay**: Use models to define client-side types
 
 ## Guardrails
 

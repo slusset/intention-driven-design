@@ -45,7 +45,7 @@ anything.
 
 | Surface | Released unit | Install | Update | Verify |
 | --- | --- | --- | --- | --- |
-| Claude desktop and Claude Code CLI | Claude plugin: core skills, technical skills, CLI, validators, schemas | Add `slusset/intention-driven-design`, then install `idd-skills@idd` in the plugin browser or with `claude plugin install idd-skills@idd` | `claude plugin update idd-skills@idd`, then restart or reload plugins | `claude plugin list` and `idd version` |
+| Claude desktop and Claude Code CLI | Claude plugin: core IDD skills, CLI, validators, schemas | Add `slusset/intention-driven-design`, then install `idd-skills@idd` in the plugin browser or with `claude plugin install idd-skills@idd` | `claude plugin update idd-skills@idd`, then restart or reload plugins | `claude plugin list` and `idd version` |
 | Codex desktop and CLI | Codex plugin: core skills plus repository tooling | Add the Git marketplace with `codex plugin marketplace add slusset/intention-driven-design --ref main`, then `codex plugin add idd-skills@idd` | `codex plugin marketplace upgrade idd`, then `codex plugin add idd-skills@idd`; start a new task/session | `codex plugin list` and `idd version` when the host exposes the bundled CLI |
 | GitHub Copilot App, CLI, VS Code, cloud agent, and code review | Agent Skills from the tagged repository; validators remain the npm/GitHub Action artifact | `gh skill install slusset/intention-driven-design --all --agent github-copilot --scope user` | `gh skill update --all` | `gh skill list --agent github-copilot --json skillName,sourceURL,version,pinned,path` |
 | CI and repositories | npm tarball or reusable GitHub Action | Install `github:slusset/intention-driven-design#v0.1.0-uat.N`, or use `slusset/intention-driven-design/.github/actions/idd-check@v0.1.0-uat.N` | Update to the next explicitly accepted immutable UAT tag | `npx idd version` and `npx idd validate all --json` |
@@ -92,18 +92,13 @@ For an accepted UAT candidate, add `--pin v0.1.0-uat.N` to `gh skill install`.
 Pinned skills intentionally do not move under `gh skill update`; reinstall with
 the next accepted pin when advancing a controlled environment.
 
-Technical skills remain outside the core `skills/` discovery set. Install one
-for Copilot by its exact path when needed, for example:
+Stack-specific implementation skills are not IDD release artifacts. Install
+them independently for the active host and bind their exact identifiers and
+providers in the consuming repository's `specs/skills/repo-overlay.md`.
 
-```bash
-gh skill install slusset/intention-driven-design \
-  technical-skills/angular-architecture/SKILL.md \
-  --agent github-copilot --scope user
-```
-
-The same `gh skill` path can install core skills for Claude Code or Codex, but
-their native plugins are preferred because those bundles also carry the IDD
-CLI, validators, schemas, and other repository-level resources.
+The same `gh skill` mechanism can install core IDD skills for Claude Code or
+Codex, but their native plugins are preferred because those bundles also carry
+the IDD CLI, validators, schemas, and other repository-level resources.
 
 ## Release checks
 

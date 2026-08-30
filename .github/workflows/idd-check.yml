@@ -13,7 +13,6 @@ on:
       - 'test/**'
       - 'tests/**'
       - 'skills/**'
-      - 'technical-skills/**'
       - 'docs/**'
       - 'package.json'
       - 'package-lock.json'
@@ -35,7 +34,6 @@ on:
       - 'test/**'
       - 'tests/**'
       - 'skills/**'
-      - 'technical-skills/**'
       - 'docs/**'
       - 'package.json'
       - 'package-lock.json'
@@ -95,8 +93,8 @@ jobs:
 
       # Validating a bare skills directory behaves differently across CLI
       # versions (components mode vs. plugin-root mode), so Claude CI sticks
-      # to the legacy manifests; the repository check above validates the
-      # Codex manifest and its core-only skills root.
+      # to the host manifests; the repository check above validates that both
+      # hosts expose the same core-only skills root.
       - name: Validate marketplace and plugin manifests
         run: |
           claude plugin validate --strict .

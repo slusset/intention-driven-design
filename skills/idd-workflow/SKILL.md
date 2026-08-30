@@ -12,7 +12,7 @@ allowed-tools: Read Write Glob Grep
 
 ## Overview
 
-This project follows **Intention-Driven Development**. We start with human needs and work down to code, maintaining traceability at every step. The narrative, model, and contract layers are stack-agnostic — implementation skills can be swapped for any technology.
+This project follows **Intention-Driven Development**. We start with human needs and work down to code, maintaining traceability at every step. The narrative, model, and contract layers are stack-agnostic. Each consumer repository binds any stack-specific implementation skills through its repo overlay.
 
 ## Required Preflight: Repo Overlay Check
 
@@ -23,14 +23,14 @@ Before applying any workflow step, load repo-specific constraints from the repos
    - Fallback default: `specs/skills/repo-overlay.md`
 2. If the overlay exists, read it before selecting or invoking downstream skills.
 3. If the overlay is missing, warn but continue.
-   - Explain what the overlay is: a repo-local map of preferred stack skills, architecture rules, test commands/libraries, SDK/client generation workflow, and CI expectations.
+   - Explain what the overlay is: the repo-local authority for stack-specific skill bindings, architecture rules, test commands/libraries, SDK/client generation workflow, and CI expectations.
    - Report which path was attempted.
    - Offer to scaffold one now by asking a few short questions.
-   - If the user declines, continue with `AGENTS.md`, repo docs, and explicit assumptions as fallback.
+   - If the user declines, continue with `AGENTS.md`, repo docs, explicit assumptions, and a generic implementation checklist. Do not select a stack-specific skill.
 4. Do not repeat the same missing-overlay warning on every invocation within the same session.
    - Mark the first pass as `missing-warned`.
    - If the user explicitly chooses to continue without scaffolding, mark the repo as `skipped` for the remainder of the session unless they ask to revisit it.
-5. Carry overlay constraints forward into all downstream skill prompts (architecture, tests, certification, CI expectations). If no overlay exists, carry forward the fallback assumptions you made.
+5. Carry overlay constraints and skill bindings forward into all downstream prompts (architecture, tests, certification, CI expectations). If no overlay exists, carry forward the fallback assumptions and keep implementation skill selection empty.
 
 This preflight check is required for reliable orchestration and prevents architecture/test-policy drift, but a missing overlay is not itself a blocker.
 
@@ -39,7 +39,7 @@ This preflight check is required for reliable orchestration and prevents archite
 When scaffolding `specs/skills/repo-overlay.md`, ask only enough to capture the repo's operational constraints:
 
 1. Which backend, frontend, mobile, infra, or SDK stacks are in play?
-2. Which stack-specific skills should be preferred for each area?
+2. Which exact installed or repository-visible skills should be bound to each area, and where are they provided from?
 3. Which architecture docs, ADRs, or module boundaries are authoritative?
 4. Which test commands and libraries are required for unit, integration, contract, and e2e coverage?
 5. Are there SDK/client generation steps, mock servers, or schema-driven test tools that implementation skills must honor?
@@ -47,56 +47,31 @@ When scaffolding `specs/skills/repo-overlay.md`, ask only enough to capture the 
 
 If the user wants a starting point, scaffold from `skills/idd-workflow/templates/repo-overlay-template.md` into `specs/skills/repo-overlay.md` and fill the known fields first.
 
-## Technical Skill Discovery And Selection
+## Repo-Selected Implementation Skill Bindings
 
-Use a hybrid model: convention for discovery, explicit config for selection, repo inference as fallback.
+`specs/skills/repo-overlay.md` is the only authority for selecting stack-specific implementation, infrastructure, SDK, design-to-code, or framework-specific test skills. The core IDD pack does not bundle, scan for, rank, or infer those skills.
 
-### Selection Precedence
+### Binding Procedure
 
-Resolve stack-specific implementation skills in this order:
+For every implementation area affected by a task:
 
-1. `specs/skills/repo-overlay.md`
-   - Preferred source of truth for backend, frontend, mobile, SDK, infrastructure, test, and design-to-code skill mapping.
-2. Explicit `AGENTS.md` instructions
-   - Use when the repo has hard requirements that override general conventions.
-3. Discovered repo-local technical skills
-   - Scan `technical-skills/*/SKILL.md` and treat each directory as an available candidate skill.
-4. Repo implementation signals
-   - Infer likely stack matches from files such as `package.json`, `angular.json`, `pom.xml`, `build.gradle`, `playwright.config.*`, OpenAPI/codegen configs, or other obvious framework markers.
-5. User clarification
-   - Ask only when multiple plausible skills remain and choosing the wrong one would likely cause drift.
+1. Read the exact binding in the repo overlay.
+2. Record the bound skill identifier, where the repository expects it to come from, and the area it governs.
+3. Confirm that the named skill is available to the active agent host.
+4. If the binding names an unavailable skill, report that mismatch and use the overlay's declared fallback or ask the user once.
+5. If the overlay has no binding for the area, select no stack-specific skill. Follow the overlay's architecture sources, commands, and a generic implementation checklist instead.
 
-### Discovery Procedure
+Repository signals such as `angular.json`, `pom.xml`, `playwright.config.*`, or codegen configuration can help explain an absent or stale binding, but they never authorize automatic skill selection. `AGENTS.md` may declare the overlay path and hard repository rules; skill bindings still belong in the overlay.
 
-1. Scan `technical-skills/` for available skill directories.
-2. Extract each candidate's:
-   - skill name
-   - description
-   - likely domain (`backend`, `frontend`, `mobile`, `sdk`, `design-to-code`, `e2e`, `infra`, or `cross-cutting`)
-   - likely framework or stack keywords
-3. Read `repo-overlay` mappings when present and bind implementation areas to explicit skills.
-4. If no explicit mapping exists, inspect repo signals and rank candidates by fit.
-5. If exactly one candidate clearly matches an area, select it.
-6. If multiple candidates plausibly match, present the best options briefly and ask once.
-7. If no dedicated skill matches, continue with a generic implementation checklist plus repo architecture docs and test commands.
+### Output Contract For Binding
 
-### Repo Signal Examples
+Always report a concrete result for each relevant area:
 
-- `angular.json` or Angular workspace scripts → prefer Angular frontend skills
-- `pom.xml` with Spring Boot dependencies → prefer Spring Boot backend skill
-- `playwright.config.*` plus Angular frontend → prefer Angular Playwright for Angular-specific e2e work
-- OpenAPI generator config or generated client directories → include SDK/codegen workflow constraints in downstream prompts
-
-### Output Contract For Selection
-
-Always produce a concrete result for each relevant area:
-
-- selected skill
-- selection source (`overlay`, `agents`, `discovered+inferred`, or `user`)
-- supporting evidence (for example: matching repo files, overlay mapping, or explicit instruction)
-- fallback plan when no dedicated skill exists
-
-Discovery answers "what skills are available." Selection answers "which one should be used here."
+- bound skill identifier, or `none`
+- selection source (`repo-overlay`)
+- provider or location declared by the overlay
+- availability status in the active host
+- fallback plan when the binding is absent or unavailable
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────┐
@@ -142,9 +117,8 @@ Discovery answers "what skills are available." Selection answers "which one shou
 │  │     (any framework)     │◀──▶│     (any framework)     │               │
 │  └─────────────────────────┘    └─────────────────────────┘               │
 │                                                                           │
-│  Implementation skills are stack-specific and interchangeable.            │
-│  Examples: /spring-boot-architecture, /angular-architecture,              │
-│  /angular-from-design — or your own stack's equivalent.                   │
+│  Stack skills are consumer-owned bindings declared only in repo-overlay.  │
+│  The core IDD pack ships no framework-specific implementation skills.     │
 │                                                                           │
 ├───────────────────────────────────────────────────────────────────────────┤
 │                        VALIDATION LAYER                                   │
@@ -179,9 +153,9 @@ Discovery answers "what skills are available." Selection answers "which one shou
 | Journeys and stories | Capability scope defined | Define `specs/capabilities/` |
 | Journeys and stories | Domain concepts defined | `/domain-modeling` |
 | Stories and models | API contract + Gherkin | `/behavior-contract` |
-| Contract ready | Backend implementation | Resolved backend technical skill |
-| Contract ready | Frontend implementation | Resolved frontend technical skill |
-| Design mockup/HTML | UI components | Your frontend-from-design skill |
+| Contract ready | Backend implementation | Overlay-bound backend skill, or generic checklist |
+| Contract ready | Frontend implementation | Overlay-bound frontend skill, or generic checklist |
+| Design mockup/HTML | UI components | Overlay-bound design skill, or generic checklist |
 | Journey + contract | E2E test coverage | `/e2e-journey-testing` |
 | Bug report / defect | Spec + fix + evidence | `/idd-workflow fix` |
 | All tests passing | Certifiable evidence | `/certification` |
@@ -224,12 +198,11 @@ Discovery answers "what skills are available." Selection answers "which one shou
    ├── Finalize the capability scope with models, features, and contracts
    └── Output: specs/features/, specs/contracts/, specs/fixtures/ + finalized capability scope
 
-5. Resolve implementation skills
-   ├── Scan `technical-skills/`
-   ├── Apply overlay/AGENTS mappings if present
-   ├── Infer defaults from repo signals if mappings are absent
-   ├── Ask only if multiple plausible matches remain
-   └── Output: selected stack-specific skills + fallback assumptions
+5. Resolve implementation skill bindings
+   ├── Read exact bindings from repo-overlay
+   ├── Confirm each named skill is available in the active host
+   ├── Do not infer or discover a replacement when a binding is absent
+   └── Output: overlay-bound skills or `none`, plus fallback assumptions
 
 6. Define agent roles when using delegated or parallel execution
    ├── Assign each role an owned boundary and allowed write scope
@@ -265,8 +238,8 @@ Discovery answers "what skills are available." Selection answers "which one shou
    └── Apply repo constraints to all downstream changes
 
 1. Identify the change scope:
-   - UI only? → Resolve frontend technical skill
-   - API change? → /behavior-contract first, then resolve affected implementation skills
+   - UI only? → Resolve the overlay-bound frontend skill
+   - API change? → /behavior-contract first, then resolve affected overlay bindings
    - New behavior? → /solution-narrative to update story, then cascade
 
 2. Update specs first:
@@ -275,14 +248,14 @@ Discovery answers "what skills are available." Selection answers "which one shou
    - Contract changes → /behavior-contract
 
 3. Resolve implementation skills:
-   - Overlay mapping first
-   - `AGENTS.md` explicit requirements second
-   - `technical-skills/` discovery + repo inference third
-   - Ask once only if still ambiguous
+   - Use exact repo-overlay bindings only
+   - Confirm named skills are available
+   - If a binding is absent, use repository rules and a generic checklist
+   - Ask once only when the overlay itself is ambiguous
 
 4. Implement changes:
-   - Backend → Selected backend technical skill or generic backend checklist
-   - Frontend → Selected frontend technical skill or generic frontend checklist
+   - Backend → Overlay-bound backend skill or generic backend checklist
+   - Frontend → Overlay-bound frontend skill or generic frontend checklist
    - Delegated work → define role contracts before parallel edits
 
 5. Update tests:
@@ -320,7 +293,7 @@ Bug fixes follow the Fix Forward principle (C13): fix the spec first, then the c
    └── Re-check traceability before touching implementation
 
 5. Implement the fix to match the updated spec
-   ├── Resolve the appropriate technical skill using the repo overlay / discovery flow
+   ├── Resolve the exact implementation skill named by the repo overlay
    ├── Change code only after the spec describes the corrected behavior
    └── Add or update the validating tests that prove the repaired behavior
 
@@ -346,7 +319,7 @@ Use this decision table when a defect is discovered:
 | Business rule, invariant, aggregate boundary, or lifecycle missing | `/domain-modeling` | `specs/models/` |
 | Scenario, API contract, error behavior, or fixture missing | `/behavior-contract` | `specs/features/`, `specs/contracts/`, `specs/fixtures/` |
 | Journey-map step or e2e assertion missing | `/e2e-journey-testing` | `specs/journey-maps/`, `frontend/e2e/` |
-| Spec is correct and code is wrong | Resolved technical skill | implementation + tests |
+| Spec is correct and code is wrong | Overlay-bound implementation skill or generic checklist | implementation + tests |
 | Evidence out of date after the repair | `/certification` | CI evidence report (regenerated) |
 
 ## Artifact Locations
@@ -363,11 +336,11 @@ specs/                          ← Source of truth (stack-agnostic)
 ├── fixtures/                   ← /behavior-contract
 └── journey-maps/               ← /e2e-journey-testing
 
-backend/                        ← Backend architecture skill
+backend/                        ← Overlay-governed implementation
 ├── src/                        ← Implementation from specs/
 └── test/                       ← Tests from specs/features/
 
-frontend/                       ← Frontend architecture skill
+frontend/                       ← Overlay-governed implementation
 ├── src/                        ← Implementation from specs/
 └── e2e/                        ← /e2e-journey-testing
 
@@ -409,7 +382,7 @@ Code file
 ## Common Questions
 
 **Q: I have a design mockup. Where do I start?**
-A: If this is a new feature, start with `/solution-narrative` to capture the journey. Then use your frontend-from-design skill to convert the mockup. If it's UI for an existing feature, go straight to the frontend skill.
+A: If this is a new feature, start with `/solution-narrative` to capture the journey. Then use the design or frontend skill bound by the repo overlay. If no skill is bound, follow the overlay's architecture and validation rules with a generic implementation checklist.
 
 **Q: The API contract needs to change. What's the process?**
 A: Update the story if the capability changed (`/solution-narrative`), update the model if concepts changed (`/domain-modeling`), then update the contract and features (`/behavior-contract`). Finally, update implementations.
@@ -429,10 +402,10 @@ A: For pure bug fixes or minor UI tweaks, yes. For anything that changes behavio
 A: Warn once, explain what the overlay controls, offer to scaffold it, then continue with explicit fallback assumptions. If the user chooses to proceed without one, remember that decision for the rest of the session and stop re-warning unless they ask to revisit it.
 
 **Q: What technology stacks does IDD support?**
-A: The narrative, model, and contract layers are completely stack-agnostic. Implementation skills are interchangeable — add or swap skills for any backend/frontend framework. The `specs/` directory is portable across any technology choice.
+A: The narrative, model, and contract layers are completely stack-agnostic. Each consumer binds its own implementation skills in `specs/skills/repo-overlay.md`; the core pack does not choose a framework. The `specs/` directory is portable across any technology choice.
 
-**Q: How should technical skills be discovered?**
-A: Discover by convention from `technical-skills/*/SKILL.md`, but do not stop there. Use the repo overlay as the preferred source of truth for which discovered skills are authoritative, then fall back to `AGENTS.md`, repo-file inference, and finally a brief user clarification only when ambiguity remains.
+**Q: How are implementation skills selected?**
+A: Only from explicit bindings in `specs/skills/repo-overlay.md`. Do not discover or infer a stack skill from directories, framework files, `AGENTS.md`, or the active plugin catalog. If no binding exists, use repository rules and a generic checklist.
 
 ## Skill Dependencies
 
@@ -449,7 +422,7 @@ solution-narrative              ← Stack-agnostic
         │
         ├──────────────────────┐
         ▼                      ▼
-  backend-skill          frontend-skill     ← Stack-specific
+  backend binding       frontend binding    ← Declared by repo-overlay
         │                      │               (interchangeable)
         └──────────┬───────────┘
                    ▼
@@ -483,8 +456,7 @@ When this meta-skill is used by an orchestrator, include these fields in the han
 - `repo_overlay_path` (resolved path)
 - `repo_overlay_status` (`loaded`, `missing-warned`, or `skipped`)
 - `repo_overlay_constraints` (summary bullets when loaded, otherwise the fallback assumptions or open gaps)
-- `technical_skills_discovered` (list of repo-local candidates with area/framework hints)
-- `technical_skill_selection` (chosen skill per area with selection source and evidence)
+- `implementation_skill_bindings` (exact overlay-declared skill per area, provider/location, and availability)
 - `agent_roles` (role contracts with owner, scope, invariants, outputs, and handoff target)
 - `skills_selected` (ordered list for this task)
 - `blocking_issues` (true blockers only; missing overlay alone does not belong here)

@@ -24,6 +24,19 @@ test('Codex manifest exposes core skills only', () => {
   assert.equal(codexManifest.interface.displayName, 'Intention-Driven Design');
 });
 
+test('Claude manifest exposes the same core-only skill surface', () => {
+  assert.deepEqual(pluginManifest.skills, ['./skills']);
+  assert.doesNotMatch(JSON.stringify(pluginManifest), /technical-skills/);
+  assert.equal(pkg.files.includes('technical-skills/'), false);
+  assert.equal(fs.existsSync(path.join(REPO_ROOT, 'technical-skills')), false);
+});
+
+test('repo overlay is the only stack-specific skill selection authority', () => {
+  const workflow = fs.readFileSync(path.join(REPO_ROOT, 'skills', 'idd-workflow', 'SKILL.md'), 'utf8');
+  assert.doesNotMatch(workflow, /technical-skills\//);
+  assert.match(workflow, /only authority for selecting stack-specific implementation/i);
+});
+
 test('repo marketplace exposes the Codex plugin with explicit install policy', () => {
   const entry = codexMarketplace.plugins.find((p) => p.name === codexManifest.name);
   assert.ok(entry, `marketplace.json has no entry for plugin '${codexManifest.name}'`);
@@ -68,4 +81,9 @@ test('bin/idd shim is executable and runs the CLI', () => {
     encoding: 'utf8',
   });
   assert.match(output, new RegExp(`idd-toolkit ${pkg.version.replace(/\./g, '\\.')}`));
+  const help = execFileSync(process.execPath, [path.join(REPO_ROOT, 'bin', 'idd.js'), 'help'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+  });
+  assert.doesNotMatch(help, /with-technical|technical-skills/);
 });

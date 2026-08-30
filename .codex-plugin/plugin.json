@@ -20,7 +20,7 @@
   "interface": {
     "displayName": "Intention-Driven Design",
     "shortDescription": "Narrative-first skills and validation for traceable software",
-    "longDescription": "Turn human intent into traceable narratives, domain models, contracts, journey tests, and certification evidence. This Codex and ChatGPT surface includes the core IDD skills and the repository's validation tooling; stack-specific technical skills remain a separate Claude/legacy surface.",
+    "longDescription": "Turn human intent into traceable narratives, domain models, contracts, journey tests, and certification evidence. This plugin includes the core IDD skills and repository validation tooling. Consumer repositories bind any stack-specific implementation skills through their repo overlay.",
     "developerName": "Ted Slusser",
     "category": "Productivity",
     "capabilities": [

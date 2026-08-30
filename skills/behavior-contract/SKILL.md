@@ -478,5 +478,5 @@ Use 409 Conflict with descriptive error code.
 When complete:
 - **Capability scope**: Finalize `specs/capabilities/{name}.capability.yaml` so it includes the relevant `scope.models`, `scope.features`, and `scope.contracts` before implementation handoff.
 - **Backend** (hexagonal-architecture skill): Implement ports/adapters from contract
-- **Frontend** (angular-architecture skill): Generate client from contract, implement UI from journeys
+- **Frontend** (repo-overlay binding): Generate client from contract, implement UI from journeys
 - **E2E** (e2e-journey-testing skill): Create journey maps and tests

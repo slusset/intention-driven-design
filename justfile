@@ -54,10 +54,9 @@ validate-plugin:
     claude plugin validate --strict .
     claude plugin validate --strict .claude-plugin/plugin.json
 
-# Validate the core and technical skillsets with GitHub's Agent Skills publisher
+# Validate the core skillset with GitHub's Agent Skills publisher
 validate-agent-skills:
     gh skill publish --dry-run
-    gh skill publish technical-skills --dry-run
 
 # Run everything CI runs
 ci: test validate

@@ -5,7 +5,7 @@ const path = require('path');
 const yaml = require('js-yaml');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-const SKILL_ROOTS = ['skills', 'technical-skills'];
+const SKILL_ROOTS = ['skills'];
 
 function readFrontMatter(filePath) {
   const source = fs.readFileSync(filePath, 'utf8');
