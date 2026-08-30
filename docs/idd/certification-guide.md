@@ -187,7 +187,7 @@ certify:
         cp frontend/coverage/coverage-summary.json test-reports/${{ env.CAPABILITY }}/coverage.json
 
     - name: IDD checks + certification evidence report
-      uses: slusset/intention-driven-design/.github/actions/idd-check@v1
+      uses: slusset/intention-driven-design/.github/actions/idd-check@v0.1.0-uat.1
       with:
         evidence-reports-dir: test-reports
         # Report-only by default; flip on once capabilities are certifiable:

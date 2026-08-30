@@ -56,7 +56,7 @@ jobs:
         run: gh release upload "${{ steps.release.outputs.tag_name }}" dist/*.tgz
 
       - name: Move the supported major action tag
-        if: ${{ steps.release.outputs.release_created }}
+        if: ${{ steps.release.outputs.release_created && steps.release.outputs.major != '0' && !contains(steps.release.outputs.version, '-') }}
         env:
           MAJOR: ${{ steps.release.outputs.major }}
         run: |

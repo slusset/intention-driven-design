@@ -1,9 +1,14 @@
 # Release and Distribution
 
-IDD has one release ledger and several host-specific delivery adapters. A
-release is identified by an immutable `vX.Y.Z` Git tag. The npm package, Claude
-plugin manifest, Codex plugin manifest, and Release Please manifest must all
-name the same version.
+IDD has one active release ledger and several host-specific delivery adapters.
+During internal UAT, a release is identified by an immutable
+`v0.1.0-uat.N` Git tag. The npm package, Claude plugin manifest, Codex plugin
+manifest, and Release Please manifest must all name the same version.
+
+UAT releases are non-production candidates. They are publicly visible when the
+repository is public; "internal" describes their intended audience and maturity,
+not access control. The retired prototype sequence is preserved under
+`legacy/v1.*` tags and is not part of the active SemVer line.
 
 The adapters do not imply a shared installation state. Each host keeps its own
 plugin or skill cache, so operators update that host explicitly and verify what
@@ -12,24 +17,29 @@ it loaded.
 ## Release lifecycle
 
 1. Merge feature and fix commits to `main` using Conventional Commit prefixes.
-   `feat:` requests a minor release, `fix:` requests a patch, and `!` or a
-   `BREAKING CHANGE` footer requests a major release.
+   While the current version is a UAT prerelease, Release Please advances the
+   prerelease counter. Pre-1.0 breaking changes remain within `0.x`; promotion
+   to `1.0.0` must be an explicit maturity decision.
 2. Release Please opens or updates a draft release PR. That PR owns changes to
    `CHANGELOG.md`, `package.json`, `package-lock.json`, both plugin manifests,
    and `.release-please-manifest.json`.
 3. Review the release PR, run the normal repository checks, and mark it ready.
-4. Merging the release PR creates the immutable `vX.Y.Z` tag and GitHub
-   Release. The release workflow re-runs the source checks, attaches the npm
-   tarball, and moves the supported `vX` tag used by the reusable GitHub Action.
+4. Merging the release PR creates the immutable `v0.1.0-uat.N` tag and a GitHub
+   prerelease. The release workflow re-runs the source checks and attaches the
+   npm tarball. It does not create a floating major Action tag for prerelease or
+   `0.x` releases.
 
 Set a repository secret named `RELEASE_PLEASE_TOKEN` to a fine-grained token
 that can write contents, issues, and pull requests if checks must run
 automatically on Release Please PRs. The workflow falls back to `GITHUB_TOKEN`,
 but GitHub does not emit new workflow events for changes made with that token.
 
-Do not edit versions manually. If the release PR proposes the wrong version,
-fix the commit history or use Release Please's documented release override on
-the source PR, then let it regenerate the release PR.
+The repository is bootstrapped at `0.1.0-uat.0`; its immutable tag is a ledger
+and changelog-comparison baseline, not a GitHub Release or installable
+candidate. The first generated release PR should propose `0.1.0-uat.1`. Do not
+edit versions manually. If the release PR proposes the wrong version, stop and
+correct the release configuration or commit boundary before publishing
+anything.
 
 ## Distribution matrix
 
@@ -38,7 +48,31 @@ the source PR, then let it regenerate the release PR.
 | Claude desktop and Claude Code CLI | Claude plugin: core skills, technical skills, CLI, validators, schemas | Add `slusset/intention-driven-design`, then install `idd-skills@idd` in the plugin browser or with `claude plugin install idd-skills@idd` | `claude plugin update idd-skills@idd`, then restart or reload plugins | `claude plugin list` and `idd version` |
 | Codex desktop and CLI | Codex plugin: core skills plus repository tooling | Add the Git marketplace with `codex plugin marketplace add slusset/intention-driven-design --ref main`, then `codex plugin add idd-skills@idd` | `codex plugin marketplace upgrade idd`, then `codex plugin add idd-skills@idd`; start a new task/session | `codex plugin list` and `idd version` when the host exposes the bundled CLI |
 | GitHub Copilot App, CLI, VS Code, cloud agent, and code review | Agent Skills from the tagged repository; validators remain the npm/GitHub Action artifact | `gh skill install slusset/intention-driven-design --all --agent github-copilot --scope user` | `gh skill update --all` | `gh skill list --agent github-copilot --json skillName,sourceURL,version,pinned,path` |
-| CI and repositories | npm tarball or reusable GitHub Action | Install `github:slusset/intention-driven-design#vX.Y.Z`, or use `slusset/intention-driven-design/.github/actions/idd-check@vX` | Dependabot/Renovate for immutable tags; `@vX` follows the supported major Action tag | `npx idd version` and `npx idd validate all --json` |
+| CI and repositories | npm tarball or reusable GitHub Action | Install `github:slusset/intention-driven-design#v0.1.0-uat.N`, or use `slusset/intention-driven-design/.github/actions/idd-check@v0.1.0-uat.N` | Update to the next explicitly accepted immutable UAT tag | `npx idd version` and `npx idd validate all --json` |
+
+## One-time reset from the retired prototype line
+
+Plugin hosts may correctly reject `1.2.0 → 0.1.0-uat.1` as a downgrade. Do not
+rely on their ordinary update commands for this one transition.
+
+For Claude:
+
+```bash
+claude plugin uninstall idd-skills@idd
+claude plugin marketplace update idd
+claude plugin install idd-skills@idd
+```
+
+For Codex:
+
+```bash
+codex plugin remove idd-skills@idd
+codex plugin marketplace upgrade idd
+codex plugin add idd-skills@idd
+```
+
+Restart Claude or start a new Codex task/session after reinstalling. Once an
+installation is on the active UAT line, use the normal host update flow below.
 
 Claude third-party marketplaces do not auto-update by default. Operators may
 enable marketplace auto-update in Claude's plugin UI; a running session keeps
@@ -53,6 +87,10 @@ skills. Its updater uses that provenance instead of comparing a local version
 marker. Project-scope installation is preferable when Copilot cloud agent and
 code review must see the skills; commit the generated `.agents/skills/` changes
 through a normal consumer-repository PR. User scope is local to one machine.
+
+For an accepted UAT candidate, add `--pin v0.1.0-uat.N` to `gh skill install`.
+Pinned skills intentionally do not move under `gh skill update`; reinstall with
+the next accepted pin when advancing a controlled environment.
 
 Technical skills remain outside the core `skills/` discovery set. Install one
 for Copilot by its exact path when needed, for example:
@@ -79,8 +117,15 @@ npm pack --dry-run --json
 ```
 
 `just validate-agent-skills` uses GitHub CLI's preview validator. The committed
-test suite independently enforces the stable front-matter invariants so CI does
-not depend on a preview command or network access.
+test suite independently enforces the portable front-matter invariants so CI
+does not depend on a preview command or network access.
+
+## Promotion
+
+Promotion from UAT is explicit. First remove prerelease mode and cut an accepted
+`0.x` release. Continue pre-1.0 SemVer until the methodology and compatibility
+contract justify `1.0.0`; only then enable a floating `v1` Action tag. Historical
+`legacy/v1.*` prototype tags do not count as evidence of that maturity.
 
 ## Field synchronization boundary
 

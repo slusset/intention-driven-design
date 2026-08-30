@@ -12,6 +12,7 @@ const config = require(path.join(REPO_ROOT, 'release-please-config.json'));
 const manifest = require(path.join(REPO_ROOT, '.release-please-manifest.json'));
 
 test('all released surfaces share the current release-ledger version', () => {
+  assert.equal(pkg.version, '0.1.0-uat.0');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.equal(claude.version, pkg.version);
@@ -21,7 +22,13 @@ test('all released surfaces share the current release-ledger version', () => {
 
 test('Release Please owns both plugin manifest versions', () => {
   const root = config.packages['.'];
+  assert.equal(config['bootstrap-sha'], 'c913347b61055df0310e9ab3169457ff44f65031');
   assert.equal(root['release-type'], 'node');
+  assert.equal(root.versioning, 'prerelease');
+  assert.equal(root.prerelease, true);
+  assert.equal(root['prerelease-type'], 'uat');
+  assert.equal(root['release-as'], undefined);
+  assert.equal(root['bump-minor-pre-major'], true);
   assert.equal(root['draft-pull-request'], true);
   assert.equal(root['include-v-in-tag'], true);
   assert.equal(root['include-component-in-tag'], false);
@@ -42,5 +49,7 @@ test('release workflow creates the release, verifies it, and attaches the toolki
   assert.match(workflow, /node tools\/validate-plugin-manifests\.js/);
   assert.match(workflow, /npm pack --pack-destination dist/);
   assert.match(workflow, /gh release upload/);
+  assert.match(workflow, /steps\.release\.outputs\.major != '0'/);
+  assert.match(workflow, /!contains\(steps\.release\.outputs\.version, '-'\)/);
   assert.match(workflow, /refs\/tags\/v\$\{MAJOR\}/);
 });
