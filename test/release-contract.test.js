@@ -44,6 +44,14 @@ test('release workflow creates the release, verifies it, and attaches the toolki
     'utf8',
   );
   assert.match(workflow, /googleapis\/release-please-action@v4/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /^\s*push:/m);
+  assert.match(workflow, /operation:/);
+  assert.match(workflow, /- prepare/);
+  assert.match(workflow, /- publish/);
+  assert.match(workflow, /target-branch: main/);
+  assert.match(workflow, /skip-github-release: \$\{\{ inputs\.operation == 'prepare' \}\}/);
+  assert.match(workflow, /skip-github-pull-request: \$\{\{ inputs\.operation == 'publish' \}\}/);
   assert.match(workflow, /RELEASE_PLEASE_TOKEN \|\| secrets\.GITHUB_TOKEN/);
   assert.match(workflow, /npm test/);
   assert.match(workflow, /node tools\/validate-plugin-manifests\.js/);

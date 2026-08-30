@@ -1,6 +1,6 @@
 # Repo Overlay
 
-Use this file to tell IDD which stack-specific skills and repo policies should shape implementation work. Keep it short, concrete, and repo-specific.
+Use this file to bind stack-specific skills and repo policies for implementation work. This file is the sole authority for those bindings; IDD does not discover or infer replacement skills. Keep it short, concrete, and repo-specific.
 
 ## Repo Summary
 
@@ -13,15 +13,19 @@ Use this file to tell IDD which stack-specific skills and repo policies should s
   - Infra/data: `...`
   - SDK/client generation: `...`
 
-## Preferred Skills
+## Implementation Skill Bindings
 
-- Backend implementation skill: `/...`
-- Frontend implementation skill: `/...`
-- Mobile implementation skill: `/...`
-- UI-from-design skill: `/...`
-- E2E skill: `/e2e-journey-testing` or `/...`
-- Additional repo-local skills:
-  - `/...`
+For each area, provide an exact skill identifier and its provider or location. Use `none` when the repository intentionally has no bound skill.
+
+- Backend: skill `/... | none`; provided by `plugin | personal install | repo path`; applies to `...`
+- Frontend: skill `/... | none`; provided by `plugin | personal install | repo path`; applies to `...`
+- Mobile: skill `/... | none`; provided by `plugin | personal install | repo path`; applies to `...`
+- UI from design: skill `/... | none`; provided by `plugin | personal install | repo path`; applies to `...`
+- Framework-specific E2E: skill `/... | none`; provided by `plugin | personal install | repo path`; applies to `...`
+- Additional bindings:
+  - Area: `...`; skill `/...`; provided by `...`; applies to `...`
+
+If a named skill is unavailable, fallback to: `ask | generic checklist | ...`
 
 ## Architecture Sources
 
@@ -62,7 +66,7 @@ Use this file to tell IDD which stack-specific skills and repo policies should s
 
 ## Agent Operating Notes
 
-- When multiple technical skills apply, prefer: `...`
+- When multiple overlay-bound skills apply, prefer: `...`
 - Ask before changing foundational tooling: `yes | no`
 - Default validation scope after each change:
   - `...`

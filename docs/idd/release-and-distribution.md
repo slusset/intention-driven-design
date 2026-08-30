@@ -17,22 +17,31 @@ it loaded.
 ## Release lifecycle
 
 1. Merge feature and fix commits to `main` using Conventional Commit prefixes.
-   While the current version is a UAT prerelease, Release Please advances the
-   prerelease counter. Pre-1.0 breaking changes remain within `0.x`; promotion
-   to `1.0.0` must be an explicit maturity decision.
-2. Release Please opens or updates a draft release PR. That PR owns changes to
+   No release automation runs on push.
+2. Manually dispatch Release Please with `operation=prepare`. It opens or
+   updates a draft release PR that owns changes to
    `CHANGELOG.md`, `package.json`, `package-lock.json`, both plugin manifests,
    and `.release-please-manifest.json`.
 3. Review the release PR, run the normal repository checks, and mark it ready.
-4. Merging the release PR creates the immutable `v0.1.0-uat.N` tag and a GitHub
-   prerelease. The release workflow re-runs the source checks and attaches the
-   npm tarball. It does not create a floating major Action tag for prerelease or
-   `0.x` releases.
+4. Merge the release PR. No tag or release is created automatically.
+5. Manually dispatch Release Please with `operation=publish`. It creates the
+   immutable `v0.1.0-uat.N` tag and GitHub prerelease, re-runs source checks,
+   and attaches the npm tarball. It does not create a floating major Action tag
+   for prerelease or `0.x` releases.
+
+Run either operation from the GitHub Actions UI on `main`, or with GitHub CLI:
+
+```bash
+gh workflow run release-please.yml --ref main -f operation=prepare
+# review and merge the generated release PR
+gh workflow run release-please.yml --ref main -f operation=publish
+```
 
 Set a repository secret named `RELEASE_PLEASE_TOKEN` to a fine-grained token
 that can write contents, issues, and pull requests if checks must run
-automatically on Release Please PRs. The workflow falls back to `GITHUB_TOKEN`,
-but GitHub does not emit new workflow events for changes made with that token.
+automatically on prepared Release Please PRs. The workflow falls back to
+`GITHUB_TOKEN`, but GitHub does not emit new workflow events for changes made
+with that token.
 
 The repository is bootstrapped at `0.1.0-uat.0`; its immutable tag is a ledger
 and changelog-comparison baseline, not a GitHub Release or installable
@@ -45,7 +54,7 @@ anything.
 
 | Surface | Released unit | Install | Update | Verify |
 | --- | --- | --- | --- | --- |
-| Claude desktop and Claude Code CLI | Claude plugin: core skills, technical skills, CLI, validators, schemas | Add `slusset/intention-driven-design`, then install `idd-skills@idd` in the plugin browser or with `claude plugin install idd-skills@idd` | `claude plugin update idd-skills@idd`, then restart or reload plugins | `claude plugin list` and `idd version` |
+| Claude desktop and Claude Code CLI | Claude plugin: core IDD skills, CLI, validators, schemas | Add `slusset/intention-driven-design`, then install `idd-skills@idd` in the plugin browser or with `claude plugin install idd-skills@idd` | `claude plugin update idd-skills@idd`, then restart or reload plugins | `claude plugin list` and `idd version` |
 | Codex desktop and CLI | Codex plugin: core skills plus repository tooling | Add the Git marketplace with `codex plugin marketplace add slusset/intention-driven-design --ref main`, then `codex plugin add idd-skills@idd` | `codex plugin marketplace upgrade idd`, then `codex plugin add idd-skills@idd`; start a new task/session | `codex plugin list` and `idd version` when the host exposes the bundled CLI |
 | GitHub Copilot App, CLI, VS Code, cloud agent, and code review | Agent Skills from the tagged repository; validators remain the npm/GitHub Action artifact | `gh skill install slusset/intention-driven-design --all --agent github-copilot --scope user` | `gh skill update --all` | `gh skill list --agent github-copilot --json skillName,sourceURL,version,pinned,path` |
 | CI and repositories | npm tarball or reusable GitHub Action | Install `github:slusset/intention-driven-design#v0.1.0-uat.N`, or use `slusset/intention-driven-design/.github/actions/idd-check@v0.1.0-uat.N` | Update to the next explicitly accepted immutable UAT tag | `npx idd version` and `npx idd validate all --json` |
@@ -92,18 +101,13 @@ For an accepted UAT candidate, add `--pin v0.1.0-uat.N` to `gh skill install`.
 Pinned skills intentionally do not move under `gh skill update`; reinstall with
 the next accepted pin when advancing a controlled environment.
 
-Technical skills remain outside the core `skills/` discovery set. Install one
-for Copilot by its exact path when needed, for example:
+Stack-specific implementation skills are not IDD release artifacts. Install
+them independently for the active host and bind their exact identifiers and
+providers in the consuming repository's `specs/skills/repo-overlay.md`.
 
-```bash
-gh skill install slusset/intention-driven-design \
-  technical-skills/angular-architecture/SKILL.md \
-  --agent github-copilot --scope user
-```
-
-The same `gh skill` path can install core skills for Claude Code or Codex, but
-their native plugins are preferred because those bundles also carry the IDD
-CLI, validators, schemas, and other repository-level resources.
+The same `gh skill` mechanism can install core IDD skills for Claude Code or
+Codex, but their native plugins are preferred because those bundles also carry
+the IDD CLI, validators, schemas, and other repository-level resources.
 
 ## Release checks
 

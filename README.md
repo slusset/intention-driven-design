@@ -110,7 +110,7 @@ Read the full [manifesto](docs/idd/manifesto.md).
 
 ## Stack-agnostic by design
 
-The narrative, model, and contract layers are completely technology-independent. The `specs/` directory works the same whether your implementation uses Spring Boot, Express, Django, Rails, Angular, React, or anything else. Implementation skills can be swapped or added for any stack without changing the upstream artifacts.
+The narrative, model, and contract layers are completely technology-independent. The `specs/` directory works the same whether your implementation uses Spring Boot, Express, Django, Rails, Angular, React, or anything else. Each consumer binds its own stack-specific implementation skills in `specs/skills/repo-overlay.md` without changing the upstream artifacts.
 
 ## Installation
 
@@ -123,10 +123,8 @@ The narrative, model, and contract layers are completely technology-independent.
 
 The repo also exposes a Codex plugin through `.codex-plugin/plugin.json` and a
 repo-scoped marketplace at `.agents/plugins/marketplace.json`. This surface
-loads the core methodology skills from `skills/` and intentionally leaves out
-`technical-skills/`; the existing Claude plugin and legacy copy flow retain
-their current technical-skill behavior. The plugin source also carries the
-IDD CLI, validators, schemas, docs, and reusable GitHub Action.
+loads the core methodology skills from `skills/`. The plugin source also
+carries the IDD CLI, validators, schemas, docs, and reusable GitHub Action.
 
 For installation from GitHub:
 
@@ -151,7 +149,7 @@ codex plugin add idd-skills@idd
 
 ### As a Claude Code plugin (recommended)
 
-The repo is a self-contained Claude Code plugin — `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` are at the repo root. One install brings everything: the methodology skills (`skills/`), the stack-specific technical skills (`technical-skills/`), the schemas, and the `idd` validator CLI (the plugin's `bin/` is added to Bash PATH while active, so skills and you can run `idd validate all` with no separate install). Node dependencies install automatically from the committed lockfile.
+The repo is a self-contained Claude Code plugin — `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` are at the repo root. One install brings the core methodology skills (`skills/`), schemas, and the `idd` validator CLI (the plugin's `bin/` is added to Bash PATH while active, so skills and you can run `idd validate all` with no separate install). Node dependencies install automatically from the committed lockfile.
 
 In Claude Code:
 
@@ -184,6 +182,14 @@ together on the `0.1.0-uat.N` line. `just validate-plugin` checks the
 Codex/ChatGPT manifest, the core-only skills boundary, bundled tooling, and the
 existing Claude plugin manifests.
 
+Release preparation and publication are both manual:
+
+```bash
+gh workflow run release-please.yml --ref main -f operation=prepare
+# review and merge the generated release PR
+gh workflow run release-please.yml --ref main -f operation=publish
+```
+
 ### Local development (from checkout)
 
 ```bash
@@ -196,7 +202,7 @@ just install                   # npm install && npm link
 
 ```bash
 npx idd init .                 # scaffolds specs/ structure + CI workflow
-npx idd install-skills claude --with-technical
+npx idd install-skills claude
 ```
 
 ### CLI reference
@@ -204,7 +210,6 @@ npx idd install-skills claude --with-technical
 ```
 idd validate <check...>       Run validators (or "all")
 idd install-skills <target>   Install skills to claude/codex/all
-  --with-technical             Include stack-specific skills
   --link                       Symlink instead of copy (dev mode)
   --check                      Check if installed skills are current
 idd generate-evidence          Generate certification evidence manifest
@@ -234,9 +239,8 @@ gh skill update --all
 
 Project scope is the default and is the right choice when Copilot cloud agent
 or code review must consume committed skills from a downstream repository.
-Technical skills can be installed by exact `technical-skills/.../SKILL.md`
-path. GitHub's installer records source provenance, so `gh skill update` can
-detect upstream changes.
+GitHub's installer records source provenance, so `gh skill update` can detect
+upstream changes.
 
 **Other agents (Cursor, Gemini CLI, etc.):**
 All skills follow the [Agent Skills open standard](https://agentskills.io), and
@@ -267,14 +271,11 @@ Or install the toolkit directly:
 - run: npx idd validate all --json
 ```
 
-## Repo overlay and technical skills
+## Repo overlay and implementation skills
 
-IDD's narrative, model, and contract skills stay stack-agnostic. Repositories can layer stack-specific implementation guidance on top by:
+IDD's narrative, model, and contract skills stay stack-agnostic. The core pack does not bundle or discover framework-specific implementation skills. Each consumer repository uses `specs/skills/repo-overlay.md` to bind exact skill identifiers to backend, frontend, mobile, infrastructure, SDK, design, or framework-specific testing areas and to state where those skills are provided from.
 
-1. Installing the technical skills they need from `technical-skills/`
-2. Adding `specs/skills/repo-overlay.md` to declare which technical skills, architecture docs, test commands, and SDK/codegen workflows are authoritative for that repo
-
-The `idd-workflow` skill should load that overlay before picking backend/frontend implementation skills. If the overlay is missing, it should warn, offer to scaffold one, and continue with explicit assumptions instead of blocking the session.
+The `idd-workflow` skill loads that overlay before implementation work. If a binding is absent, IDD selects no stack-specific skill and follows the repository's architecture docs, commands, and a generic implementation checklist. Framework files and the active plugin catalog never authorize automatic skill selection.
 
 ## Agent roles as an IDD extension
 
@@ -308,18 +309,9 @@ For governing changes to IDD itself, see [Methodology Change Process](docs/idd/m
 
 Skills are designed to be invoked in sequence: narrative → model → contract → implementation → validation → certification. Each skill's output feeds the next.
 
-## Technical skills
+## Implementation skill bindings
 
-These are intentionally orthogonal to IDD. They plug into the implementation and validation layers without changing the upstream `specs/` artifacts.
-
-See [`technical-skills/README.md`](technical-skills/README.md) for the discovery convention and how to add new stack-specific skills.
-
-| Skill | Purpose | Invocation |
-|-------|---------|------------|
-| **Angular Architecture** | Angular structure, test commands, and UI guardrails | `/angular-architecture` |
-| **Angular Playwright** | Angular-focused Playwright workflow | `/angular-playwright` |
-| **Angular From Design** | Convert static UI/design output into Angular implementation | `/angular-from-design` |
-| **Spring Boot Architecture** | Spring Boot boundaries, package rules, and test commands | `/spring-boot-architecture` |
+Stack-specific skills are consumer-owned dependencies, not part of the IDD release. Install them through the mechanism appropriate to the active agent host, then bind them explicitly in the consuming repository's overlay. This keeps framework choices and versions local to the repository that depends on them.
 
 ## Repository layout
 
@@ -346,12 +338,6 @@ skills/                      IDD methodology skills (bundled in package)
 ├── e2e-journey-testing/     Playwright journey tests
 ├── certification/           Traceability verification and evidence
 └── idd-workflow/            Meta-skill: when to use which skill
-
-technical-skills/            Stack-specific implementation guidance
-├── angular-architecture/    Angular architecture and test workflow
-├── angular-playwright/      Angular Playwright patterns
-├── angular-from-design/     Angular implementation from static design
-└── spring-boot-architecture/ Spring Boot architecture and test workflow
 
 tools/                       Validators and generators
 ├── validate-front-matter.js Validate required/recommended metadata fields

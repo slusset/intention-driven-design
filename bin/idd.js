@@ -9,7 +9,6 @@ const { execFileSync, spawn } = require('child_process');
 const PACKAGE_ROOT = path.resolve(__dirname, '..');
 const TOOLS_DIR = path.join(PACKAGE_ROOT, 'tools');
 const SKILLS_DIR = path.join(PACKAGE_ROOT, 'skills');
-const TECH_SKILLS_DIR = path.join(PACKAGE_ROOT, 'technical-skills');
 const pkg = require(path.join(PACKAGE_ROOT, 'package.json'));
 
 // ── Subcommand dispatch ──────────────────────────────────────────────
@@ -134,14 +133,12 @@ function cmdInstallSkills(argv) {
   };
 
   let target = null;
-  let withTechnical = false;
   let useLink = false;
   let checkOnly = false;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--with-technical') withTechnical = true;
-    else if (arg === '--link') useLink = true;
+    if (arg === '--link') useLink = true;
     else if (arg === '--check') checkOnly = true;
     else if (['claude', 'codex', 'all'].includes(arg)) target = arg;
     else {
@@ -151,9 +148,8 @@ function cmdInstallSkills(argv) {
   }
 
   if (!target) {
-    console.log('Usage: idd install-skills <claude|codex|all> [--with-technical] [--link] [--check]');
+    console.log('Usage: idd install-skills <claude|codex|all> [--link] [--check]');
     console.log('\nOptions:');
-    console.log('  --with-technical  Include technical-skills (angular, spring-boot, etc.)');
     console.log('  --link            Symlink instead of copy (for development)');
     console.log('  --check           Check if installed skills are up to date (no changes made)');
     return;
@@ -190,9 +186,6 @@ function cmdInstallSkills(argv) {
 
   // Collect source skill directories
   const sourceDirs = listSubdirs(SKILLS_DIR);
-  if (withTechnical && fs.existsSync(TECH_SKILLS_DIR)) {
-    sourceDirs.push(...listSubdirs(TECH_SKILLS_DIR));
-  }
 
   for (const agent of targets) {
     const destRoot = AGENT_DIRS[agent];
@@ -359,7 +352,7 @@ Commands:
 Examples:
   idd validate all --json
   idd validate traceability front-matter --strict
-  idd install-skills claude --with-technical
+  idd install-skills claude
   idd generate-evidence --capability specs/capabilities/foo.capability.yaml
   idd init .
 `);
