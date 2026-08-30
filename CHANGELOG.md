@@ -10,6 +10,22 @@ testing. Historical prototype entries retain their original `1.x` headings
 below active releases. Their commits remain available under `legacy/v1.*` tags,
 but those versions are not part of the active SemVer sequence.
 
+## [0.1.0-uat.1](https://github.com/slusset/intention-driven-design/compare/v0.1.0-uat.0...v0.1.0-uat.1) (2026-08-30)
+
+
+### Features
+
+* add Codex skills plugin release ([d420784](https://github.com/slusset/intention-driven-design/commit/d420784cbbd45be3a6153a0b2eb1673b52187c06))
+* bootstrap cross-platform IDD UAT releases ([14d7922](https://github.com/slusset/intention-driven-design/commit/14d79226327031cbbe78310547d10243953013eb))
+* **release:** automate cross-platform distribution ([f9393cb](https://github.com/slusset/intention-driven-design/commit/f9393cb958127e5ff8891ba42d37dd906c788183)), closes [#59](https://github.com/slusset/intention-driven-design/issues/59)
+* **release:** reset version line for internal UAT ([4ff9bae](https://github.com/slusset/intention-driven-design/commit/4ff9bae8a69bd370b3cdcff589748399984b4082)), closes [#59](https://github.com/slusset/intention-driven-design/issues/59)
+
+
+### Bug Fixes
+
+* **release:** allow generated UAT versions ([4bc9609](https://github.com/slusset/intention-driven-design/commit/4bc960999dc918d6a8a951216a8158e45537ed8e))
+* **release:** allow generated UAT versions ([6a0aead](https://github.com/slusset/intention-driven-design/commit/6a0aead4a4de10eafd872f86736af9d0217470e5))
+
 ## [1.2.0] - 2026-08-21
 
 ### Added — single standard Claude Code plugin: skills + technical skills + tools + schemas

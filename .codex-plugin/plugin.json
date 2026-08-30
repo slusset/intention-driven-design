@@ -1,6 +1,6 @@
 {
   "name": "idd-skills",
-  "version": "0.1.0-uat.0",
+  "version": "0.1.0-uat.1",
   "description": "Core Intention-Driven Design skills and validation tooling for narrative-first, traceable software development.",
   "author": {
     "name": "Ted Slusser",
