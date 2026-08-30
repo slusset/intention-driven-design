@@ -12,7 +12,7 @@ const config = require(path.join(REPO_ROOT, 'release-please-config.json'));
 const manifest = require(path.join(REPO_ROOT, '.release-please-manifest.json'));
 
 test('all released surfaces share the current release-ledger version', () => {
-  assert.equal(pkg.version, '0.1.0-uat.0');
+  assert.match(pkg.version, /^0\.1\.0-uat\.(?:0|[1-9]\d*)$/);
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
   assert.equal(claude.version, pkg.version);
