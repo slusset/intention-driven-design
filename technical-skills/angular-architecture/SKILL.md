@@ -1,12 +1,9 @@
 ---
 name: angular-architecture
 description: "Angular frontend architecture and testing workflow guidance. Use when implementing or reviewing Angular UI changes to keep architecture consistent, follow Angular module/service patterns, and choose appropriate test commands (e.g., npm test, ng test)."
+license: MIT
 argument-hint: "[feature or component]"
-allowed-tools:
-  - Read
-  - Write
-  - Glob
-  - Grep
+allowed-tools: Read Write Glob Grep
 ---
 
 # Angular Architecture

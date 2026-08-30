@@ -1,12 +1,9 @@
 ---
 name: pr-review
 description: "Verify IDD compliance on pull requests. Use in CI/CD pipelines or manually before merge to check traceability, front-matter, capability scope, and spec-code alignment. Cross-cuts all layers like certification, but operates at PR-time on the diff."
+license: MIT
 argument-hint: "[PR number or branch name]"
-allowed-tools:
-  - Read
-  - Glob
-  - Grep
-  - Bash
+allowed-tools: Read Glob Grep Bash
 ---
 
 # PR Review

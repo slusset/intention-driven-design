@@ -1,12 +1,9 @@
 ---
 name: certification
 description: "Verify traceability and produce evidence that implementation fulfills declared intent, published through the CI report rather than committed to the repo. Use after implementation and tests are complete, before merge. Cross-cuts all layers to close the chain from persona to proof."
+license: MIT
 argument-hint: "[capability-name]"
-allowed-tools:
-  - Read
-  - Write
-  - Glob
-  - Grep
+allowed-tools: Read Write Glob Grep
 ---
 
 # Certification

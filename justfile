@@ -54,16 +54,10 @@ validate-plugin:
     claude plugin validate --strict .
     claude plugin validate --strict .claude-plugin/plugin.json
 
-# Bump package.json and both plugin manifests in lockstep (e.g. `just release 1.2.0`)
-release version:
-    node -e "for (const f of ['package.json', '.claude-plugin/plugin.json', '.codex-plugin/plugin.json']) { const fs = require('fs'); const data = JSON.parse(fs.readFileSync(f, 'utf8')); data.version = '{{version}}'; fs.writeFileSync(f, JSON.stringify(data, null, 2) + '\n'); console.log(f + ' -> {{version}}'); }"
-    @echo ""
-    @echo "Next steps:"
-    @echo "  1. Move the [Unreleased] CHANGELOG entries under [{{version}}]"
-    @echo "  2. just ci && just validate-plugin"
-    @echo "  3. Commit, tag v{{version}}, push with tags"
-    @echo "  4. npm publish"
-    @echo "  5. Move the v1 major tag for idd-check action consumers"
+# Validate the core and technical skillsets with GitHub's Agent Skills publisher
+validate-agent-skills:
+    gh skill publish --dry-run
+    gh skill publish technical-skills --dry-run
 
 # Run everything CI runs
 ci: test validate

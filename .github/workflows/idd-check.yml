@@ -10,12 +10,19 @@ on:
       - 'frontend/src/**'
       - 'tools/**/*.js'
       - 'bin/**'
+      - 'test/**'
+      - 'tests/**'
       - 'skills/**'
       - 'technical-skills/**'
+      - 'docs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'release-please-config.json'
+      - '.release-please-manifest.json'
       - '.claude-plugin/**'
       - '.codex-plugin/**'
       - '.agents/plugins/**'
-      - '.github/workflows/idd-check.yml'
+      - '.github/workflows/**'
       - '.github/actions/idd-check/**'
   push:
     branches: [main]
@@ -25,12 +32,19 @@ on:
       - 'frontend/src/**'
       - 'tools/**/*.js'
       - 'bin/**'
+      - 'test/**'
+      - 'tests/**'
       - 'skills/**'
       - 'technical-skills/**'
+      - 'docs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'release-please-config.json'
+      - '.release-please-manifest.json'
       - '.claude-plugin/**'
       - '.codex-plugin/**'
       - '.agents/plugins/**'
-      - '.github/workflows/idd-check.yml'
+      - '.github/workflows/**'
       - '.github/actions/idd-check/**'
 
 permissions:
@@ -64,7 +78,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
+          cache: npm
+
+      - name: Install toolkit dependencies
+        run: npm ci
+
+      - name: Run repository tests
+        run: npm test
 
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code

@@ -5,20 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0] - 2026-08-21
-
-### Added — ChatGPT / Codex skills-only plugin surface
-
-- Added `.codex-plugin/plugin.json` and a repo-scoped marketplace at
-  `.agents/plugins/marketplace.json` for the universal ChatGPT/Codex plugin
-  directory.
-- The Codex manifest loads only the core `skills/` directory; the existing
-  Claude plugin remains the surface that includes `technical-skills/`.
-- Added a dependency-free plugin/tooling manifest check and included it in the
-  local and GitHub validation paths.
-- Made the PR-review validator instructions portable across Codex and Claude
-  plugin roots.
-
 ## [1.2.0] - 2026-08-21
 
 ### Added — single standard Claude Code plugin: skills + technical skills + tools + schemas

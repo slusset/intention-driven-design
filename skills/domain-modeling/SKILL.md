@@ -1,12 +1,9 @@
 ---
 name: domain-modeling
 description: "Define domain entities, value objects, aggregates, and business rules. Use when translating user stories into a formal domain model before creating API contracts. Bridges solution-narrative and behavior-contract skills."
+license: MIT
 argument-hint: "[entity-name or feature-area]"
-allowed-tools:
-  - Read
-  - Write
-  - Glob
-  - Grep
+allowed-tools: Read Write Glob Grep
 ---
 
 # Domain Modeling

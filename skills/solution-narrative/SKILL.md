@@ -1,12 +1,9 @@
 ---
 name: solution-narrative
 description: "User journey and story development. Use when capturing requirements, mapping user experiences, defining personas, or creating the narrative foundation that drives features and contracts. Output feeds into behavior-contract skill."
+license: MIT
 argument-hint: "[persona, journey, or story]"
-allowed-tools:
-  - Read
-  - Write
-  - Glob
-  - Grep
+allowed-tools: Read Write Glob Grep
 ---
 
 # Solution Narrative

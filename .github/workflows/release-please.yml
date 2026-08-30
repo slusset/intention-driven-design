@@ -1,0 +1,66 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open or update the release PR
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+      - name: Check out the released tag
+        if: ${{ steps.release.outputs.release_created }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release.outputs.tag_name }}
+
+      - name: Set up Node.js
+        if: ${{ steps.release.outputs.release_created }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Verify the released source
+        if: ${{ steps.release.outputs.release_created }}
+        run: |
+          npm ci
+          npm test
+          node bin/idd.js validate all
+          node tools/validate-plugin-manifests.js
+
+      - name: Build the toolkit release artifact
+        if: ${{ steps.release.outputs.release_created }}
+        run: |
+          mkdir -p dist
+          npm pack --pack-destination dist
+
+      - name: Attach the toolkit artifact
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ steps.release.outputs.tag_name }}" dist/*.tgz
+
+      - name: Move the supported major action tag
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          MAJOR: ${{ steps.release.outputs.major }}
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git tag -fa "v${MAJOR}" -m "Release v${MAJOR}"
+          git push origin "refs/tags/v${MAJOR}" --force
