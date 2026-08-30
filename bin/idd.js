@@ -304,7 +304,6 @@ function cmdInit(argv) {
   const workflowDir = path.join(root, '.github', 'workflows');
   const workflowPath = path.join(workflowDir, 'idd-check.yml');
   if (!fs.existsSync(workflowPath)) {
-    const actionRef = 'slusset/intention-driven-design/.github/actions/idd-check@v1';
     fs.mkdirSync(workflowDir, { recursive: true });
     fs.writeFileSync(workflowPath, `name: IDD Compliance
 

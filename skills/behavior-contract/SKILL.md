@@ -1,12 +1,9 @@
 ---
 name: behavior-contract
 description: "Convert solution narratives into BDD feature files and protocol contracts. Use when translating user stories into testable specifications and API/event/RPC definitions. Consumes output from solution-narrative skill, produces artifacts consumed by architecture skills."
+license: MIT
 argument-hint: "[feature-area or story]"
-allowed-tools:
-  - Read
-  - Write
-  - Glob
-  - Grep
+allowed-tools: Read Write Glob Grep
 ---
 
 # Behavior Contract

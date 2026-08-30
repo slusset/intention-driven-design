@@ -1,0 +1,38 @@
+{
+  "name": "idd-skills",
+  "version": "0.1.0-uat.0",
+  "description": "Core Intention-Driven Design skills and validation tooling for narrative-first, traceable software development.",
+  "author": {
+    "name": "Ted Slusser",
+    "url": "https://github.com/slusset"
+  },
+  "repository": "https://github.com/slusset/intention-driven-design",
+  "license": "MIT",
+  "keywords": [
+    "idd",
+    "intention-driven-design",
+    "narrative-driven",
+    "bdd",
+    "domain-modeling",
+    "traceability"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Intention-Driven Design",
+    "shortDescription": "Narrative-first skills and validation for traceable software",
+    "longDescription": "Turn human intent into traceable narratives, domain models, contracts, journey tests, and certification evidence. This Codex and ChatGPT surface includes the core IDD skills and the repository's validation tooling; stack-specific technical skills remain a separate Claude/legacy surface.",
+    "developerName": "Ted Slusser",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write",
+      "Execute"
+    ],
+    "defaultPrompt": [
+      "Use IDD to turn this goal into traceable specs.",
+      "Run the IDD checks for this repository.",
+      "Review this change for traceability and evidence."
+    ],
+    "brandColor": "#3B82F6"
+  }
+}

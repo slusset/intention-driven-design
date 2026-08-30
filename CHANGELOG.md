@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+The active release line starts at `0.1.0-uat.1` for internal, non-production
+testing. Entries below this note describe the retired prototype lineage. The
+corresponding commits remain available under `legacy/v1.*` tags, but those
+versions are not part of the active SemVer sequence.
+
+## Legacy prototype lineage
+
 ## [1.2.0] - 2026-08-21
 
 ### Added — single standard Claude Code plugin: skills + technical skills + tools + schemas
@@ -181,4 +188,3 @@ The language-theoretic schema effort ([#24](https://github.com/slusset/intention
 ### Changed
 
 - `.github/workflows/idd-check.yml` simplified from ~400 lines to use the reusable action
-

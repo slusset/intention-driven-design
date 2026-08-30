@@ -10,10 +10,19 @@ on:
       - 'frontend/src/**'
       - 'tools/**/*.js'
       - 'bin/**'
+      - 'test/**'
+      - 'tests/**'
       - 'skills/**'
       - 'technical-skills/**'
+      - 'docs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'release-please-config.json'
+      - '.release-please-manifest.json'
       - '.claude-plugin/**'
-      - '.github/workflows/idd-check.yml'
+      - '.codex-plugin/**'
+      - '.agents/plugins/**'
+      - '.github/workflows/**'
       - '.github/actions/idd-check/**'
   push:
     branches: [main]
@@ -23,10 +32,19 @@ on:
       - 'frontend/src/**'
       - 'tools/**/*.js'
       - 'bin/**'
+      - 'test/**'
+      - 'tests/**'
       - 'skills/**'
       - 'technical-skills/**'
+      - 'docs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'release-please-config.json'
+      - '.release-please-manifest.json'
       - '.claude-plugin/**'
-      - '.github/workflows/idd-check.yml'
+      - '.codex-plugin/**'
+      - '.agents/plugins/**'
+      - '.github/workflows/**'
       - '.github/actions/idd-check/**'
 
 permissions:
@@ -60,15 +78,25 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
+          cache: npm
+
+      - name: Install toolkit dependencies
+        run: npm ci
+
+      - name: Run repository tests
+        run: npm test
 
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code
 
+      - name: Validate Codex/ChatGPT plugin manifest and bundled tooling
+        run: node tools/validate-plugin-manifests.js
+
       # Validating a bare skills directory behaves differently across CLI
-      # versions (components mode vs. plugin-root mode), so CI sticks to the
-      # two manifests; plugin-manifest validation already resolves each
-      # declared skills root.
+      # versions (components mode vs. plugin-root mode), so Claude CI sticks
+      # to the legacy manifests; the repository check above validates the
+      # Codex manifest and its core-only skills root.
       - name: Validate marketplace and plugin manifests
         run: |
           claude plugin validate --strict .

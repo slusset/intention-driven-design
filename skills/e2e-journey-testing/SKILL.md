@@ -1,12 +1,9 @@
 ---
 name: e2e-journey-testing
 description: "End-to-end test development from user journeys. Use when creating or updating e2e tests that validate user journeys. Consumes journey narratives and journey maps from specs/, produces Playwright tests in frontend."
+license: MIT
 argument-hint: "[journey-name]"
-allowed-tools:
-  - Read
-  - Write
-  - Glob
-  - Grep
+allowed-tools: Read Write Glob Grep
 ---
 
 # E2E Journey Testing

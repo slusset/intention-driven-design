@@ -114,6 +114,41 @@ The narrative, model, and contract layers are completely technology-independent.
 
 ## Installation
 
+> **Internal UAT:** the toolkit is restarting its public version line at
+> `0.1.0-uat.N`. These builds are prerelease, non-production candidates. The
+> retired prototype line is preserved under `legacy/v1.*` tags, but should not
+> be used for new installations.
+
+### As a ChatGPT / Codex plugin (core skills)
+
+The repo also exposes a Codex plugin through `.codex-plugin/plugin.json` and a
+repo-scoped marketplace at `.agents/plugins/marketplace.json`. This surface
+loads the core methodology skills from `skills/` and intentionally leaves out
+`technical-skills/`; the existing Claude plugin and legacy copy flow retain
+their current technical-skill behavior. The plugin source also carries the
+IDD CLI, validators, schemas, docs, and reusable GitHub Action.
+
+For installation from GitHub:
+
+```bash
+codex plugin marketplace add slusset/intention-driven-design --ref main
+codex plugin add idd-skills@idd
+```
+
+If `idd-skills` was installed from the retired `1.x` prototype line, remove it
+once with `codex plugin remove idd-skills@idd`, refresh the marketplace, and
+install again. A normal update cannot be assumed to accept a SemVer downgrade.
+
+In the ChatGPT desktop app, restart after adding the repo marketplace, then
+install `idd-skills` from the Intention-Driven Design marketplace. Use a new
+conversation after installation so the host loads the current skill set.
+Update both the desktop and CLI environments with:
+
+```bash
+codex plugin marketplace upgrade idd
+codex plugin add idd-skills@idd
+```
+
 ### As a Claude Code plugin (recommended)
 
 The repo is a self-contained Claude Code plugin — `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` are at the repo root. One install brings everything: the methodology skills (`skills/`), the stack-specific technical skills (`technical-skills/`), the schemas, and the `idd` validator CLI (the plugin's `bin/` is added to Bash PATH while active, so skills and you can run `idd validate all` with no separate install). Node dependencies install automatically from the committed lockfile.
@@ -127,14 +162,27 @@ In Claude Code:
 
 Skills are namespaced as `idd-skills:<name>` (e.g. `/idd-skills:certification`). If you previously copied skills via `idd install-skills claude`, remove those copies from `~/.claude/skills/` — copied and plugin skills coexist under different names and can double-trigger.
 
+If the plugin was installed from the retired `1.x` prototype line, uninstall
+it once with `claude plugin uninstall idd-skills@idd`, refresh the marketplace,
+and install it again before following the normal update flow.
+
+Update with `claude plugin update idd-skills@idd`, then restart Claude or
+reload plugins when prompted. Third-party marketplace auto-update can also be
+enabled in Claude's plugin manager.
+
 For plugin development from a local checkout: `/plugin marketplace add ~/dev/idd`, refresh after edits with `/plugin marketplace update idd`, or use `claude --plugin-dir ~/dev/idd` for an ephemeral single-session load. Validate changes with `just validate-plugin` (runs `claude plugin validate --strict` on the marketplace and plugin manifests — CI runs the same checks).
 
 ### As an npm package (for CI and local dev ergonomics)
 
 ```bash
-npm install --save-dev github:slusset/intention-driven-design
+npm install --save-dev github:slusset/intention-driven-design#v0.1.0-uat.1
 npx idd validate all          # run validators outside of Claude Code
 ```
+
+Release Please versions the npm package, lockfile, and both plugin manifests
+together on the `0.1.0-uat.N` line. `just validate-plugin` checks the
+Codex/ChatGPT manifest, the core-only skills boundary, bundled tooling, and the
+existing Claude plugin manifests.
 
 ### Local development (from checkout)
 
@@ -176,19 +224,41 @@ idd install-skills claude      # deprecated for Claude Code — use the plugin
 idd install-skills all         # both
 ```
 
+**GitHub Copilot App, CLI, VS Code, cloud agent, and code review:**
+
+```bash
+gh skill install slusset/intention-driven-design --all \
+  --agent github-copilot --scope user
+gh skill update --all
+```
+
+Project scope is the default and is the right choice when Copilot cloud agent
+or code review must consume committed skills from a downstream repository.
+Technical skills can be installed by exact `technical-skills/.../SKILL.md`
+path. GitHub's installer records source provenance, so `gh skill update` can
+detect upstream changes.
+
 **Other agents (Cursor, Gemini CLI, etc.):**
-All skills follow the [Agent Skills open standard](https://agentskills.io).
-Copy `skills/` and any needed `technical-skills/` into the agent's skill discovery path.
+All skills follow the [Agent Skills open standard](https://agentskills.io), and
+current GitHub CLI releases can install them for many supported hosts with
+`gh skill install --agent <host>`.
+
+See [Release and Distribution](docs/idd/release-and-distribution.md) for the
+release lifecycle, desktop/CLI update matrix, verification commands, and the
+boundary with field synchronization work in issues #56–#58.
 
 ### CI with GitHub Actions
 
 Consuming repos can use the reusable action:
 
 ```yaml
-- uses: slusset/intention-driven-design/.github/actions/idd-check@v1
+- uses: slusset/intention-driven-design/.github/actions/idd-check@v0.1.0-uat.1
   with:
     checks: all
 ```
+
+During UAT, pin the exact accepted candidate. No floating major Action tag is
+published for prerelease or `0.x` builds.
 
 Or install the toolkit directly:
 
@@ -343,7 +413,7 @@ This repository is itself organized as an IDD project. `docs/idd/` is the narrat
 
 ## Origin
 
-IDD was developed collaboratively by [Ted Slusser](https://github.com/slusset) with AI as a design partner — human intuition driving the exploration, AI reasoning through the structure. The methodology was refined across multiple production projects and is resilient to different technology stacks. It represents a natural evolution beyond spec-driven development: intent as the stable layer above specifications.
+IDD was developed collaboratively by [Ted Slusser](https://github.com/slusset) with AI as a design partner — human intuition driving the exploration, AI reasoning through the structure. The methodology is being refined through prototype and downstream projects across different technology stacks. Its current UAT status is an explicit maturity boundary, not a production-readiness claim.
 
 ## License
 

@@ -1,6 +1,7 @@
 ---
 name: angular-playwright
 description: "Playwright end-to-end testing for Angular apps using the narrative-driven specs system (journeys, journey-maps, stories, features, fixtures). Use whenever an e2e test is requested or updated, especially for journey-driven flows."
+license: MIT
 ---
 
 # Angular Playwright

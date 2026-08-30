@@ -1,14 +1,11 @@
 ---
 name: idd-workflow
 description: "Meta-skill explaining when to use each development skill. Use when starting new work, onboarding, or unsure which skill applies to a task."
+license: MIT
 user-invocable: true
 disable-model-invocation: true
 argument-hint: "[topic or situation]"
-allowed-tools:
-  - Read
-  - Write
-  - Glob
-  - Grep
+allowed-tools: Read Write Glob Grep
 ---
 
 # Development Workflow Guide

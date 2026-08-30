@@ -1,12 +1,9 @@
 ---
 name: spring-boot-architecture
 description: "Spring Boot backend architecture and testing workflow guidance. Use when implementing or reviewing backend changes in Spring Boot projects, especially to enforce architecture boundaries, package structure, and to decide which Maven test commands to run (e.g., mvn test, mvn clean install)."
+license: MIT
 argument-hint: "[feature or module]"
-allowed-tools:
-  - Read
-  - Write
-  - Glob
-  - Grep
+allowed-tools: Read Write Glob Grep
 ---
 
 # Spring Boot Architecture

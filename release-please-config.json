@@ -1,0 +1,29 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bootstrap-sha": "c913347b61055df0310e9ab3169457ff44f65031",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "idd-toolkit",
+      "versioning": "prerelease",
+      "prerelease": true,
+      "prerelease-type": "uat",
+      "bump-minor-pre-major": true,
+      "include-v-in-tag": true,
+      "include-component-in-tag": false,
+      "draft-pull-request": true,
+      "extra-files": [
+        {
+          "type": "json",
+          "path": ".claude-plugin/plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": ".codex-plugin/plugin.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    }
+  }
+}

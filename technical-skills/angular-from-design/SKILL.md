@@ -1,12 +1,9 @@
 ---
 name: angular-from-design
 description: Convert design artifacts (HTML, images, Figma exports, or written specs) into a production-ready Angular app with component architecture, routing, styling, and tests.
+license: MIT
 argument-hint: "[design source or feature]"
-allowed-tools:
-  - Read
-  - Write
-  - Glob
-  - Grep
+allowed-tools: Read Write Glob Grep
 metadata:
   short-description: Build Angular apps from design artifacts
 ---
