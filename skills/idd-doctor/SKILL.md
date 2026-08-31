@@ -29,6 +29,8 @@ stable integration surface for CI, migration planning, and later doctor modes.
 
 - toolkit, schema registry, package-lock, plugin, and Release Please versions;
 - consumer toolkit dependency pinning and module adoption;
+- the consumer's `idd_consumer` contract in repo-overlay front matter;
+- accepted toolkit release, schema-registry version/digest, and distribution provenance;
 - committed generated certification evidence and other deprecated structures;
 - all read-only IDD validators, excluding run-specific evidence validation;
 - continuity impact for each finding.
@@ -36,6 +38,11 @@ stable integration surface for CI, migration planning, and later doctor modes.
 Treat validator errors as migration blockers, advisories as explicit
 dispositions to record, and infos as observations. A passing doctor report is
 alignment evidence only; its continuity dimensions remain `not-assessed`.
+
+The consumer contract is the adoption record for the toolkit itself. It is
+separate from the consumer's own `specs/modules.yaml`, capabilities, and
+verification maps. A stale toolkit or schema pin is migration input, not proof
+that the consumer's domain meaning changed.
 
 ## Continuity boundary
 

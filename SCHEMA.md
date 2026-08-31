@@ -29,6 +29,7 @@ All schemas use **JSON Schema Draft 2020-12**
 | Capability | document | [`capability.schema.json`](schemas/v1/capability.schema.json) | `specs/capabilities/**/*.capability.yaml` |
 | Modules | document | [`modules.schema.json`](schemas/v1/modules.schema.json) | `specs/modules.yaml` |
 | Verification Map | document | [`verification-map.schema.json`](schemas/v1/verification-map.schema.json) | `*/verification/*/verification.yaml` |
+| Consumer Contract | front-matter | [`consumer-contract.schema.json`](schemas/v1/consumer-contract.schema.json) | optional `idd_consumer` block in `specs/skills/repo-overlay.md` |
 | Fixture | document | [`fixture.schema.json`](schemas/v1/fixture.schema.json) | `specs/fixtures/**/*.{fixture.yaml,json}` |
 
 **Front-matter** schemas describe the YAML or comment header of a Markdown,
@@ -43,6 +44,8 @@ and literal rule-to-file anchors use
 [`evidence-binding.schema.json`](schemas/v1/evidence-binding.schema.json).
 Cross-module contract consumption uses
 [`contract-pin.schema.json`](schemas/v1/contract-pin.schema.json).
+Consumer toolkit adoption uses
+[`consumer-contract.schema.json`](schemas/v1/consumer-contract.schema.json).
 
 ## What the schemas cover
 
@@ -88,7 +91,7 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.9.0`** (declared in
+The current version is **`1.11.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
 actions, and assertions landed in 1.2; declarative lifecycle and journey-map
@@ -111,6 +114,7 @@ dependencies and rule-family citations to the transitive module DAG, and
 prevents verification or certification claims from exceeding an explicitly
 declared dependency. Literal evidence bindings and reciprocal contract
 `x-rules` landed in 1.9. Cross-module contract digest pins landed in 1.10.
+Consumer toolkit contract pins landed in 1.11.
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward
@@ -198,6 +202,29 @@ digest. A changed schema document therefore produces a red gate even when its
 filename and module dependency are unchanged. Pins are deliberately limited
 to JSON Schema documents in v1; YAML contract canonicalization and runtime
 constant synchronization remain separate contracts.
+
+## Consumer toolkit contract (v1.11)
+
+A repository consuming the IDD Toolkit may record its accepted toolkit contract
+in the front matter of `specs/skills/repo-overlay.md`:
+
+```yaml
+idd_consumer:
+  schemaVersion: 1
+  toolkit:
+    version: 0.1.0-uat.1
+    schema:
+      version: 1.11.0
+      digest: sha256:<JCS digest of schemas/v1/index.json>
+    source:
+      kind: github-tag
+      ref: v0.1.0-uat.1
+```
+
+This record pins the toolkit adoption surface. It does not version the
+consumer's own capabilities, module DAG, or verification maps. `idd doctor`
+compares the record with the toolkit and schema registry it is running and
+reports drift without applying a migration.
 
 ## Closed-world keys and `$conformance` (v1.1)
 

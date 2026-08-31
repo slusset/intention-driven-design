@@ -43,6 +43,17 @@ review. The current doctor is informational only: it detects release/schema,
 module, and deprecated-structure misalignment but does not apply changes or
 mutate identity history.
 
+The consumer adoption record belongs in the repo overlay front matter under
+`idd_consumer`. It pins the accepted toolkit release, schema-registry version
+and digest, and distribution provenance. This is distinct from the consumer's
+own module/capability versions and does not make the consumer's IDD chain a
+toolkit release artifact.
+
+The schema-registry digest is the `jcs-sha256@1` digest of the toolkit's exact
+`schemas/v1/index.json` document. Run `idd doctor` from the candidate toolkit
+installation so a stale pin becomes a migration finding before accepting the
+UAT update.
+
 Set a repository secret named `RELEASE_PLEASE_TOKEN` to a fine-grained token
 that can write contents, issues, and pull requests if checks must run
 automatically on prepared Release Please PRs. The workflow falls back to

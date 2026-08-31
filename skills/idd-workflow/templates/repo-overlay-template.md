@@ -2,6 +2,28 @@
 
 Use this file to bind stack-specific skills and repo policies for implementation work. This file is the sole authority for those bindings; IDD does not discover or infer replacement skills. Keep it short, concrete, and repo-specific.
 
+Optional consumer contract (place this YAML block before the overlay title and
+keep it aligned with the accepted toolkit UAT candidate):
+
+```yaml
+---
+idd_consumer:
+  schemaVersion: 1
+  toolkit:
+    version: 0.1.0-uat.1
+    schema:
+      version: 1.11.0
+      digest: sha256:<64 lowercase hex characters>
+    source:
+      kind: github-tag
+      ref: v0.1.0-uat.1
+---
+```
+
+Run `idd doctor --repo <consumer> --json` after updating the toolkit. This
+contract pins the toolkit adoption surface; it does not version the
+consumer's own IDD spec chain.
+
 ## Repo Summary
 
 - Repo type: `application | library | monorepo | service | mobile | other`
