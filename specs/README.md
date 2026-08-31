@@ -4,7 +4,7 @@ This directory contains a complete, minimal set of **illustrative** IDD artifact
 
 These files are not project-of-record specs for this repository. They exist so contributors can:
 
-- run tooling validation (`idd validate front-matter traceability capability-scope`) against realistic data,
+- run tooling validation (`idd validate modules front-matter traceability capability-scope`) against realistic data,
 - inspect fully populated artifacts while onboarding, and
 - reuse patterns when creating `specs/` in downstream project repositories.
 
@@ -24,13 +24,14 @@ The example chain models a trade-show workflow:
 - `models/` → domain concepts and rules
 - `journey-maps/` → E2E validation spine
 - `capabilities/` → certification scope boundary
+- `modules.yaml` → exact capability ownership and the module dependency DAG
 
 ## Validation
 
 Run checks against this directory directly:
 
 ```bash
-idd validate front-matter traceability capability-scope
+idd validate modules front-matter traceability capability-scope
 ```
 
 Real adopters should place equivalent artifacts under `specs/` in their own repositories.

@@ -3,7 +3,7 @@
   "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/index.json",
   "title": "IDD Schema Registry (v1)",
   "description": "Registry of IDD schemas at v1. Each entry maps an artifact kind to its canonical $id and to the local path under schemas/v1/. Consumers should prefer the $id URL; local validators resolve via the path.",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "artifacts": {
     "persona": {
@@ -59,6 +59,12 @@
       "applies_to": "specs/fixtures/**/*.{fixture.yaml,json}",
       "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/fixture.schema.json",
       "path": "fixture.schema.json"
+    },
+    "modules": {
+      "kind": "document",
+      "applies_to": "specs/modules.yaml",
+      "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/modules.schema.json",
+      "path": "modules.schema.json"
     }
   },
   "cross_document_constraints": {
@@ -68,6 +74,7 @@
       "capability-scope: every artifact listed under a capability's scope exists (tools/validate-capability-scope.js)",
       "capability-closure: every artifact reachable from a capability's scope is itself in scope, with explicit `excluded:` for cross-capability shares (tools/validate-capability-closure.js, #40)",
       "enforcement-bindings: every model rule with `enforced:` bindings resolves to a real DB migration, OpenAPI schema fragment, named invariant, Gherkin scenario, or named test (tools/validate-enforcement-bindings.js, #41)",
+      "modules: every capability is assigned exactly once, roots are explicit, rule-family ownership is unique, and module dependencies form an acyclic graph (tools/validate-modules.js, #56)",
       "fixture-contract: fixture payloads validate against their declared contract operation (tools/validate-fixtures.js)",
       "evidence: certification manifests reference real test outputs (tools/validate-evidence.js)"
     ],

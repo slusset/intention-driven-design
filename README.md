@@ -340,6 +340,7 @@ skills/                      IDD methodology skills (bundled in package)
 └── idd-workflow/            Meta-skill: when to use which skill
 
 tools/                       Validators and generators
+├── validate-modules.js      Validate exact capability ownership and the module dependency DAG
 ├── validate-front-matter.js Validate required/recommended metadata fields
 ├── validate-traceability.js Validate cross-artifact reference integrity
 ├── validate-capability-scope.js Validate capability scope coverage
@@ -371,7 +372,7 @@ idd validate traceability front-matter --json
 idd validate fixtures models --strict
 ```
 
-Available validators: `contracts`, `traceability`, `front-matter`, `capability-scope`, `capability-closure`, `fixtures`, `models`, `enforcement-bindings`, `journey-maps`, `evidence`.
+Available validators: `modules`, `contracts`, `traceability`, `front-matter`, `capability-scope`, `capability-closure`, `fixtures`, `models`, `enforcement-bindings`, `journey-maps`, `evidence`.
 
 Common CLI options:
 - `--files <paths...>` limit checks to specific files

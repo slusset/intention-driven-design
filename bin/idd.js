@@ -37,6 +37,7 @@ if (commands[subcommand]) {
 
 function cmdValidate(argv) {
   const VALIDATORS = {
+    modules: 'validate-modules.js',
     contracts: 'validate-contracts.js',
     traceability: 'validate-traceability.js',
     'front-matter': 'validate-front-matter.js',
