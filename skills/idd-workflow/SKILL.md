@@ -153,6 +153,7 @@ Always report a concrete result for each relevant area:
 | Journeys and stories | Capability scope defined | Define `specs/capabilities/` |
 | Journeys and stories | Domain concepts defined | `/domain-modeling` |
 | Stories and models | API contract + Gherkin | `/behavior-contract` |
+| Capability + contracts | Module assignment + verification map | `/behavior-contract` |
 | Contract ready | Backend implementation | Overlay-bound backend skill, or generic checklist |
 | Contract ready | Frontend implementation | Overlay-bound frontend skill, or generic checklist |
 | Design mockup/HTML | UI components | Overlay-bound design skill, or generic checklist |
@@ -196,7 +197,9 @@ Always report a concrete result for each relevant area:
    ├── Define OpenAPI contract
    ├── Create test fixtures
    ├── Finalize the capability scope with models, features, and contracts
-   └── Output: specs/features/, specs/contracts/, specs/fixtures/ + finalized capability scope
+   ├── Assign the capability in specs/modules.yaml and create/update its verification map
+   ├── Bind current-evidence selectors to exact files and keep contract x-rules reciprocal
+   └── Output: specs/features/, specs/contracts/, specs/fixtures/, specs/verification/ + finalized capability scope
 
 5. Resolve implementation skill bindings
    ├── Read exact bindings from repo-overlay
@@ -246,6 +249,7 @@ Always report a concrete result for each relevant area:
    - Story changes → /solution-narrative
    - Model changes → /domain-modeling
    - Contract changes → /behavior-contract
+   - Rule/evidence changes → update the verification map and reciprocal contract `x-rules`
 
 3. Resolve implementation skills:
    - Use exact repo-overlay bindings only
@@ -334,7 +338,9 @@ specs/                          ← Source of truth (stack-agnostic)
 ├── features/                   ← /behavior-contract
 ├── contracts/openapi/          ← /behavior-contract
 ├── fixtures/                   ← /behavior-contract
-└── journey-maps/               ← /e2e-journey-testing
+├── journey-maps/               ← /e2e-journey-testing
+├── verification/               ← Rules, claims, and literal evidence bindings
+└── modules.yaml                ← Capability ownership and dependency DAG
 
 backend/                        ← Overlay-governed implementation
 ├── src/                        ← Implementation from specs/

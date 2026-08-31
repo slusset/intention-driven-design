@@ -5,6 +5,7 @@ const path = require('path');
 const yaml = require('js-yaml');
 const { getValidator, formatAjvErrors } = require('./schema-loader');
 const { moduleRoots, normalizeRepoPath, validateModulesDocument } = require('./modules');
+const { validateEvidenceBindings } = require('./evidence-bindings');
 
 const CLASSIFICATION_RANKS = {
   verification: new Map([
@@ -272,6 +273,11 @@ function validateVerificationFile(options = {}) {
       }
     }
   }
+
+  const evidenceResults = validateEvidenceBindings({ repoRoot, manifest, maps, ruleIds });
+  results.errors.push(...evidenceResults.errors);
+  results.warnings.push(...evidenceResults.warnings);
+  results.info.push(...evidenceResults.info);
 
   if (results.errors.length === 0) {
     results.info.push(

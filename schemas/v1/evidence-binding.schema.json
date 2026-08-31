@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/evidence-binding.schema.json",
+  "title": "IDD Rule Evidence Binding",
+  "description": "Binds one or more literal evidence selectors to the exact repository files or directories in which they must occur.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["files", "selectors"],
+  "properties": {
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/repoRelativePath" }
+    },
+    "selectors": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "match": {
+      "description": "v1 deliberately supports literal anchors only; regex or semantic query languages require a new contract.",
+      "const": "literal",
+      "default": "literal"
+    },
+    "description": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "repoRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    }
+  }
+}

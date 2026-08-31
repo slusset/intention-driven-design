@@ -120,10 +120,26 @@
         },
         "formal": { "$ref": "#/$defs/extensionObject" },
         "planned_evidence": { "$ref": "#/$defs/extensionObject" },
-        "current_evidence": { "$ref": "#/$defs/extensionObject" },
-        "evidence": { "$ref": "#/$defs/extensionObject" }
+        "current_evidence": { "$ref": "#/$defs/evidencePayload" },
+        "evidence": { "$ref": "#/$defs/evidencePayload" }
       },
       "additionalProperties": true
+    },
+    "evidencePayload": {
+      "allOf": [
+        { "$ref": "#/$defs/extensionObject" },
+        {
+          "properties": {
+            "bindings": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "https://github.com/slusset/intention-driven-design/schemas/v1/evidence-binding.schema.json"
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
