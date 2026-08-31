@@ -9,6 +9,8 @@ const yaml = require('js-yaml');
 
 const { loadIndex } = require('../tools/lib/schema-loader');
 const { validateVerificationFile } = require('../tools/lib/verification');
+const { jcsSha256 } = require('../tools/lib/contract-digests');
+const { canonicalize } = require('../tools/lib/contract-digests');
 
 function writeYaml(repoRoot, relativePath, document) {
   const filePath = path.join(repoRoot, relativePath);
@@ -69,12 +71,20 @@ function fixture() {
   const kernelCapability = {
     id: 'kernel',
     type: 'capability',
-    scope: { models: ['specs/models/kernel.model.yaml'], features: [] },
+    scope: {
+      models: ['specs/models/kernel.model.yaml'],
+      features: [],
+      contracts: ['specs/contracts/kernel.schema.json'],
+    },
   };
   const applicationCapability = {
     id: 'application',
     type: 'capability',
-    scope: { models: ['app/specs/models/application.model.yaml'], features: [] },
+    scope: {
+      models: ['app/specs/models/application.model.yaml'],
+      features: [],
+      contracts: ['app/specs/contracts/application.schema.json'],
+    },
   };
   const kernelMap = verificationMap(
     'kernel',
@@ -104,10 +114,15 @@ function fixture() {
   return { repoRoot, manifest, kernelMap, applicationMap };
 }
 
-test('schema registry version is bumped to 1.9.x or later', () => {
+test('schema registry version is bumped to 1.10.x or later', () => {
   const [major, minor] = loadIndex().version.split('.').map(Number);
   assert.equal(major, 1);
-  assert.ok(minor >= 9, `expected minor >= 9, got ${loadIndex().version}`);
+  assert.ok(minor >= 10, `expected minor >= 10, got ${loadIndex().version}`);
+});
+
+test('JCS digest is independent of JSON object key order', () => {
+  assert.equal(canonicalize({ b: 1, a: 2 }), '{"a":2,"b":1}');
+  assert.equal(jcsSha256({ b: 1, a: 2 }), 'sha256:d3626ac30a87e6f7a6428233b3c68299976865fa5508e4267c5415c76af7a772');
 });
 
 test('accepts root-aware maps whose dependencies and inherited rules follow the DAG', (t) => {
@@ -254,6 +269,66 @@ test('accepts explicit literal selector bindings and two-way x-rules', (t) => {
 
   assert.deepEqual(result.errors, []);
   assert.match(result.info.join('\n'), /Validated 1 explicit evidence binding\(s\) and 1 x-rules contract\(s\)/);
+});
+
+test('accepts a digest pin for an upstream dependency contract', (t) => {
+  const { repoRoot, applicationMap } = fixture();
+  t.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }));
+  const contract = {
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    title: 'Kernel contract',
+    type: 'object',
+  };
+  writeJson(repoRoot, 'specs/contracts/kernel.schema.json', contract);
+  applicationMap.contract_pins = [{
+    contract: 'specs/contracts/kernel.schema.json',
+    canonicalization: 'jcs-sha256@1',
+    digest: jcsSha256(contract),
+  }];
+  writeYaml(repoRoot, 'app/specs/verification/application/verification.yaml', applicationMap);
+
+  const result = validateVerificationFile({ repoRoot });
+
+  assert.deepEqual(result.errors, []);
+});
+
+test('rejects a digest pin after the upstream contract bytes change', (t) => {
+  const { repoRoot, applicationMap } = fixture();
+  t.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }));
+  const contract = {
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    title: 'Kernel contract',
+    type: 'object',
+  };
+  writeJson(repoRoot, 'specs/contracts/kernel.schema.json', contract);
+  applicationMap.contract_pins = [{
+    contract: 'specs/contracts/kernel.schema.json',
+    canonicalization: 'jcs-sha256@1',
+    digest: jcsSha256(contract),
+  }];
+  writeJson(repoRoot, 'specs/contracts/kernel.schema.json', { ...contract, description: 'drift' });
+  writeYaml(repoRoot, 'app/specs/verification/application/verification.yaml', applicationMap);
+
+  const result = validateVerificationFile({ repoRoot });
+
+  assert.match(result.errors.join('\n'), /contract pin specs\/contracts\/kernel\.schema\.json expects sha256:/);
+});
+
+test('rejects a contract pin to a contract owned by the same module', (t) => {
+  const { repoRoot, applicationMap } = fixture();
+  t.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }));
+  const contract = { $schema: 'https://json-schema.org/draft/2020-12/schema', type: 'object' };
+  writeJson(repoRoot, 'app/specs/contracts/application.schema.json', contract);
+  applicationMap.contract_pins = [{
+    contract: 'app/specs/contracts/application.schema.json',
+    canonicalization: 'jcs-sha256@1',
+    digest: jcsSha256(contract),
+  }];
+  writeYaml(repoRoot, 'app/specs/verification/application/verification.yaml', applicationMap);
+
+  const result = validateVerificationFile({ repoRoot });
+
+  assert.match(result.errors.join('\n'), /must target a contract owned by a declared dependency module/);
 });
 
 test('rejects a selector whose literal anchor is absent from its bound files', (t) => {

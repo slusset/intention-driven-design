@@ -40,6 +40,7 @@ report — job summary, PR comment, and workflow artifact.
 - Every capability has one root-aware verification map whose dependencies and rule citations follow that DAG.
 - Verification and certification claims never exceed the weakest map they explicitly depend on.
 - Every current-evidence selector resolves literally in its bound files, and every rule-bound contract reciprocates through `x-rules`.
+- Every cross-module contract consumption records a `jcs-sha256@1` pin to the exact upstream JSON Schema document.
 - No feature is accepted on manual confidence alone.
 - Certification evidence is published in the CI report with traceability verified.
 - Gaps are declared honestly, not hidden.

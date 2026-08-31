@@ -116,6 +116,8 @@ map as the checked-in plan and claim boundary, not as generated proof. Run
 `idd validate verification` before collecting evidence so missing maps,
 dependency-direction errors, phantom selectors, and inconsistent contract
 `x-rules` fail early.
+For cross-module contracts, confirm each `contract_pins` digest still matches
+the upstream JSON Schema under `jcs-sha256@1`.
 
 ### Step 2: Walk the traceability chain forward
 
@@ -304,6 +306,7 @@ Before declaring the capability certified, verify:
 - [ ] Gaps are documented if any exist
 - [ ] The capability scope covers every in-scope artifact
 - [ ] `idd validate verification` passes: bindings resolve and contract `x-rules` are reciprocal
+- [ ] Cross-module contract pins resolve to dependency-owned JSON Schemas and recompute successfully
 - [ ] Reports are present in `reports/` (or counts recorded from the run)
 
 If any traceability ratio is below 100%, the capability is **not certifiable**. Either:

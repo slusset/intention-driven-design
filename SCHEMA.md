@@ -41,6 +41,8 @@ tools need the same vocabulary. The four-claims object is
 [`evidence-classification.schema.json`](schemas/v1/evidence-classification.schema.json),
 and literal rule-to-file anchors use
 [`evidence-binding.schema.json`](schemas/v1/evidence-binding.schema.json).
+Cross-module contract consumption uses
+[`contract-pin.schema.json`](schemas/v1/contract-pin.schema.json).
 
 ## What the schemas cover
 
@@ -108,8 +110,7 @@ the same roots, requires one map per module capability, constrains map
 dependencies and rule-family citations to the transitive module DAG, and
 prevents verification or certification claims from exceeding an explicitly
 declared dependency. Literal evidence bindings and reciprocal contract
-`x-rules` landed in 1.9. Contract digest pins remain a separate follow-on
-contract.
+`x-rules` landed in 1.9. Cross-module contract digest pins landed in 1.10.
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward
@@ -177,6 +178,26 @@ The downstream `selector`, `selectors`, and `integration_selectors` fields
 remain legacy-compatible. The validator still resolves them against declared
 evidence paths but emits one migration warning per map. Planned-evidence labels
 are deliberately excluded: a plan is not proof that a file or selector exists.
+
+## Cross-module contract digest pins (v1.10)
+
+When a module consumes a contract owned by a dependency module, its
+verification map records the exact contract identity:
+
+```yaml
+contract_pins:
+  - contract: specs/contracts/context-instrument.schema.json
+    canonicalization: jcs-sha256@1
+    digest: sha256:27cceecaea2ed7ca67a45525d558eec7a29a76b74247a0a0f5abceff3c1724f7
+```
+
+The validator resolves the contract through declared capability scopes,
+requires its owner to be in the consuming module's dependency DAG, parses the
+JSON document, applies JCS key ordering, and recomputes the lowercase SHA-256
+digest. A changed schema document therefore produces a red gate even when its
+filename and module dependency are unchanged. Pins are deliberately limited
+to JSON Schema documents in v1; YAML contract canonicalization and runtime
+constant synchronization remain separate contracts.
 
 ## Closed-world keys and `$conformance` (v1.1)
 

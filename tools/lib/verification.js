@@ -6,6 +6,7 @@ const yaml = require('js-yaml');
 const { getValidator, formatAjvErrors } = require('./schema-loader');
 const { moduleRoots, normalizeRepoPath, validateModulesDocument } = require('./modules');
 const { validateEvidenceBindings } = require('./evidence-bindings');
+const { digestJsonFile } = require('./contract-digests');
 
 const CLASSIFICATION_RANKS = {
   verification: new Map([
@@ -224,6 +225,19 @@ function validateVerificationFile(options = {}) {
     maps.set(mapPath, { document, ...expected, allowedModules });
   }
 
+  const contractOwners = new Map();
+  for (const expected of expectedPaths.values()) {
+    const capability = parseYamlFile(path.join(repoRoot, expected.capability), expected.capability, results);
+    if (!capability) continue;
+    for (const contract of capability.scope?.contracts || []) {
+      const normalized = normalizeRepoPath(contract);
+      if (!normalized) continue;
+      const owners = contractOwners.get(normalized) || new Set();
+      owners.add(expected.moduleName);
+      contractOwners.set(normalized, owners);
+    }
+  }
+
   for (const [mapPath, entry] of maps) {
     const dependencies = entry.document.depends_on || [];
     for (const dependencyPath of dependencies) {
@@ -270,6 +284,40 @@ function validateVerificationFile(options = {}) {
             `${normalized}: module ${entry.moduleName} cites ${family}-family rules owned by ${owner}, outside its dependency DAG`,
           );
         }
+      }
+    }
+  }
+
+  for (const [mapPath, entry] of maps) {
+    const pins = entry.document.contract_pins || [];
+    const seenPins = new Set();
+    for (const pin of pins) {
+      const contract = normalizeRepoPath(pin.contract);
+      if (!contract) continue;
+      if (seenPins.has(contract)) {
+        results.errors.push(`${mapPath}: contract pin repeats ${contract}`);
+      }
+      seenPins.add(contract);
+      if (!fs.existsSync(path.join(repoRoot, contract))) {
+        results.errors.push(`${mapPath}: contract pin references missing contract ${contract}`);
+        continue;
+      }
+      const owners = contractOwners.get(contract) || new Set();
+      const dependencyOwner = [...owners].find((owner) => owner !== entry.moduleName && entry.allowedModules.has(owner));
+      if (!dependencyOwner) {
+        results.errors.push(
+          `${mapPath}: contract pin ${contract} must target a contract owned by a declared dependency module`,
+        );
+      }
+      let actual;
+      try {
+        actual = digestJsonFile(path.join(repoRoot, contract));
+      } catch (error) {
+        results.errors.push(`${mapPath}: contract pin ${contract} cannot be parsed as JSON: ${error.message}`);
+        continue;
+      }
+      if (actual !== pin.digest) {
+        results.errors.push(`${mapPath}: contract pin ${contract} expects ${pin.digest}, found ${actual}`);
       }
     }
   }
