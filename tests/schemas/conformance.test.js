@@ -80,11 +80,16 @@ const JOURNEY_MAP_FILES = findFiles(path.join(SPECS_ROOT, 'journey-maps'), /\.(j
 const CAPABILITY_FILES = findFiles(path.join(SPECS_ROOT, 'capabilities'), /\.capability\.ya?ml$/);
 const FIXTURE_YAML_FILES = findFiles(path.join(SPECS_ROOT, 'fixtures'), /\.fixture\.ya?ml$/);
 const FIXTURE_JSON_FILES = findFiles(path.join(SPECS_ROOT, 'fixtures'), /\.json$/);
+const MODULES_FILE = path.join(SPECS_ROOT, 'modules.yaml');
 
 test('schema registry loads', () => {
   const index = loadIndex();
   assert.equal(index.dialect, 'https://json-schema.org/draft/2020-12/schema');
   assert.ok(index.artifacts && Object.keys(index.artifacts).length >= 8);
+});
+
+test('modules manifest conforms', () => {
+  assertConforms('modules', MODULES_FILE, parseYaml(MODULES_FILE));
 });
 
 for (const file of PERSONA_FILES) {

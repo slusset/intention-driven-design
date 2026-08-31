@@ -17,11 +17,19 @@ function runJson(args) {
   return JSON.parse(runNode(args));
 }
 
-test('capability-closure and enforcement-bindings are registered validators', () => {
+test('modules, capability-closure, and enforcement-bindings are registered validators', () => {
   const listing = runNode([IDD_BIN, 'validate']);
 
+  assert.match(listing, /modules/);
   assert.match(listing, /capability-closure/);
   assert.match(listing, /enforcement-bindings/);
+});
+
+test('idd validate modules passes on the example manifest', () => {
+  const result = runJson([IDD_BIN, 'validate', 'modules', '--json']);
+
+  assert.deepEqual(result.errors, []);
+  assert.match(result.info.join('\n'), /1 module\(s\), 1 capability assignment\(s\)/);
 });
 
 test('idd validate capability-closure passes on the example specs', () => {

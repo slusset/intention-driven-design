@@ -1,0 +1,10 @@
+# Issue #56: each capability chain belongs to exactly one module. Modules may
+# declare a non-default root and relate only through this dependency DAG.
+version: 1
+modules:
+  trade-show-onboarding:
+    root: specs
+    capabilities:
+      - specs/capabilities/trade-show-signup.capability.yaml
+    rule_families: []
+    depends_on: []

@@ -27,6 +27,7 @@ All schemas use **JSON Schema Draft 2020-12**
 | Lifecycle | document | [`lifecycle.schema.json`](schemas/v1/lifecycle.schema.json) | `specs/models/**/*.lifecycle.yaml` |
 | Journey Map | document | [`journey-map.schema.json`](schemas/v1/journey-map.schema.json) | `specs/journey-maps/**/*.{journey-map,map}.yaml` |
 | Capability | document | [`capability.schema.json`](schemas/v1/capability.schema.json) | `specs/capabilities/**/*.capability.yaml` |
+| Modules | document | [`modules.schema.json`](schemas/v1/modules.schema.json) | `specs/modules.yaml` |
 | Fixture | document | [`fixture.schema.json`](schemas/v1/fixture.schema.json) | `specs/fixtures/**/*.{fixture.yaml,json}` |
 
 **Front-matter** schemas describe the YAML or comment header of a Markdown,
@@ -52,6 +53,7 @@ in JSON Schema:
 |---|---|---|
 | Traceability — every referenced file exists | `tools/validate-traceability.js` | Filesystem resolution |
 | Capability scope coverage | `tools/validate-capability-scope.js` | Cross-file accounting |
+| Module ownership and dependency DAG | `tools/validate-modules.js` | Exact capability assignment, unique rule-family ownership, declared roots, and acyclic dependencies |
 | Fixture payload ↔ contract operation | `tools/validate-fixtures.js` (delegates to OpenAPI/AsyncAPI/JSON-RPC) | Multi-file payload validation |
 | Evidence manifest references real outputs | `tools/validate-evidence.js` | Filesystem resolution |
 
@@ -76,7 +78,7 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.6.0`** (declared in
+The current version is **`1.7.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
 actions, and assertions landed in 1.2; declarative lifecycle and journey-map
@@ -85,7 +87,17 @@ landed in 1.4; enforcement bindings on model rules landed in 1.5; schema
 completeness from downstream contact landed in 1.6 (constraints as array or
 object; primitive value-objects; canonical IDs, immutable, ref, versioning,
 invariants, retires, guards/effects/api on transitions, plus open-keyed
-actions/assertions/steps for author-extensible per-kind vocabularies).
+actions/assertions/steps for author-extensible per-kind vocabularies). The
+module manifest landed in 1.7, adding exact capability-chain ownership,
+explicit spec roots, unique rule-family ownership, and an acyclic module
+dependency graph.
+
+This is the metadata-first slice of #56. The module validator follows every
+declared `root` when discovering capabilities, so relocating a chain cannot
+silently remove it from module accounting. Verification-map grammar,
+cross-chain rule citation direction, contract digest pins, and evidence
+classification monotonicity remain separate follow-on contracts; this schema
+does not imply those checks exist yet.
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward
