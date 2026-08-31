@@ -336,6 +336,7 @@ skills/                      IDD methodology skills (bundled in package)
 ├── domain-modeling/         Entities, aggregates, business rules
 ├── behavior-contract/       BDD features, protocol contracts, fixtures
 ├── e2e-journey-testing/     Playwright journey tests
+├── module-scaffolding/       Bounded-context module creation and linking
 ├── certification/           Traceability verification and evidence
 └── idd-workflow/            Meta-skill: when to use which skill
 
@@ -374,6 +375,23 @@ idd validate fixtures models --strict
 ```
 
 Available validators: `modules`, `verification`, `contracts`, `traceability`, `front-matter`, `capability-scope`, `capability-closure`, `fixtures`, `models`, `enforcement-bindings`, `journey-maps`, `evidence`.
+
+## Module scaffolding
+
+Create a bounded-context module chain without moving or overwriting existing specifications:
+
+```bash
+idd module create billing --root specs --dry-run
+idd module create billing --root specs
+idd module link billing --depends-on identity-kernel
+idd module link billing --capability billing --contract specs/contracts/identity-kernel.schema.json
+idd module status --json
+```
+
+Creation writes a capability stub, module-owned model/feature/protocol-contract/
+fixture directories, a planned verification map, and one `specs/modules.yaml`
+entry. Linking changes only an explicit DAG edge or a selected map's digest
+pin; it never moves existing specs or edits a contract's `x-rules`.
 
 Common CLI options:
 - `--files <paths...>` limit checks to specific files

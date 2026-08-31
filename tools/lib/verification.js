@@ -172,6 +172,9 @@ function validateVerificationFile(options = {}) {
     if (!Object.hasOwn(document, 'depends_on')) {
       results.warnings.push(`${mapPath}: add explicit depends_on: [] when this map has no dependencies`);
     }
+    if (document.rules.length === 0) {
+      results.warnings.push(`${mapPath}: no rules declared yet; add the module rule inventory before claiming verification`);
+    }
 
     const module = modules[expected.moduleName];
     const allowedModules = new Set([

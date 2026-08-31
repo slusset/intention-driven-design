@@ -35,4 +35,16 @@ Run checks against this directory directly:
 idd validate modules verification front-matter traceability capability-scope
 ```
 
+Start a new bounded-context chain from the repository root with:
+
+```bash
+idd module create <module-name> --root specs --dry-run
+idd module create <module-name> --root specs
+```
+
+Then add explicit module or contract relationships with `idd module link` and
+inspect the declared roots with `idd module status`. The scaffold is metadata
+and directory creation only; it does not move existing specs or imply
+certification.
+
 Real adopters should place equivalent artifacts under `specs/` in their own repositories.
