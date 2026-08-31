@@ -313,7 +313,16 @@ If any traceability ratio is below 100%, the capability is **not certifiable**. 
 1. Add the missing spec/test artifacts to close the gap, or
 2. Document the gap explicitly and get human approval to proceed.
 
-**Publishing is CI's job, not git's.** The `idd-check` action regenerates and validates evidence for every capability on each PR and publishes the result as the CI report: certification status in the job summary and PR comment, full manifests in the `idd-evidence` workflow artifact. Do **not** commit `evidence.yaml`, test reports, or screenshots — `.idd/` is gitignored precisely so local certification runs stay out of version control. When run locally, report the manifest's findings in your summary to the user instead of committing anything.
+**Publishing is CI's job, not git's.** The `idd-check` action regenerates and
+validates evidence for every declared module capability under every module
+root on each PR, and publishes the result as the CI report: certification
+status in the job summary and PR comment, full manifests in the `idd-evidence`
+workflow artifact. Repositories without `modules.yaml` retain the legacy
+`specs/capabilities/` discovery fallback. Do **not** commit `evidence.yaml`,
+test reports, or screenshots — `.idd/` is gitignored precisely so local
+certification runs stay out of version control. When run locally, report the
+manifest's findings in your summary to the user instead of committing
+anything.
 
 ## Traceability Thresholds
 
