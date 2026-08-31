@@ -23,6 +23,7 @@ Evidence is **derived output, not a source artifact**. It is recomputed from spe
 - When the idd-workflow reaches step 8 (Certification).
 - After a Fix Forward cycle to update evidence for the repaired gap.
 - When auditing an existing capability's traceability health.
+- After a toolkit UAT update, use `/idd-doctor` first to inspect consumer alignment; do not certify a migration from a report-only doctor run alone.
 
 ## Inputs
 

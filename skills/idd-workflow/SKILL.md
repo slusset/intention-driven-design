@@ -155,6 +155,7 @@ Always report a concrete result for each relevant area:
 | Stories and models | API contract + Gherkin | `/behavior-contract` |
 | Capability + contracts | Module assignment + verification map | `/behavior-contract` |
 | New bounded context | Deterministic module skeleton | `/module-scaffolding` |
+| Consumer UAT update | Read-only migration alignment | `/idd-doctor` |
 | Contract ready | Backend implementation | Overlay-bound backend skill, or generic checklist |
 | Contract ready | Frontend implementation | Overlay-bound frontend skill, or generic checklist |
 | Design mockup/HTML | UI components | Overlay-bound design skill, or generic checklist |
@@ -192,6 +193,11 @@ Always report a concrete result for each relevant area:
    ├── Preview `idd module create <name> --root <path> --dry-run`
    ├── Create the module skeleton without moving existing specs
    └── Output: module manifest entry, module-owned directories, and planned verification map
+
+2b. /idd-doctor (consumer update)
+   ├── Inspect toolkit/schema/module alignment in report-only mode
+   ├── Record findings and continuity impact without writing files
+   └── Route findings to an explicit migration plan before applying changes
 
 3. /domain-modeling
    ├── Identify entities and value objects

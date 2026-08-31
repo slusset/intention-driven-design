@@ -215,6 +215,7 @@ idd install-skills <target>   Install skills to claude/codex/all
 idd generate-evidence          Generate certification evidence manifest
                                (into .idd/evidence/ — CI report input, not committed)
 idd init [dir]                 Scaffold IDD directory structure
+idd doctor [--repo <dir>]      Inspect migration alignment (report-only)
 idd version                    Print version
 ```
 
@@ -295,6 +296,7 @@ work is executed; the artifact spine still governs what must remain true.
 See [Agent Role](docs/idd/agent-role.md) and [Agent Operating Contract](docs/idd/agent-operating-contract.md).
 For the broader systems view, see [Self-Evolving Engineering Ecosystem](docs/idd/self-evolving-ecosystem.md).
 For governing changes to IDD itself, see [Methodology Change Process](docs/idd/methodology-change-process.md).
+For consumer upgrades and continuity dispositions, see [Evolution and Migration](docs/idd/evolution-and-migration.md).
 
 ## Skills
 
@@ -305,9 +307,10 @@ For governing changes to IDD itself, see [Methodology Change Process](docs/idd/m
 | **Behavior Contract** | BDD features, OpenAPI/AsyncAPI/JSON-RPC contracts, fixtures | `/behavior-contract` |
 | **E2E Journey Testing** | Playwright tests from journey maps | `/e2e-journey-testing` |
 | **Certification** | Traceability verification and evidence manifests | `/certification` |
+| **IDD Doctor** | Report-only migration alignment and continuity inspection | `/idd-doctor` |
 | **IDD Workflow** | Meta-skill: when to use which skill | `/idd-workflow` |
 
-Skills are designed to be invoked in sequence: narrative → model → contract → implementation → validation → certification. Each skill's output feeds the next.
+Skills are designed to be invoked in sequence: narrative → model → contract → implementation → validation → certification. For a consumer UAT update, run `/idd-doctor` before planning or applying migration work. Each skill's output feeds the next.
 
 ## Implementation skill bindings
 
@@ -321,7 +324,7 @@ bin/
 
 docs/idd/                    IDD philosophy and concept library
 ├── manifesto.md             Core principles (the "why")
-├── concepts.md              Atomic concept catalog (C1–C16)
+├── concepts.md              Atomic concept catalog (C1–C17)
 ├── concept-skill-map.md     Which concepts each skill carries
 ├── agent-operating-contract.md  Non-negotiable agent rules
 ├── agent-role.md            Agent-role extension for orchestrated agency
@@ -337,6 +340,7 @@ skills/                      IDD methodology skills (bundled in package)
 ├── behavior-contract/       BDD features, protocol contracts, fixtures
 ├── e2e-journey-testing/     Playwright journey tests
 ├── module-scaffolding/       Bounded-context module creation and linking
+├── idd-doctor/               Read-only migration alignment and continuity inspection
 ├── certification/           Traceability verification and evidence
 └── idd-workflow/            Meta-skill: when to use which skill
 
@@ -386,12 +390,17 @@ idd module create billing --root specs
 idd module link billing --depends-on identity-kernel
 idd module link billing --capability billing --contract specs/contracts/identity-kernel.schema.json
 idd module status --json
+idd doctor --json
 ```
 
 Creation writes a capability stub, module-owned model/feature/protocol-contract/
 fixture directories, a planned verification map, and one `specs/modules.yaml`
 entry. Linking changes only an explicit DAG edge or a selected map's digest
 pin; it never moves existing specs or edits a contract's `x-rules`.
+
+`idd doctor` is currently report-only. It inspects consumer/version alignment,
+deprecated structures, and validator findings without writing files or
+mutating journal history. See [`docs/idd/evolution-and-migration.md`](docs/idd/evolution-and-migration.md).
 
 Common CLI options:
 - `--files <paths...>` limit checks to specific files
