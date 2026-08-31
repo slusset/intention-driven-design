@@ -23,6 +23,13 @@
       "default": [],
       "items": { "$ref": "#/$defs/verificationPath" }
     },
+    "contract_pins": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "https://github.com/slusset/intention-driven-design/schemas/v1/contract-pin.schema.json"
+      }
+    },
     "strategy": { "$ref": "#/$defs/extensionObject" },
     "tooling": { "$ref": "#/$defs/extensionObject" },
     "contracts": { "$ref": "#/$defs/extensionObject" },

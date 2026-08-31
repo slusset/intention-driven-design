@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/contract-pin.schema.json",
+  "title": "IDD Cross-Module Contract Pin",
+  "description": "Binds a downstream verification map to the exact canonical bytes of an upstream JSON Schema contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "canonicalization", "digest"],
+  "properties": {
+    "contract": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+/contracts/.+\\.schema\\.json$"
+    },
+    "canonicalization": {
+      "const": "jcs-sha256@1"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "description": {
+      "type": "string"
+    }
+  }
+}

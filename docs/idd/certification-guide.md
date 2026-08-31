@@ -70,6 +70,14 @@ selectors that occur nowhere in their bound files, rule-to-contract links
 missing the reciprocal `x-rules`, and `x-rules` IDs absent from every map.
 Planned-evidence labels remain plans and are not treated as current proof.
 
+When a capability consumes a contract from another module, add a
+`contract_pins` entry to its verification map. The pin names the upstream
+JSON Schema, declares `jcs-sha256@1`, and records the lowercase `sha256:`
+digest of the canonical JSON document. The validator checks that the contract
+is in a declared dependency module and recomputes the digest on every run;
+editing the upstream schema is therefore a visible red gate rather than silent
+interface drift.
+
 ## Evidence manifest
 
 The `evidence.yaml` file is the structured link between intent and verification:

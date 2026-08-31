@@ -199,6 +199,7 @@ Always report a concrete result for each relevant area:
    ├── Finalize the capability scope with models, features, and contracts
    ├── Assign the capability in specs/modules.yaml and create/update its verification map
    ├── Bind current-evidence selectors to exact files and keep contract x-rules reciprocal
+   ├── Pin cross-module JSON Schema contracts with jcs-sha256@1
    └── Output: specs/features/, specs/contracts/, specs/fixtures/, specs/verification/ + finalized capability scope
 
 5. Resolve implementation skill bindings
@@ -250,6 +251,7 @@ Always report a concrete result for each relevant area:
    - Model changes → /domain-modeling
    - Contract changes → /behavior-contract
    - Rule/evidence changes → update the verification map and reciprocal contract `x-rules`
+   - Cross-module contract changes → recompute and update the verification-map digest pin
 
 3. Resolve implementation skills:
    - Use exact repo-overlay bindings only

@@ -78,6 +78,7 @@ Before defining contract schemas, check specs/models/:
 - Contract operations must include `x-story`, `x-feature`, and `x-journey`.
 - A rule-bound contract must expose a root `x-rules` array naming every verification-map rule it implements.
 - Current-evidence selectors must be literal anchors bound to exact repository files or directories.
+- A cross-module contract consumption must be recorded in the verification map with a `jcs-sha256@1` pin to the upstream JSON Schema.
 - Fixtures must include a `_meta` block with the story and scenario they support.
 
 ## Feature File Template
@@ -421,6 +422,14 @@ x-feature: specs/features/audits/cancel-audit.feature
         match: literal
 ```
 
+For a contract consumed from another module, also add:
+```yaml
+contract_pins:
+  - contract: specs/contracts/upstream.schema.json
+    canonicalization: jcs-sha256@1
+    digest: sha256:{64 lowercase hex characters}
+```
+
 **In fixtures** (`_meta` block with `id` and `type`):
 ```json
 {
@@ -458,6 +467,7 @@ Before handoff to implementation:
 - [ ] Fixtures match schemas exactly
 - [ ] Rule-bound contracts name the same IDs through root-level `x-rules`
 - [ ] Every current-evidence selector resolves in its explicit `bindings[].files`
+- [ ] Cross-module contract references have a recomputable `contract_pins` entry
 - [ ] No orphan endpoints (every endpoint has a scenario)
 - [ ] No orphan scenarios (every scenario maps to contract)
 - [ ] Error responses are defined consistently
