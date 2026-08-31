@@ -16,6 +16,12 @@ function writeYaml(repoRoot, relativePath, document) {
   fs.writeFileSync(filePath, yaml.dump(document, { lineWidth: -1 }));
 }
 
+function writeJson(repoRoot, relativePath, document) {
+  const filePath = path.join(repoRoot, relativePath);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `${JSON.stringify(document, null, 2)}\n`);
+}
+
 function classification(verification = 'locally-verified') {
   return {
     intent: 'exploratory',
@@ -98,10 +104,10 @@ function fixture() {
   return { repoRoot, manifest, kernelMap, applicationMap };
 }
 
-test('schema registry version is bumped to 1.8.x or later', () => {
+test('schema registry version is bumped to 1.9.x or later', () => {
   const [major, minor] = loadIndex().version.split('.').map(Number);
   assert.equal(major, 1);
-  assert.ok(minor >= 8, `expected minor >= 8, got ${loadIndex().version}`);
+  assert.ok(minor >= 9, `expected minor >= 9, got ${loadIndex().version}`);
 });
 
 test('accepts root-aware maps whose dependencies and inherited rules follow the DAG', (t) => {
@@ -222,4 +228,109 @@ test('rejects unknown evidence-classification values', (t) => {
   const result = validateVerificationFile({ repoRoot });
 
   assert.match(result.errors.join('\n'), /schema: .*production/);
+});
+
+test('accepts explicit literal selector bindings and two-way x-rules', (t) => {
+  const { repoRoot, applicationMap } = fixture();
+  t.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }));
+  applicationMap.rules[0].contract = 'app/specs/contracts/application.schema.json';
+  applicationMap.rules[0].current_evidence = {
+    bindings: [{
+      files: ['tests/application.test.js'],
+      selectors: ['application-preserves-kernel-rule'],
+      match: 'literal',
+    }],
+  };
+  writeYaml(repoRoot, 'app/specs/verification/application/verification.yaml', applicationMap);
+  writeJson(repoRoot, 'app/specs/contracts/application.schema.json', {
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    'x-rules': ['APP-1-application-rule'],
+    type: 'object',
+  });
+  fs.mkdirSync(path.join(repoRoot, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(repoRoot, 'tests', 'application.test.js'), 'test("application-preserves-kernel-rule", () => {});\n');
+
+  const result = validateVerificationFile({ repoRoot });
+
+  assert.deepEqual(result.errors, []);
+  assert.match(result.info.join('\n'), /Validated 1 explicit evidence binding\(s\) and 1 x-rules contract\(s\)/);
+});
+
+test('rejects a selector whose literal anchor is absent from its bound files', (t) => {
+  const { repoRoot, applicationMap } = fixture();
+  t.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }));
+  applicationMap.rules[0].current_evidence = {
+    bindings: [{ files: ['tests/application.test.js'], selectors: ['phantom-selector'] }],
+  };
+  writeYaml(repoRoot, 'app/specs/verification/application/verification.yaml', applicationMap);
+  fs.mkdirSync(path.join(repoRoot, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(repoRoot, 'tests', 'application.test.js'), 'test("real-selector", () => {});\n');
+
+  const result = validateVerificationFile({ repoRoot });
+
+  assert.match(result.errors.join('\n'), /selector phantom-selector matches none of its bound files/);
+});
+
+test('rejects a missing file in an explicit evidence binding', (t) => {
+  const { repoRoot, applicationMap } = fixture();
+  t.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }));
+  applicationMap.rules[0].current_evidence = {
+    bindings: [{ files: ['tests/missing.test.js'], selectors: ['missing-selector'] }],
+  };
+  writeYaml(repoRoot, 'app/specs/verification/application/verification.yaml', applicationMap);
+
+  const result = validateVerificationFile({ repoRoot });
+
+  assert.match(result.errors.join('\n'), /references missing path tests\/missing\.test\.js/);
+  assert.match(result.errors.join('\n'), /binding declares no readable evidence files/);
+});
+
+test('rejects a referenced JSON Schema contract without a reciprocal x-rules entry', (t) => {
+  const { repoRoot, applicationMap } = fixture();
+  t.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }));
+  applicationMap.rules[0].contract = 'app/specs/contracts/application.schema.json';
+  writeYaml(repoRoot, 'app/specs/verification/application/verification.yaml', applicationMap);
+  writeJson(repoRoot, 'app/specs/contracts/application.schema.json', {
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    type: 'object',
+  });
+
+  const result = validateVerificationFile({ repoRoot });
+
+  assert.match(result.errors.join('\n'), /application\.schema\.json: x-rules must be an array naming APP-1-application-rule/);
+});
+
+test('rejects an x-rules ID mentioned only in map prose, not as a rule entry', (t) => {
+  const { repoRoot, applicationMap } = fixture();
+  t.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }));
+  applicationMap.rules[0].evidence = {
+    statement: 'APP-99-orphan-rule is discussed here but is not a rule inventory entry.',
+  };
+  writeYaml(repoRoot, 'app/specs/verification/application/verification.yaml', applicationMap);
+  writeJson(repoRoot, 'app/specs/contracts/orphan.schema.json', {
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    'x-rules': ['APP-99-orphan-rule'],
+    type: 'object',
+  });
+
+  const result = validateVerificationFile({ repoRoot });
+
+  assert.match(result.errors.join('\n'), /x-rules names APP-99-orphan-rule, which no verification map mentions/);
+});
+
+test('validates legacy selectors but warns to migrate them to bindings', (t) => {
+  const { repoRoot, applicationMap } = fixture();
+  t.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }));
+  applicationMap.rules[0].current_evidence = {
+    tests: ['tests/application.test.js'],
+    selectors: ['legacy-selector'],
+  };
+  writeYaml(repoRoot, 'app/specs/verification/application/verification.yaml', applicationMap);
+  fs.mkdirSync(path.join(repoRoot, 'tests'), { recursive: true });
+  fs.writeFileSync(path.join(repoRoot, 'tests', 'application.test.js'), 'test("legacy-selector", () => {});\n');
+
+  const result = validateVerificationFile({ repoRoot });
+
+  assert.deepEqual(result.errors, []);
+  assert.match(result.warnings.join('\n'), /selector\/selector\(s\) fields are legacy-compatible/);
 });

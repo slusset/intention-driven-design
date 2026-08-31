@@ -1,4 +1,6 @@
 asyncapi: 2.6.0
+x-rules:
+  - TS-1-signup-chain-remains-traceable
 info:
   title: Trade Show Audit Events
   version: 1.0.0

@@ -1,4 +1,6 @@
 jsonrpc: '2.0'
+x-rules:
+  - TS-1-signup-chain-remains-traceable
 info:
   title: Trade Show Account RPC
   version: 1.0.0

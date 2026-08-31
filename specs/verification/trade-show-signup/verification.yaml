@@ -13,12 +13,25 @@ rules:
   - id: TS-1-signup-chain-remains-traceable
     source_models:
       - specs/models/trade-show-onboarding.aggregate.model.yaml
+    contracts:
+      - specs/contracts/openapi/api.yaml
+      - specs/contracts/asyncapi/audit-events.yaml
+      - specs/contracts/json-rpc/account-service.yaml
     formal:
       status: not-applicable-example-application-flow
     planned_evidence:
       tests:
         - mobile-signup-contract-and-fixture-conformance
         - first-audit-event-and-rpc-conformance
+    current_evidence:
+      status: repository-contract-fixture
+      bindings:
+        - files:
+            - test/contract-layer-support.test.js
+          selectors:
+            - contract validator supports all configured contract families
+            - fixture validator validates OpenAPI, AsyncAPI, and JSON-RPC fixtures
+          match: literal
 
 evidence:
   classification:

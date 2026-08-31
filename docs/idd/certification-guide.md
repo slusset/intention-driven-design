@@ -50,6 +50,26 @@ or certification rank than an explicitly declared dependency. The
 certification run must still substantiate the map's claims for the exact
 revision and environment.
 
+Current rule evidence uses explicit literal bindings:
+
+```yaml
+rules:
+  - id: ACCT-1-account-contract
+    source_models: [specs/models/account.model.yaml]
+    contracts: [specs/contracts/openapi/api.yaml]
+    current_evidence:
+      bindings:
+        - files: [tests/account-contract.test.js]
+          selectors: [rejects-unknown-account-fields]
+          match: literal
+```
+
+The contract reciprocates with a root-level `x-rules` entry naming
+`ACCT-1-account-contract`. `idd validate verification` rejects missing files,
+selectors that occur nowhere in their bound files, rule-to-contract links
+missing the reciprocal `x-rules`, and `x-rules` IDs absent from every map.
+Planned-evidence labels remain plans and are not treated as current proof.
+
 ## Evidence manifest
 
 The `evidence.yaml` file is the structured link between intent and verification:

@@ -20,7 +20,8 @@ Transform narrative artifacts into executable specifications and API contracts. 
 4. Define or update the appropriate OpenAPI, AsyncAPI, or JSON-RPC contract.
 5. Create fixtures for test data.
 6. Finalize the capability scope by adding the relevant models, features, and contracts.
-7. Ensure traceability: story → feature → contract → implementation.
+7. Update the capability's verification map with rule-to-contract references and literal current-evidence bindings.
+8. Ensure traceability: story → feature → contract → implementation.
 
 ## Artifact Locations
 
@@ -38,9 +39,12 @@ specs/
 │   │   └── events.yaml           ← event boundary
 │   └── json-rpc/
 │       └── service.yaml          ← RPC boundary
-└── fixtures/
+├── fixtures/
     └── {feature-area}/
         └── {fixture-name}.json
+└── verification/
+    └── {capability}/
+        └── verification.yaml   ← rule inventory + evidence bindings
 ```
 
 ## Fixture Template (with traceability)
@@ -72,6 +76,8 @@ Before defining contract schemas, check specs/models/:
 
 - Feature files must reference the source story, journey, and contract at the top of the file.
 - Contract operations must include `x-story`, `x-feature`, and `x-journey`.
+- A rule-bound contract must expose a root `x-rules` array naming every verification-map rule it implements.
+- Current-evidence selectors must be literal anchors bound to exact repository files or directories.
 - Fixtures must include a `_meta` block with the story and scenario they support.
 
 ## Feature File Template
@@ -145,6 +151,7 @@ Journey system responses map to API endpoints:
 ```yaml
 # specs/contracts/openapi/api.yaml
 openapi: 3.1.0
+x-rules: [ACCT-1-create-account]
 info:
   title: {Service Name} API
   version: 1.0.0
@@ -395,10 +402,23 @@ Every artifact must reference its source. Use front-matter fields (`id`, `type`,
 # contract: POST /audits/{id}/cancel
 ```
 
-**In contract** (OpenAPI extensions — unchanged):
+**In contract** (root and operation traceability extensions):
 ```yaml
+x-rules: [ACCT-1-cancel-account]
 x-story: cancel-pending-audit
 x-feature: specs/features/audits/cancel-audit.feature
+```
+
+**In the verification map**:
+```yaml
+- id: ACCT-1-cancel-account
+  source_models: [specs/models/account.model.yaml]
+  contracts: [specs/contracts/openapi/api.yaml]
+  current_evidence:
+    bindings:
+      - files: [tests/account-contract.test.js]
+        selectors: [cancel-completed-account-is-refused]
+        match: literal
 ```
 
 **In fixtures** (`_meta` block with `id` and `type`):
@@ -423,6 +443,8 @@ x-feature: specs/features/audits/cancel-audit.feature
 - Breaking contract changes require version bump.
 - Fixtures must match schema definitions exactly.
 - Use `x-` extensions for traceability metadata.
+- Contract `x-rules` and verification-map rule references must agree in both directions.
+- A selector is evidence only when it appears literally in one of its bound files.
 
 ## Validation Checklist
 
@@ -434,6 +456,8 @@ Before handoff to implementation:
 - [ ] Schemas have required fields marked
 - [ ] Schemas have examples
 - [ ] Fixtures match schemas exactly
+- [ ] Rule-bound contracts name the same IDs through root-level `x-rules`
+- [ ] Every current-evidence selector resolves in its explicit `bindings[].files`
 - [ ] No orphan endpoints (every endpoint has a scenario)
 - [ ] No orphan scenarios (every scenario maps to contract)
 - [ ] Error responses are defined consistently
@@ -477,6 +501,7 @@ Use 409 Conflict with descriptive error code.
 
 When complete:
 - **Capability scope**: Finalize `specs/capabilities/{name}.capability.yaml` so it includes the relevant `scope.models`, `scope.features`, and `scope.contracts` before implementation handoff.
+- **Verification map**: Add or update rule entries, reciprocal contract `x-rules`, and literal current-evidence bindings; run `idd validate verification`.
 - **Backend** (hexagonal-architecture skill): Implement ports/adapters from contract
 - **Frontend** (repo-overlay binding): Generate client from contract, implement UI from journeys
 - **E2E** (e2e-journey-testing skill): Create journey maps and tests

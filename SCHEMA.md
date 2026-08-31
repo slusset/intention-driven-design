@@ -38,7 +38,9 @@ parsed by a separate grammar (Gherkin parser, JSON parser).
 **Document** schemas describe the entire parsed YAML or JSON document.
 Reusable embedded shapes are published separately when multiple artifacts or
 tools need the same vocabulary. The four-claims object is
-[`evidence-classification.schema.json`](schemas/v1/evidence-classification.schema.json).
+[`evidence-classification.schema.json`](schemas/v1/evidence-classification.schema.json),
+and literal rule-to-file anchors use
+[`evidence-binding.schema.json`](schemas/v1/evidence-binding.schema.json).
 
 ## What the schemas cover
 
@@ -59,6 +61,7 @@ in JSON Schema:
 | Capability scope coverage | `tools/validate-capability-scope.js` | Cross-file accounting |
 | Module ownership and dependency DAG | `tools/validate-modules.js` | Exact capability assignment, unique rule-family ownership, declared roots, and acyclic dependencies |
 | Verification-map relations | `tools/validate-verification.js` | Expected root-aware maps, module-DAG dependency direction, rule-family direction, source-model existence, and classification monotonicity |
+| Evidence selectors and `x-rules` | `tools/validate-verification.js` | Literal selectors resolve in explicitly bound files; rule-to-contract references are reciprocal |
 | Fixture payload ↔ contract operation | `tools/validate-fixtures.js` (delegates to OpenAPI/AsyncAPI/JSON-RPC) | Multi-file payload validation |
 | Evidence manifest references real outputs | `tools/validate-evidence.js` | Filesystem resolution |
 
@@ -83,7 +86,7 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.8.0`** (declared in
+The current version is **`1.9.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
 actions, and assertions landed in 1.2; declarative lifecycle and journey-map
@@ -104,8 +107,9 @@ four-claims classification landed in 1.8. The verification validator follows
 the same roots, requires one map per module capability, constrains map
 dependencies and rule-family citations to the transitive module DAG, and
 prevents verification or certification claims from exceeding an explicitly
-declared dependency. Contract digest pins and selector-level evidence binding
-remain separate follow-on contracts.
+declared dependency. Literal evidence bindings and reciprocal contract
+`x-rules` landed in 1.9. Contract digest pins remain a separate follow-on
+contract.
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward
@@ -142,6 +146,37 @@ may be empty when the absence of a model is deliberate. Evidence/formal-tool
 payloads remain author-extensible because their vocabulary depends on the
 verification method; the map's identity, rule references, dependency paths,
 and maturity claims are the canonical closed contract.
+
+## Literal evidence bindings and reciprocal contracts (v1.9)
+
+Current evidence binds selectors to exact repository files or directories:
+
+```yaml
+current_evidence:
+  bindings:
+    - files:
+        - tests/account-contract.test.js
+      selectors:
+        - rejects-unknown-account-fields
+      match: literal
+```
+
+Each selector must occur literally in at least one file from its own binding.
+Bindings do not accept regular expressions or semantic query languages in v1;
+that keeps the check deterministic and makes every claimed anchor directly
+inspectable. Missing paths, empty corpora, and phantom selectors are errors.
+
+Rules may reference contracts through path-valued fields such as `contract` or
+`contracts`. A referenced JSON Schema contract must expose a root `x-rules`
+array containing the rule ID. OpenAPI, AsyncAPI, JSON-RPC, and other structured
+contracts participate when they declare `x-rules`. The reverse is also
+enforced: every ID in a contract's `x-rules` must appear as a rule entry in a
+verification map discovered from `specs/modules.yaml`.
+
+The downstream `selector`, `selectors`, and `integration_selectors` fields
+remain legacy-compatible. The validator still resolves them against declared
+evidence paths but emits one migration warning per map. Planned-evidence labels
+are deliberately excluded: a plan is not proof that a file or selector exists.
 
 ## Closed-world keys and `$conformance` (v1.1)
 

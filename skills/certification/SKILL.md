@@ -37,7 +37,9 @@ specs/
 ├── features/          ← from /behavior-contract
 ├── contracts/openapi/ ← from /behavior-contract
 ├── fixtures/          ← from /behavior-contract
-└── journey-maps/      ← from /e2e-journey-testing
+├── journey-maps/      ← from /e2e-journey-testing
+├── modules.yaml       ← capability ownership and dependency DAG
+└── verification/      ← rule inventory, maturity claims, and evidence bindings
 
 Test results (from CI or local runs):
 ├── Unit test reports (JUnit XML, Jest JSON, etc.)
@@ -108,6 +110,13 @@ grep -rl "story-name" specs/features/
 
 Then write `specs/capabilities/{name}.capability.yaml` with the discovered scope.
 
+Locate the capability's module in `specs/modules.yaml`, then read its expected
+`<module-root>/verification/{name}/verification.yaml`. Treat the verification
+map as the checked-in plan and claim boundary, not as generated proof. Run
+`idd validate verification` before collecting evidence so missing maps,
+dependency-direction errors, phantom selectors, and inconsistent contract
+`x-rules` fail early.
+
 ### Step 2: Walk the traceability chain forward
 
 Starting from each story in scope, verify every link in the chain exists:
@@ -142,6 +151,11 @@ For each endpoint in the contract, verify test coverage exists:
 - E2E tests for the journey flow
 
 Record: `endpoints_with_tests: X/Y`
+
+For each verification-map rule, confirm every `current_evidence.bindings[]`
+entry names the exact files containing its literal selectors. Confirm every
+rule-bound contract reciprocates through root-level `x-rules`, and every
+`x-rules` ID is an actual map rule entry.
 
 **Journey → E2E**
 
@@ -289,6 +303,7 @@ Before declaring the capability certified, verify:
 - [ ] No test failures (failed: 0 across all evidence sections)
 - [ ] Gaps are documented if any exist
 - [ ] The capability scope covers every in-scope artifact
+- [ ] `idd validate verification` passes: bindings resolve and contract `x-rules` are reciprocal
 - [ ] Reports are present in `reports/` (or counts recorded from the run)
 
 If any traceability ratio is below 100%, the capability is **not certifiable**. Either:
@@ -326,6 +341,7 @@ Each certification run regenerates the manifest from scratch — evidence always
 - Never certify with test failures. Zero tolerance.
 - Never certify with traceability gaps unless gaps are explicitly declared and human-approved.
 - Never fabricate evidence. If tests weren't run, say so.
+- Never treat a planned-evidence label or free-floating selector as current evidence; current selectors require explicit file bindings.
 - Coverage percentage is informational, never a gate. Traceability matters more than coverage.
 - Gaps are honest declarations. A gap is a future story, not a failure.
 - Evidence must be generated from the same commit it certifies and published through the CI report — never after the fact, and never committed to the repository. Intent artifacts (`specs/`) are source; evidence is derived.
