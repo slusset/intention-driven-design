@@ -37,6 +37,12 @@ gh workflow run release-please.yml --ref main -f operation=prepare
 gh workflow run release-please.yml --ref main -f operation=publish
 ```
 
+Before accepting a new UAT candidate in a consumer repository, run
+`idd doctor --repo <consumer> --json` and retain its report with the migration
+review. The current doctor is informational only: it detects release/schema,
+module, and deprecated-structure misalignment but does not apply changes or
+mutate identity history.
+
 Set a repository secret named `RELEASE_PLEASE_TOKEN` to a fine-grained token
 that can write contents, issues, and pull requests if checks must run
 automatically on prepared Release Please PRs. The workflow falls back to

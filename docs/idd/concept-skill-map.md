@@ -7,24 +7,25 @@ How IDD concepts distribute across skills. Use this when:
 
 ## Matrix
 
-| Concept | solution-narrative | domain-modeling | behavior-contract | e2e-journey-testing | certification | pr-review | idd-workflow |
-|---------|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
-| C1  Intent Precedes Code        | **primary** | | | | | | referenced |
-| C2  Models Are Artifacts        | **primary** | **primary** | **primary** | | | | referenced |
-| C3  Contracts at Boundaries     | | | **primary** | referenced | | | referenced |
-| C4  Assumptions Executable      | | | **primary** | **primary** | referenced | | referenced |
-| C5  Fast Honest Feedback        | | | | **primary** | **primary** | **primary** | referenced |
-| C6  Protect Human Cognition     | referenced | referenced | referenced | referenced | | | referenced |
-| C7  Evolution Preserves Meaning | | referenced | referenced | | | | referenced |
-| C8  Traceability Chain          | **primary** | referenced | **primary** | **primary** | **primary** | **primary** | **primary** |
-| C9  Narrative-First             | **primary** | | | | | | referenced |
-| C10 Domain as Formal Model      | | **primary** | referenced | | | | referenced |
-| C11 Layered Artifact Spine      | referenced | referenced | referenced | referenced | | | **primary** |
-| C12 Done Means Verified         | | | referenced | **primary** | **primary** | referenced | referenced |
-| C13 Fix Forward                 | | | referenced | referenced | referenced | **primary** | **primary** |
-| C14 Agent Non-Negotiables       | referenced | referenced | referenced | referenced | referenced | **primary** | referenced |
-| C15 Capability as Cert Unit     | referenced | | | | **primary** | referenced | **primary** |
-| C16 Agent Role as Exec Contract | referenced | referenced | referenced | referenced | referenced | referenced | **primary** |
+| Concept | solution-narrative | domain-modeling | behavior-contract | e2e-journey-testing | certification | pr-review | idd-workflow | idd-doctor |
+|---------|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+| C1  Intent Precedes Code        | **primary** | | | | | | referenced | |
+| C2  Models Are Artifacts        | **primary** | **primary** | **primary** | | | | referenced | |
+| C3  Contracts at Boundaries     | | | **primary** | referenced | | | referenced | |
+| C4  Assumptions Executable      | | | **primary** | **primary** | referenced | | referenced | |
+| C5  Fast Honest Feedback        | | | | **primary** | **primary** | **primary** | referenced | referenced |
+| C6  Protect Human Cognition     | referenced | referenced | referenced | referenced | | | referenced | |
+| C7  Evolution Preserves Meaning | | referenced | referenced | | | | referenced | referenced |
+| C8  Traceability Chain          | **primary** | referenced | **primary** | **primary** | **primary** | **primary** | **primary** | referenced |
+| C9  Narrative-First             | **primary** | | | | | | referenced | |
+| C10 Domain as Formal Model      | | **primary** | referenced | | | | referenced | |
+| C11 Layered Artifact Spine      | referenced | referenced | referenced | referenced | | | **primary** | |
+| C12 Done Means Verified         | | | referenced | **primary** | **primary** | referenced | referenced | referenced |
+| C13 Fix Forward                 | | | referenced | referenced | referenced | **primary** | **primary** | referenced |
+| C14 Agent Non-Negotiables       | referenced | referenced | referenced | referenced | referenced | **primary** | referenced | referenced |
+| C15 Capability as Cert Unit     | referenced | | | | **primary** | referenced | **primary** | referenced |
+| C16 Agent Role as Exec Contract | referenced | referenced | referenced | referenced | referenced | referenced | **primary** | |
+| C17 Evolution and Migration     | | | referenced | | referenced | | referenced | **primary** |
 
 **primary** = skill is the main vehicle for this concept; it defines templates and enforces it.
 **referenced** = skill mentions or depends on the concept but doesn't define it.
@@ -43,7 +44,8 @@ The pr-review skill is also cross-cutting — it enforces IDD compliance at the 
 | e2e-journey-testing  | C4, C5, C8, C12       | C3, C6, C11, C13, C14, C16 |
 | certification        | C5, C8, C12, C15      | C4, C13, C14, C16 |
 | pr-review            | C5, C8, C13, C14      | C12, C15, C16 |
-| idd-workflow       | C8, C11, C13, C15, C16 | C1, C3, C4, C5, C6, C7, C9, C10, C12, C14 |
+| idd-workflow       | C8, C11, C13, C15, C16 | C1, C3, C4, C5, C6, C7, C9, C10, C12, C14, C17 |
+| idd-doctor         | C17                    | C5, C7, C8, C13, C14, C15 |
 
 ## Conversion checklist
 

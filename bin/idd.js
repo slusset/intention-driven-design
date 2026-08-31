@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { execFileSync, spawn } = require('child_process');
 const { createModule, linkModule, statusModules } = require('../tools/lib/module-scaffold');
+const { formatDoctorReport, runDoctor } = require('../tools/lib/doctor');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..');
 const TOOLS_DIR = path.join(PACKAGE_ROOT, 'tools');
@@ -20,6 +21,7 @@ const commands = {
   'generate-evidence': cmdGenerateEvidence,
   init: cmdInit,
   module: cmdModule,
+  doctor: cmdDoctor,
   version: cmdVersion,
   help: cmdHelp,
 };
@@ -33,6 +35,29 @@ if (commands[subcommand]) {
   console.error(`Unknown command: ${subcommand}\n`);
   cmdHelp();
   process.exit(1);
+}
+
+// ── doctor ──────────────────────────────────────────────────────────
+
+function cmdDoctor(argv) {
+  let repoRoot = process.cwd();
+  let json = false;
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === '--json') json = true;
+    else if (argv[i] === '--repo') {
+      if (!argv[i + 1] || argv[i + 1].startsWith('--')) {
+        console.error('--repo requires a directory');
+        process.exit(1);
+      }
+      repoRoot = path.resolve(argv[++i]);
+    } else {
+      console.error(`Unknown doctor option: ${argv[i]}`);
+      process.exit(1);
+    }
+  }
+  const report = runDoctor({ repoRoot });
+  if (json) console.log(JSON.stringify(report, null, 2));
+  else console.log(formatDoctorReport(report));
 }
 
 // ── module scaffolding ─────────────────────────────────────────────
@@ -439,6 +464,7 @@ Commands:
   module create <name>         Scaffold a bounded-context module chain
   module link <name>           Add an explicit DAG edge or contract pin
   module status                Show declared modules and verification maps
+  doctor                      Inspect migration alignment (report-only)
   version                      Print version
   help                         Show this help
 
@@ -449,6 +475,7 @@ Examples:
   idd generate-evidence --capability specs/capabilities/foo.capability.yaml
   idd init .
   idd module create billing --root specs
+  idd doctor --json
 `);
 }
 

@@ -18,6 +18,10 @@ The module skeleton can be generated with `idd module create <name>`. Use
 `idd module link` for explicit DAG edges and dependency-owned contract pins;
 these commands do not move an existing chain.
 
+Before accepting a toolkit UAT candidate, run `idd doctor --repo <consumer>` to
+inspect alignment. The current doctor is report-only; it does not apply a
+migration or claim continuity.
+
 Evidence is not part of the committed spine: it is generated per capability
 (into gitignored `.idd/evidence/`) and published through the CI evidence
 report — job summary, PR comment, and workflow artifact.

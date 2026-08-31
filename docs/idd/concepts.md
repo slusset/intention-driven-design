@@ -215,3 +215,30 @@ boundaries.
 
 **Applies to**: orchestration, multi-agent delivery, handoff design, review
 **Defined in**: agent-role.md, agent-operating-contract.md, idd-workflow
+
+---
+
+## C17 — Evolution and Migration Preserve Continuity
+
+Change is a first-class operation, not an excuse to preserve obsolete
+representations indefinitely. An evolution distinguishes backward
+compatibility, continuity, migration, and legacy preservation. Continuity is
+the quality being preserved; compatibility is one possible strategy.
+
+An evolution names its source and target state, detects deprecated or
+misaligned structures, declares what is preserved, transformed, retired, or
+unproven, and leaves a traceable migration artifact. When state exists,
+removal requires a migration or explicit disposition. A clean validator run
+does not establish continuity by itself.
+
+The `idd doctor` is the operational entry point. Its current report-only mode
+inspects alignment and migration impact without writing files or mutating
+journal history. Future plan/apply modes must remain deterministic and
+validated. The module DAG describes static semantic dependencies; a journal
+DAG records dynamic causal history. They are complementary and must not be
+conflated.
+
+**Manifesto principle**: 7 (Evolution preserves meaning)
+**Applies to**: UAT upgrades, schema migrations, module evolution, artifact
+normalization, deprecation policy, and future identity continuity events
+**Defined in**: evolution-and-migration.md, idd-doctor, issue #69
