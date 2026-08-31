@@ -6,5 +6,5 @@ modules:
     root: specs
     capabilities:
       - specs/capabilities/trade-show-signup.capability.yaml
-    rule_families: []
+    rule_families: [TS]
     depends_on: []

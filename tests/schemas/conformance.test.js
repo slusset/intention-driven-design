@@ -81,6 +81,7 @@ const CAPABILITY_FILES = findFiles(path.join(SPECS_ROOT, 'capabilities'), /\.cap
 const FIXTURE_YAML_FILES = findFiles(path.join(SPECS_ROOT, 'fixtures'), /\.fixture\.ya?ml$/);
 const FIXTURE_JSON_FILES = findFiles(path.join(SPECS_ROOT, 'fixtures'), /\.json$/);
 const MODULES_FILE = path.join(SPECS_ROOT, 'modules.yaml');
+const VERIFICATION_FILES = findFiles(path.join(SPECS_ROOT, 'verification'), /^verification\.ya?ml$/);
 
 test('schema registry loads', () => {
   const index = loadIndex();
@@ -91,6 +92,12 @@ test('schema registry loads', () => {
 test('modules manifest conforms', () => {
   assertConforms('modules', MODULES_FILE, parseYaml(MODULES_FILE));
 });
+
+for (const file of VERIFICATION_FILES) {
+  test(`verification map conforms: ${path.relative(REPO_ROOT, file)}`, () => {
+    assertConforms('verification-map', file, parseYaml(file));
+  });
+}
 
 for (const file of PERSONA_FILES) {
   test(`persona conforms: ${path.relative(REPO_ROOT, file)}`, () => {

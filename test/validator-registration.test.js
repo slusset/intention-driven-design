@@ -17,12 +17,20 @@ function runJson(args) {
   return JSON.parse(runNode(args));
 }
 
-test('modules, capability-closure, and enforcement-bindings are registered validators', () => {
+test('modules, verification, capability-closure, and enforcement-bindings are registered validators', () => {
   const listing = runNode([IDD_BIN, 'validate']);
 
   assert.match(listing, /modules/);
+  assert.match(listing, /verification/);
   assert.match(listing, /capability-closure/);
   assert.match(listing, /enforcement-bindings/);
+});
+
+test('idd validate verification passes on the example verification map', () => {
+  const result = runJson([IDD_BIN, 'validate', 'verification', '--json']);
+
+  assert.deepEqual(result.errors, []);
+  assert.match(result.info.join('\n'), /1 verification map\(s\), 1 distinct rule id\(s\)/);
 });
 
 test('idd validate modules passes on the example manifest', () => {

@@ -24,6 +24,7 @@ The example chain models a trade-show workflow:
 - `models/` → domain concepts and rules
 - `journey-maps/` → E2E validation spine
 - `capabilities/` → certification scope boundary
+- `verification/` → per-capability rule inventory, evidence plan, dependencies, and maturity claims
 - `modules.yaml` → exact capability ownership and the module dependency DAG
 
 ## Validation
@@ -31,7 +32,7 @@ The example chain models a trade-show workflow:
 Run checks against this directory directly:
 
 ```bash
-idd validate modules front-matter traceability capability-scope
+idd validate modules verification front-matter traceability capability-scope
 ```
 
 Real adopters should place equivalent artifacts under `specs/` in their own repositories.

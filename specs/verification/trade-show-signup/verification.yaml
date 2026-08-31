@@ -1,0 +1,30 @@
+id: trade-show-signup-verification
+type: verification
+capability: specs/capabilities/trade-show-signup.capability.yaml
+status: specified
+depends_on: []
+
+strategy:
+  classification: application-flow
+  statement: The example verifies the traceability chain across its three protocol boundaries.
+  formal_delta: none
+
+rules:
+  - id: TS-1-signup-chain-remains-traceable
+    source_models:
+      - specs/models/trade-show-onboarding.aggregate.model.yaml
+    formal:
+      status: not-applicable-example-application-flow
+    planned_evidence:
+      tests:
+        - mobile-signup-contract-and-fixture-conformance
+        - first-audit-event-and-rpc-conformance
+
+evidence:
+  classification:
+    intent: exploratory
+    verification: not-verified
+    certification: not-certified
+    production: not-ready
+  gaps:
+    - This repository fixture demonstrates the contract; it is not a production system certification.

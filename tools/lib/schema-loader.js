@@ -50,7 +50,11 @@ function loadAjv() {
   addFormats(ajv);
 
   const index = loadIndex();
-  for (const [, entry] of Object.entries(index.artifacts)) {
+  const entries = [
+    ...Object.values(index.definitions || {}),
+    ...Object.values(index.artifacts),
+  ];
+  for (const entry of entries) {
     const schemaPath = path.join(SCHEMAS_DIR, entry.path);
     const raw = fs.readFileSync(schemaPath, 'utf8');
     const schema = JSON.parse(raw);
