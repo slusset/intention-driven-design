@@ -154,6 +154,7 @@ Always report a concrete result for each relevant area:
 | Journeys and stories | Domain concepts defined | `/domain-modeling` |
 | Stories and models | API contract + Gherkin | `/behavior-contract` |
 | Capability + contracts | Module assignment + verification map | `/behavior-contract` |
+| New bounded context | Deterministic module skeleton | `/module-scaffolding` |
 | Contract ready | Backend implementation | Overlay-bound backend skill, or generic checklist |
 | Contract ready | Frontend implementation | Overlay-bound frontend skill, or generic checklist |
 | Design mockup/HTML | UI components | Overlay-bound design skill, or generic checklist |
@@ -185,6 +186,12 @@ Always report a concrete result for each relevant area:
    ├── Fill `id`, `type`, `description`
    ├── Declare which personas, journeys, and stories are in scope
    └── Output: capability stub in specs/capabilities/
+
+2a. /module-scaffolding
+   ├── Confirm module ID, capability ownership, root, and dependency direction
+   ├── Preview `idd module create <name> --root <path> --dry-run`
+   ├── Create the module skeleton without moving existing specs
+   └── Output: module manifest entry, module-owned directories, and planned verification map
 
 3. /domain-modeling
    ├── Identify entities and value objects

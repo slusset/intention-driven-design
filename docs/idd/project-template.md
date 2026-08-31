@@ -14,6 +14,10 @@
 10. `specs/verification/{capability}/verification.yaml` (rules, planned/current evidence, map dependencies, and four independent maturity claims)
 11. `specs/modules.yaml` (assigns every capability chain to exactly one module and declares the acyclic module dependency graph)
 
+The module skeleton can be generated with `idd module create <name>`. Use
+`idd module link` for explicit DAG edges and dependency-owned contract pins;
+these commands do not move an existing chain.
+
 Evidence is not part of the committed spine: it is generated per capability
 (into gitignored `.idd/evidence/`) and published through the CI evidence
 report — job summary, PR comment, and workflow artifact.

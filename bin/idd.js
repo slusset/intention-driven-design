@@ -5,6 +5,7 @@
 const path = require('path');
 const fs = require('fs');
 const { execFileSync, spawn } = require('child_process');
+const { createModule, linkModule, statusModules } = require('../tools/lib/module-scaffold');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..');
 const TOOLS_DIR = path.join(PACKAGE_ROOT, 'tools');
@@ -18,6 +19,7 @@ const commands = {
   'install-skills': cmdInstallSkills,
   'generate-evidence': cmdGenerateEvidence,
   init: cmdInit,
+  module: cmdModule,
   version: cmdVersion,
   help: cmdHelp,
 };
@@ -31,6 +33,92 @@ if (commands[subcommand]) {
   console.error(`Unknown command: ${subcommand}\n`);
   cmdHelp();
   process.exit(1);
+}
+
+// ── module scaffolding ─────────────────────────────────────────────
+
+function cmdModule(argv) {
+  const operation = argv[0];
+  if (!operation || operation === 'help') {
+    console.log(`Usage:
+  idd module create <name> [--root <path>] [--capability <name>] [--description <text>] [--repo <dir>] [--dry-run] [--json]
+  idd module link <name> [--depends-on <module>] [--capability <name>] [--contract <path>] [--update] [--repo <dir>] [--dry-run] [--json]
+  idd module status [--repo <dir>] [--json]
+
+Creation writes a capability stub, module-owned spec directories, a verification-map template, and one modules.yaml entry.
+Linking changes only explicit module dependencies or a selected verification map's contract_pins entry.
+Existing specs are never moved or overwritten.`);
+    return;
+  }
+
+  const positionals = [];
+  const options = { dryRun: false, json: false, update: false };
+  const valueOptions = new Set(['--root', '--capability', '--description', '--repo', '--depends-on', '--contract']);
+  for (let i = 1; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === '--dry-run') options.dryRun = true;
+    else if (arg === '--json') options.json = true;
+    else if (arg === '--update') options.update = true;
+    else if (valueOptions.has(arg)) {
+      if (i + 1 >= argv.length || argv[i + 1].startsWith('--')) {
+        console.error(`${arg} requires a value`);
+        process.exit(1);
+      }
+      const parsedKey = arg.slice(2).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      const key = parsedKey === 'repo' ? 'repoRoot' : parsedKey === 'dependsOn' ? 'dependency' : parsedKey;
+      options[key] = argv[++i];
+    } else if (arg.startsWith('--')) {
+      console.error(`Unknown option: ${arg}`);
+      process.exit(1);
+    } else positionals.push(arg);
+  }
+
+  if (operation === 'create') {
+    options.name = positionals[0];
+    if (!options.name || positionals.length > 1) {
+      console.error('Usage: idd module create <name> [options]');
+      process.exit(1);
+    }
+    outputModuleResult(createModule(options), options.json, options.dryRun);
+  } else if (operation === 'link') {
+    options.name = positionals[0];
+    if (!options.name || positionals.length > 1) {
+      console.error('Usage: idd module link <name> [options]');
+      process.exit(1);
+    }
+    outputModuleResult(linkModule(options), options.json, options.dryRun);
+  } else if (operation === 'status') {
+    if (positionals.length > 0 || options.update || options.dryRun) {
+      console.error('Usage: idd module status [--repo <dir>] [--json]');
+      process.exit(1);
+    }
+    const result = statusModules(options);
+    if (options.json) console.log(JSON.stringify(result, null, 2));
+    else {
+      console.log(`Module roots: ${result.roots.join(', ') || '(none)'}`);
+      for (const module of result.modules) {
+        console.log(`- ${module.name} (${module.root})`);
+        console.log(`  capabilities: ${module.capabilities.join(', ') || '(none)'}`);
+        console.log(`  depends_on: ${module.depends_on.join(', ') || '(none)'}`);
+        console.log(`  verification: ${module.verification_maps.join(', ') || '(none)'}`);
+      }
+    }
+    if (result.errors.length > 0) process.exit(1);
+  } else {
+    console.error(`Unknown module operation: ${operation}`);
+    process.exit(1);
+  }
+}
+
+function outputModuleResult(result, json, dryRun) {
+  if (json) console.log(JSON.stringify(result, null, 2));
+  else {
+    if (result.errors.length > 0) console.error(result.errors.map((error) => `ERROR: ${error}`).join('\n'));
+    for (const warning of result.warnings || []) console.warn(`WARN: ${warning}`);
+    for (const action of result.actions || []) console.log(`${dryRun ? 'WOULD ' : ''}${action.action}: ${action.path}${action.detail ? ` — ${action.detail}` : ''}`);
+    if (result.errors.length === 0 && (!result.actions || result.actions.length === 0)) console.log('No changes needed.');
+  }
+  if (result.errors.length > 0) process.exit(1);
 }
 
 // ── validate ─────────────────────────────────────────────────────────
@@ -348,6 +436,9 @@ Commands:
   generate-evidence            Generate certification evidence manifest
                                (into .idd/evidence/ — CI report input, not committed)
   init [dir]                   Scaffold IDD directory structure
+  module create <name>         Scaffold a bounded-context module chain
+  module link <name>           Add an explicit DAG edge or contract pin
+  module status                Show declared modules and verification maps
   version                      Print version
   help                         Show this help
 
@@ -357,6 +448,7 @@ Examples:
   idd install-skills claude
   idd generate-evidence --capability specs/capabilities/foo.capability.yaml
   idd init .
+  idd module create billing --root specs
 `);
 }
 

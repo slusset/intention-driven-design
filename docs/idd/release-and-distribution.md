@@ -136,5 +136,7 @@ contract justify `1.0.0`; only then enable a floating `v1` Action tag. Historica
 This release lane distributes the pack; it does not prove that a consumer still
 conforms to the pack. Consumer pinning, drift detection, migrations, and the
 structured route for downstream inventions belong to the managed-pack work in
-issue #57. Module/DAG semantics and the experiment instrument remain separate
+issue #57. Module/DAG semantics are now shipped through the module,
+verification, evidence-binding, and digest-pin contracts. The remaining
+bounded-context scaffold in #56 and the experiment instrument remain separate
 methodology changes in issues #56 and #58.
