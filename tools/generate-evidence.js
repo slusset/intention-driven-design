@@ -22,6 +22,7 @@
  *
  * Options:
  *   --capability <path>      Required capability file
+ *   --modules-manifest <path> Module manifest used for root/module metadata (default: specs/modules.yaml)
  *   --output <path>          Output evidence path (default: .idd/evidence/{id}/evidence.yaml)
  *   --reports-dir <path>     Directory containing report files
  *   --unit-report <path>     Unit/integration report file
@@ -45,6 +46,7 @@ const { parseFrontMatter, fileExists, findFiles, formatResults } = require('./li
 const args = process.argv.slice(2);
 
 let capabilityPath = null;
+let modulesManifestPath = null;
 let outputPath = null;
 let reportsDir = null;
 let unitReportPath = null;
@@ -60,6 +62,9 @@ for (let i = 0; i < args.length; i += 1) {
   const arg = args[i];
   if (arg === '--capability') {
     capabilityPath = path.resolve(args[i + 1]);
+    i += 1;
+  } else if (arg === '--modules-manifest') {
+    modulesManifestPath = path.resolve(args[i + 1]);
     i += 1;
   } else if (arg === '--output') {
     outputPath = path.resolve(args[i + 1]);
@@ -104,6 +109,38 @@ function toProjectRelative(absolutePath) {
 
 function normalizeRef(ref) {
   return String(ref || '').replace(/\\/g, '/');
+}
+
+function moduleContextForCapability() {
+  const manifestPath = modulesManifestPath || path.join(process.cwd(), 'specs', 'modules.yaml');
+  if (!fs.existsSync(manifestPath)) return null;
+
+  let manifest;
+  try {
+    manifest = readYaml(manifestPath);
+  } catch (error) {
+    results.warnings.push(`${toProjectRelative(manifestPath)}: Failed to read module context: ${error.message}`);
+    return null;
+  }
+
+  const capabilityRel = normalizeRef(path.relative(process.cwd(), capabilityPath));
+  for (const [name, module] of Object.entries(manifest?.modules || {})) {
+    for (const declared of module.capabilities || []) {
+      if (normalizeRef(declared) !== capabilityRel) continue;
+      const root = normalizeRef(module.root || 'specs').replace(/\/+$/, '');
+      const capabilityId = capabilityRel
+        .replace(/^.*\//, '')
+        .replace(/\.capability\.ya?ml$/i, '');
+      return {
+        name,
+        root,
+        verification_map: `${root}/verification/${capabilityId}/verification.yaml`,
+      };
+    }
+  }
+
+  results.warnings.push(`${capabilityRel}: capability is not assigned to a module in ${toProjectRelative(manifestPath)}`);
+  return null;
 }
 
 function ratio(covered, total) {
@@ -452,6 +489,9 @@ function buildEvidenceManifest(capability, traceability) {
     },
     gaps,
   };
+
+  const module = moduleContextForCapability();
+  if (module) manifest.module = module;
 
   return {
     manifest,

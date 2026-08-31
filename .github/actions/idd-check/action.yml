@@ -153,7 +153,24 @@ runs:
         # Spec-before-code check
         if [ "${{ github.event_name }}" = "pull_request" ]; then
           IMPL_CHANGES=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- 'backend/src/' 'frontend/src/' 2>/dev/null | wc -l | tr -d ' ')
-          SPEC_CHANGES=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- "$SPECS_DIR/" 2>/dev/null | wc -l | tr -d ' ')
+          SPEC_PATH_ARGS=("$SPECS_DIR/")
+          REPO_ROOT="$(cd "$SPECS_DIR/.." && pwd)"
+          if [ -f "$SPECS_DIR/modules.yaml" ]; then
+            MODULE_STATUS_EXIT=0
+            $IDD module status --repo "$REPO_ROOT" --json > /tmp/idd-results/spec-module-status.json 2>&1 || MODULE_STATUS_EXIT=$?
+            if [ "$MODULE_STATUS_EXIT" -eq 0 ]; then
+              while IFS= read -r MODULE_ROOT; do
+                [ -n "$MODULE_ROOT" ] || continue
+                SPEC_PATH_ARGS+=("$MODULE_ROOT/")
+              done < <(node - "$REPO_ROOT" /tmp/idd-results/spec-module-status.json <<'NODE'
+        const fs = require('fs');
+        const status = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
+        for (const module of status.modules || []) process.stdout.write(`${module.root}\n`);
+        NODE
+              )
+            fi
+          fi
+          SPEC_CHANGES=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- "${SPEC_PATH_ARGS[@]}" 2>/dev/null | wc -l | tr -d ' ')
           echo "impl_changes=$IMPL_CHANGES" >> "$GITHUB_OUTPUT"
           echo "spec_changes=$SPEC_CHANGES" >> "$GITHUB_OUTPUT"
           if [ "$IMPL_CHANGES" -gt "0" ] && [ "$SPEC_CHANGES" -eq "0" ]; then
@@ -189,18 +206,53 @@ runs:
 
         SPECS_DIR="${{ inputs.specs-dir }}"
         REPORTS_ROOT="${{ inputs.evidence-reports-dir }}"
+        REPO_ROOT="$(cd "$SPECS_DIR/.." && pwd)"
         EVIDENCE_DIR=/tmp/idd-results/evidence
         mkdir -p "$EVIDENCE_DIR"
         : > /tmp/idd-results/evidence-exits.txt
 
-        shopt -s nullglob
-        for CAP_FILE in "$SPECS_DIR"/capabilities/*.capability.yaml; do
-          CAP_ID=$(basename "$CAP_FILE" .capability.yaml)
-          MANIFEST="$EVIDENCE_DIR/$CAP_ID/evidence.yaml"
+        # The module manifest is authoritative for capability discovery. This
+        # keeps colocated roots in the generated report; the glob fallback is
+        # retained only for consumers that have not adopted modules.yaml yet.
+        CAPABILITY_LIST=/tmp/idd-results/capabilities.txt
+        : > "$CAPABILITY_LIST"
+        if [ -f "$SPECS_DIR/modules.yaml" ]; then
+          MODULE_STATUS_EXIT=0
+          $IDD module status --repo "$REPO_ROOT" --json > /tmp/idd-results/module-status.json 2>&1 || MODULE_STATUS_EXIT=$?
+          if [ "$MODULE_STATUS_EXIT" -eq 0 ]; then
+            node - "$REPO_ROOT" /tmp/idd-results/module-status.json > "$CAPABILITY_LIST" <<'NODE'
+        const fs = require('fs');
+        const path = require('path');
+        const repoRoot = process.argv[2];
+        const status = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
+        for (const module of status.modules || []) {
+          for (const capability of module.capabilities || []) {
+            process.stdout.write(`${path.resolve(repoRoot, capability)}\n`);
+          }
+        }
+        NODE
+          fi
+        fi
+        if [ ! -s "$CAPABILITY_LIST" ]; then
+          find "$SPECS_DIR/capabilities" -type f \( -name '*.capability.yaml' -o -name '*.capability.yml' \) -print 2>/dev/null | sort > "$CAPABILITY_LIST"
+        fi
+
+        while IFS= read -r CAP_FILE; do
+          [ -n "$CAP_FILE" ] || continue
+          CAP_REL="${CAP_FILE#$REPO_ROOT/}"
+          CAP_KEY="${CAP_REL//\//__}"
+          CAP_KEY="${CAP_KEY%.capability.yaml}"
+          CAP_KEY="${CAP_KEY%.capability.yml}"
+          CAP_ID=$(basename "$CAP_FILE")
+          CAP_ID="${CAP_ID%.capability.yaml}"
+          CAP_ID="${CAP_ID%.capability.yml}"
+          MANIFEST="$EVIDENCE_DIR/$CAP_KEY/evidence.yaml"
 
           REPORTS_ARGS=()
           if [ -n "$REPORTS_ROOT" ]; then
-            if [ -d "$REPORTS_ROOT/$CAP_ID" ]; then
+            if [ -d "$REPORTS_ROOT/$CAP_KEY" ]; then
+              REPORTS_ARGS=(--reports-dir "$REPORTS_ROOT/$CAP_KEY")
+            elif [ -d "$REPORTS_ROOT/$CAP_ID" ]; then
               REPORTS_ARGS=(--reports-dir "$REPORTS_ROOT/$CAP_ID")
             elif [ -d "$REPORTS_ROOT" ]; then
               REPORTS_ARGS=(--reports-dir "$REPORTS_ROOT")
@@ -209,6 +261,7 @@ runs:
 
           $IDD generate-evidence \
             --capability "$CAP_FILE" \
+            --modules-manifest "$SPECS_DIR/modules.yaml" \
             --output "$MANIFEST" \
             "${REPORTS_ARGS[@]}" \
             --write --json > "$EVIDENCE_DIR/$CAP_ID.generate.json" 2>&1
@@ -222,9 +275,8 @@ runs:
             VAL_EXIT=1
           fi
 
-          echo "$CAP_ID $GEN_EXIT $VAL_EXIT" >> /tmp/idd-results/evidence-exits.txt
-        done
-        shopt -u nullglob
+          echo "$CAP_KEY $CAP_ID $CAP_REL $GEN_EXIT $VAL_EXIT" >> /tmp/idd-results/evidence-exits.txt
+        done < "$CAPABILITY_LIST"
 
         exit 0
 
@@ -372,13 +424,13 @@ runs:
 
           evidenceCertified = 'true';
           for (const line of exitLines) {
-            const [capId, genExitStr, valExitStr] = line.split(/\s+/);
+            const [capKey, capId, capRel, genExitStr, valExitStr] = line.split(/\s+/);
             const genExit = Number(genExitStr || 0);
             const valExit = Number(valExitStr || 0);
             capabilityCount += 1;
 
-            const generateResult = readJson(path.join(RESULTS_DIR, 'evidence', `${capId}.generate.json`)) || {};
-            const validateResult = readJson(path.join(RESULTS_DIR, 'evidence', `${capId}.validate.json`)) || {};
+            const generateResult = readJson(path.join(RESULTS_DIR, 'evidence', `${capKey}.generate.json`)) || {};
+            const validateResult = readJson(path.join(RESULTS_DIR, 'evidence', `${capKey}.validate.json`)) || {};
             const valErrors = Array.isArray(validateResult.errors) ? validateResult.errors : [];
             const valWarnings = Array.isArray(validateResult.warnings) ? validateResult.warnings : [];
             const manifest = generateResult.manifest || null;
@@ -395,7 +447,8 @@ runs:
               totalWarnings += valWarnings.length;
             }
 
-            body += `| Evidence: ${capId} | ${icon} | ${valErrors.length} | ${valWarnings.length} |\n`;
+            const evidenceLabel = capRel ? `Evidence: ${capId} (${capRel})` : `Evidence: ${capId}`;
+            body += `| ${evidenceLabel} | ${icon} | ${valErrors.length} | ${valWarnings.length} |\n`;
 
             const parts = [];
             if (genExit !== 0) {
@@ -413,6 +466,14 @@ runs:
                 `| Endpoints with tests | ${t.endpoints_with_tests} |`,
                 `| Journeys with e2e | ${t.journeys_with_e2e} |`,
                 `| Orphans (tests/features/endpoints) | ${t.orphan_tests}/${t.orphan_features}/${t.orphan_endpoints} |`,
+              ].join('\n'));
+            }
+            if (manifest && manifest.module) {
+              parts.push([
+                '**Module**',
+                `- Name: \`${manifest.module.name}\``,
+                `- Root: \`${manifest.module.root}\``,
+                `- Verification map: \`${manifest.module.verification_map}\``,
               ].join('\n'));
             }
             if (manifest && manifest.evidence) {
@@ -441,7 +502,7 @@ runs:
             }
 
             if (parts.length > 0) {
-              detailSections.push({ label: `Evidence: ${capId}`, icon, content: parts.join('\n\n') });
+              detailSections.push({ label: evidenceLabel, icon, content: parts.join('\n\n') });
             }
           }
         }

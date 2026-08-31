@@ -214,6 +214,12 @@ Certify when:
 
 The `idd-check` GitHub Action does this automatically: it discovers every `specs/capabilities/*.capability.yaml`, generates a manifest per capability, validates it against the certification thresholds, renders the result into the job summary and PR comment, and uploads the manifests as the `idd-evidence` workflow artifact.
 
+When `specs/modules.yaml` is present, discovery is manifest-driven rather than
+glob-driven: every declared capability under every module `root` is generated,
+and each report records the module name, root, and expected verification-map
+path. The legacy `specs/capabilities/` glob remains only for repositories that
+have not adopted the module manifest yet.
+
 ```yaml
 # In CI workflow
 certify:
