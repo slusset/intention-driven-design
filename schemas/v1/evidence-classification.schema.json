@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/evidence-classification.schema.json",
+  "title": "IDD Evidence Classification",
+  "description": "Four independent maturity claims. Verification and certification are ordered for dependency-monotonicity checks; certification never implies production readiness.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["intent", "verification", "certification", "production"],
+  "properties": {
+    "intent": {
+      "description": "Current v1 intent maturity. Additional values require an explicit methodology definition.",
+      "const": "exploratory"
+    },
+    "verification": {
+      "enum": ["not-verified", "locally-verified", "verified"]
+    },
+    "certification": {
+      "enum": ["not-certified", "locally-certified", "certified"]
+    },
+    "production": {
+      "description": "Operational readiness is independent of certification.",
+      "enum": ["not-ready", "production-ready"]
+    }
+  }
+}

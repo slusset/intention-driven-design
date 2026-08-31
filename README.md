@@ -341,6 +341,7 @@ skills/                      IDD methodology skills (bundled in package)
 
 tools/                       Validators and generators
 ├── validate-modules.js      Validate exact capability ownership and the module dependency DAG
+├── validate-verification.js Validate root-aware verification maps and cross-module relation semantics
 ├── validate-front-matter.js Validate required/recommended metadata fields
 ├── validate-traceability.js Validate cross-artifact reference integrity
 ├── validate-capability-scope.js Validate capability scope coverage
@@ -372,7 +373,7 @@ idd validate traceability front-matter --json
 idd validate fixtures models --strict
 ```
 
-Available validators: `modules`, `contracts`, `traceability`, `front-matter`, `capability-scope`, `capability-closure`, `fixtures`, `models`, `enforcement-bindings`, `journey-maps`, `evidence`.
+Available validators: `modules`, `verification`, `contracts`, `traceability`, `front-matter`, `capability-scope`, `capability-closure`, `fixtures`, `models`, `enforcement-bindings`, `journey-maps`, `evidence`.
 
 Common CLI options:
 - `--files <paths...>` limit checks to specific files

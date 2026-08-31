@@ -28,6 +28,7 @@ All schemas use **JSON Schema Draft 2020-12**
 | Journey Map | document | [`journey-map.schema.json`](schemas/v1/journey-map.schema.json) | `specs/journey-maps/**/*.{journey-map,map}.yaml` |
 | Capability | document | [`capability.schema.json`](schemas/v1/capability.schema.json) | `specs/capabilities/**/*.capability.yaml` |
 | Modules | document | [`modules.schema.json`](schemas/v1/modules.schema.json) | `specs/modules.yaml` |
+| Verification Map | document | [`verification-map.schema.json`](schemas/v1/verification-map.schema.json) | `*/verification/*/verification.yaml` |
 | Fixture | document | [`fixture.schema.json`](schemas/v1/fixture.schema.json) | `specs/fixtures/**/*.{fixture.yaml,json}` |
 
 **Front-matter** schemas describe the YAML or comment header of a Markdown,
@@ -35,6 +36,9 @@ Gherkin, or JSON artifact. The body of these files is freeform narrative or
 parsed by a separate grammar (Gherkin parser, JSON parser).
 
 **Document** schemas describe the entire parsed YAML or JSON document.
+Reusable embedded shapes are published separately when multiple artifacts or
+tools need the same vocabulary. The four-claims object is
+[`evidence-classification.schema.json`](schemas/v1/evidence-classification.schema.json).
 
 ## What the schemas cover
 
@@ -54,6 +58,7 @@ in JSON Schema:
 | Traceability — every referenced file exists | `tools/validate-traceability.js` | Filesystem resolution |
 | Capability scope coverage | `tools/validate-capability-scope.js` | Cross-file accounting |
 | Module ownership and dependency DAG | `tools/validate-modules.js` | Exact capability assignment, unique rule-family ownership, declared roots, and acyclic dependencies |
+| Verification-map relations | `tools/validate-verification.js` | Expected root-aware maps, module-DAG dependency direction, rule-family direction, source-model existence, and classification monotonicity |
 | Fixture payload ↔ contract operation | `tools/validate-fixtures.js` (delegates to OpenAPI/AsyncAPI/JSON-RPC) | Multi-file payload validation |
 | Evidence manifest references real outputs | `tools/validate-evidence.js` | Filesystem resolution |
 
@@ -78,7 +83,7 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.7.0`** (declared in
+The current version is **`1.8.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
 actions, and assertions landed in 1.2; declarative lifecycle and journey-map
@@ -92,16 +97,51 @@ module manifest landed in 1.7, adding exact capability-chain ownership,
 explicit spec roots, unique rule-family ownership, and an acyclic module
 dependency graph.
 
-This is the metadata-first slice of #56. The module validator follows every
+The module validator follows every
 declared `root` when discovering capabilities, so relocating a chain cannot
-silently remove it from module accounting. Verification-map grammar,
-cross-chain rule citation direction, contract digest pins, and evidence
-classification monotonicity remain separate follow-on contracts; this schema
-does not imply those checks exist yet.
+silently remove it from module accounting. Verification maps and the reusable
+four-claims classification landed in 1.8. The verification validator follows
+the same roots, requires one map per module capability, constrains map
+dependencies and rule-family citations to the transitive module DAG, and
+prevents verification or certification claims from exceeding an explicitly
+declared dependency. Contract digest pins and selector-level evidence binding
+remain separate follow-on contracts.
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward
 compatibility for at least one minor release of `idd-toolkit`.
+
+## Verification maps and four maturity claims (v1.8)
+
+Every capability assigned by `specs/modules.yaml` has one expected map at
+`<module-root>/verification/<capability-id>/verification.yaml`. The map owns:
+
+- the capability's rule inventory and source-model links;
+- explicit dependencies on other verification maps;
+- planned and current evidence descriptions; and
+- four independent maturity claims under the canonical
+  `evidence.classification` key.
+
+The four claims deliberately do not collapse into one status:
+
+| Claim | v1 values | Meaning |
+|---|---|---|
+| Intent | `exploratory` | The intent is coherent but remains open to fix-forward change. |
+| Verification | `not-verified`, `locally-verified`, `verified` | What executable checking has established and where. |
+| Certification | `not-certified`, `locally-certified`, `certified` | What review and independent evidence have established. |
+| Production | `not-ready`, `production-ready` | Whether operational, deployment, recovery, and security posture is explicit. |
+
+Verification and certification are ordered for module-dependency
+monotonicity. Production readiness remains independent: certification alone
+never makes a capability production-ready. For migration from the two shapes
+observed downstream, `evidence_plan.classification` remains accepted with a
+warning; new maps use `evidence.classification`.
+
+Rule entries require a stable ID and an explicit `source_models` list, which
+may be empty when the absence of a model is deliberate. Evidence/formal-tool
+payloads remain author-extensible because their vocabulary depends on the
+verification method; the map's identity, rule references, dependency paths,
+and maturity claims are the canonical closed contract.
 
 ## Closed-world keys and `$conformance` (v1.1)
 

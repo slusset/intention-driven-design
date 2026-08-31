@@ -35,6 +35,21 @@ The three surfaces of the published record:
 
 Only intent artifacts (`specs/`) are committed. The capability file declares *what* is certified; the CI report proves *that* it is.
 
+## Checked-in verification map versus generated evidence
+
+Each module capability has one checked-in verification map at
+`<module-root>/verification/<capability-id>/verification.yaml`. The map is a
+plan and claim boundary: it inventories rules, names source models, declares
+other maps it stands on, describes planned/current evidence, and records four
+independent maturity claims. It is not proof that a test ran.
+
+Generated `.idd/evidence/` manifests and the CI report are the run-specific
+proof surfaces. `idd validate verification` checks that the committed map is
+well formed, follows the module DAG, and does not claim a higher verification
+or certification rank than an explicitly declared dependency. The
+certification run must still substantiate the map's claims for the exact
+revision and environment.
+
 ## Evidence manifest
 
 The `evidence.yaml` file is the structured link between intent and verification:
