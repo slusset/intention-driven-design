@@ -1,0 +1,42 @@
+name: PR Title
+
+# Squash merges use the pull request title as the commit subject, and Release
+# Please only counts commits it can parse as Conventional Commits. A
+# non-conventional PR title therefore silently produces an empty release:
+# `release-prepare` succeeds and proposes nothing. Fail here instead.
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  conventional-title:
+    name: Title is a Conventional Commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Keep in lockstep with the types the Release Please node strategy
+          # recognizes; feat/fix drive version bumps, the rest are silent.
+          types: |
+            feat
+            fix
+            docs
+            chore
+            ci
+            test
+            refactor
+            perf
+            build
+            style
+            revert
+          requireScope: false
+          subjectPattern: ^(?![A-Z]).+[^.]$
+          subjectPatternError: |
+            The subject "{subject}" is invalid: start with a lowercase letter
+            and do not end with a period.

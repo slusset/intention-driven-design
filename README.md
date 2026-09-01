@@ -185,10 +185,29 @@ existing Claude plugin manifests.
 Release preparation and publication are both manual:
 
 ```bash
-gh workflow run release-please.yml --ref main -f operation=prepare
+just release-prepare          # preflight, then dispatch the prepare workflow
 # review and merge the generated release PR
-gh workflow run release-please.yml --ref main -f operation=publish
+just release-publish
 ```
+
+**Pull request titles must be Conventional Commits.** Release Please only
+counts commits whose subject it can parse, and a squash merge takes the pull
+request title as that subject. A title like `Implement open issues` is dropped
+outright — its body bullets are not rescued — so the workflow succeeds while
+proposing no release PR at all. `.github/workflows/pr-title.yml` fails a
+non-conventional title at PR time, and `just release-preflight` (which
+`release-prepare` depends on) reports whether the commits since the last
+release would actually produce a release:
+
+```bash
+just release-preflight
+# Release preflight since 0.1.0-uat.2 (anchor: release-commit)
+#   commits: 1; releasable (feat/fix/breaking): 0; unparseable: 1
+```
+
+If unparseable work has already landed on `main`, release it by merging a
+later conventional commit; add a `Release-As: <version>` footer to that
+commit's message when the version must be exact.
 
 ### Local development (from checkout)
 
