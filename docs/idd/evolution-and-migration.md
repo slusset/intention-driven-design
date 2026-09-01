@@ -6,38 +6,66 @@ one strategy for evolution; it is not the goal by itself.
 
 ## Current doctor boundary
 
-`idd doctor` currently provides a read-only alignment report:
+`idd doctor` has three modes:
 
 ```bash
-idd doctor --repo ../consumer --json
+idd doctor --repo ../consumer --json                 # inspect (report-only)
+idd doctor plan --repo ../consumer --out plan.json   # plan (report-only)
+idd doctor apply --plan plan.json \
+  --accept <migration-id> --repo ../consumer         # apply (explicit writes)
 ```
 
-It inspects release and schema versions, module adoption, deprecated generated
-structures, and the current IDD validator suite. It reports findings with a
-severity, recommendation, paths, and continuity impact. It does not write
-files, apply migrations, or mutate identity/journal history.
+Inspection reads release and schema versions, module adoption, deprecated
+generated structures, and the current IDD validator suite, reporting findings
+with a severity, recommendation, paths, and continuity impact. It does not
+write files, apply migrations, or mutate identity/journal history.
 
-The current report deliberately distinguishes:
+The report deliberately distinguishes:
 
 - `mode: report-only` from a migration plan or apply operation;
 - `migration.status: not-applied` from a successful transformation; and
 - `continuity.status: not-assessed` from a continuity claim.
 
-## Report-only migration catalog
+`idd doctor plan` produces a deterministic `idd-migration-plan` artifact: a
+pure function of the repository tree, the running toolkit, and the shipped
+migration catalog, with no timestamps. Its JCS digest pins the exact state the
+plan was built from and doubles as replay protection. A plan writes nothing.
+
+`idd doctor apply` is the explicit-compatibility boundary. It refuses before
+any write when the plan digest no longer matches current repository, toolkit,
+or catalog state; when error-severity findings block the migration; or when a
+migration with review-required continuity has not been accepted with
+`--accept <migration-id>`. Accepted plans execute their steps in order:
+`review` steps are acknowledged, `transform` steps run registered
+deterministic transformations, and `validate` steps run the deterministic
+validator suite. Invariants are re-validated unconditionally after the last
+migration, and the evolution is journaled as an appended
+`idd-evolution-record` under `.idd/evolution/` — generated evidence, never a
+mutation of repository history or a consumer journal. Run apply on a feature
+branch; version control remains the undo mechanism.
+
+## Migration catalog
 
 The toolkit ships [`migrations/catalog.json`](../../migrations/catalog.json), a
 small ordered catalog of schema transitions. Its shape is checked by
 [`migrations/catalog.schema.json`](../../migrations/catalog.schema.json). Each
 entry names an exact source and target schema version, a short sequence of
-inspect/review/validate steps, and continuity dispositions.
+inspect/review/transform/validate steps, and continuity dispositions.
 
 This borrows the useful part of Angular upgrade schematics: migrations are
 versioned, discoverable package metadata selected by the source and target
-versions. The current IDD implementation intentionally stops at discovery.
-`idd doctor` reports the shortest cataloged path and its steps; it does not
-execute a factory, edit a repository, or mutate journal history. A future
-plan/apply mode can attach deterministic transformations to the same IDs after
-their authority and continuity contracts are specified.
+versions. `idd doctor` reports the shortest cataloged path, and `idd doctor
+apply` executes it from an accepted plan. A `transform` step must name a
+transformation registered in `tools/lib/transformations.js`; each
+transformation is deterministic — the same repository and toolkit inputs
+produce the same bytes — and none of them touch journal history. The first
+registered transformation, `record-consumer-contract`, records or updates the
+`idd_consumer` front-matter pins in `specs/skills/repo-overlay.md`.
+
+A consumer with no recorded contract has no cataloged transition to select,
+so the plan proposes a synthetic `adopt-consumer-contract` migration: the
+first evolution is adoption, recording the contract for the running toolkit
+under the same acceptance, validation, and evidence rules.
 
 ## Declarative evolution policy
 
@@ -75,11 +103,15 @@ disposition, especially when the repository has known state.
 
 ## Migration sequence
 
-The intended sequence is:
+The implemented sequence is:
 
 ```text
-inspect → plan → dry-run → apply → validate → report
+inspect → plan → apply (accept → transform → validate) → evolution record
 ```
+
+A generated plan reviewed before `apply` serves as the dry-run: it lists every
+migration, step, transformation, and continuity disposition that acceptance
+authorizes, and nothing outside the plan is executed.
 
 The first migration target is repository/spec state: modules, verification
 maps, evidence bindings, contract pins, role contracts, and other declarative

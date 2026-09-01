@@ -1,29 +1,59 @@
 ---
 name: idd-doctor
-description: "Inspect a repository for IDD release, schema, module, and migration misalignment. Use for report-only consumer checks before planning or applying an evolution migration."
+description: "Inspect a repository for IDD release, schema, module, and migration misalignment; generate deterministic migration plans; apply accepted plans with evolution evidence. Use for consumer checks and explicit evolution migrations."
 license: MIT
 argument-hint: "[consumer-repo]"
-allowed-tools: Read Glob Grep
+allowed-tools: Read Glob Grep Bash
 ---
 
 # IDD Doctor
 
 ## Current capability
 
-The current doctor is report-only. It inspects a repository, runs the
-deterministic IDD validators, and reports possible migration work. It does not
-write files, change dependencies, move specifications, mutate journal history,
-or claim that continuity has been preserved.
-
-Run it from the toolkit checkout or against a consumer repository:
+The doctor has three modes. Inspection is report-only: it inspects a
+repository, runs the deterministic IDD validators, and reports possible
+migration work without writing files, changing dependencies, moving
+specifications, mutating journal history, or claiming continuity. Planning is
+also report-only: it emits a deterministic, digest-pinned migration plan.
+Apply executes an accepted plan — and only an accepted plan.
 
 ```bash
-idd doctor --json
+idd doctor --json                                    # inspect (report-only)
 idd doctor --repo ../consumer --json
+idd doctor plan --repo ../consumer --out plan.json   # plan (report-only)
+idd doctor apply --plan plan.json \
+  --accept <migration-id> --repo ../consumer         # apply (explicit writes)
 ```
 
 Without `--json`, the output is a concise human report. JSON output is the
-stable integration surface for CI, migration planning, and later doctor modes.
+stable integration surface for CI and migration tooling.
+
+Apply refuses before any write when the plan digest no longer matches the
+repository/toolkit/catalog state, when error findings block migration, or
+when a review-required migration lacks `--accept <migration-id>`. Transform
+steps run only transformations registered in the toolkit; invariants are
+re-validated afterwards; the evolution is journaled as an appended record
+under `.idd/evolution/`. Run apply on a feature branch — version control is
+the undo mechanism. A consumer with no recorded contract gets a synthetic
+`adopt-consumer-contract` plan that records the initial pins.
+
+## Running from a plugin install (code sessions)
+
+A Claude Code or Codex plugin install puts `idd` on the session PATH and is
+self-contained: the plugin's `bin/idd` wrapper falls back to the committed
+`dist/bin/idd.js` bundle, so `idd version`, `idd doctor --repo <consumer>
+--json`, and `idd validate all --json` work without a repository-local
+`node_modules`, an `npm install`, or a legacy `npm link`.
+
+To upgrade the toolkit from a code session:
+
+1. Update the plugin (Claude Code): `/plugin marketplace update idd`, then
+   `/plugin update idd-skills@idd` (or uninstall/reinstall the plugin).
+2. Confirm the running candidate: `idd version` and
+   `idd doctor --repo <consumer> --json` — the report's
+   `repository.doctor_toolkit_version` is the toolkit actually executing.
+3. Compare the consumer's `idd_consumer` pins against the new candidate and
+   treat every drift finding as migration input, not as an auto-update.
 
 ## What it inspects
 
@@ -69,11 +99,16 @@ For an accepted UAT candidate:
    no action.
 3. Review any cataloged migration IDs and steps; a missing path is an explicit
    design task, not permission to guess a transformation.
-4. Use the next doctor mode to produce a migration plan; do not hand-edit a
-   consumer based only on the report.
-5. Apply transformations in a consumer feature branch, then run
-   `idd validate all` and the consumer's own checks.
-6. Publish generated evidence with the migration PR before accepting the UAT.
+4. Generate the plan: `idd doctor plan --repo <consumer> --out plan.json`.
+   Review every migration, step, and continuity disposition in it — the plan
+   is the dry-run, and acceptance authorizes nothing outside it. Do not
+   hand-edit a consumer based only on the report.
+5. On a consumer feature branch, apply the reviewed plan:
+   `idd doctor apply --plan plan.json --accept <migration-id> --repo
+   <consumer>`. Apply re-validates invariants and refuses stale or tampered
+   plans; then run the consumer's own checks.
+6. Publish the `.idd/evolution/` record and generated evidence with the
+   migration PR before accepting the UAT.
 
-The report-only phase is intentionally useful before migration code exists:
-it makes drift visible while keeping repository and journal state unchanged.
+Inspection stays useful on its own: it makes drift visible while keeping
+repository and journal state unchanged.

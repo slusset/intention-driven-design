@@ -2,4 +2,17 @@
 // PATH-visible entrypoint: a Claude Code plugin's bin/ directory is added to
 // Bash PATH by executable name, so `idd` must exist extension-less alongside
 // the npm bin mapping in package.json.
-require('./idd.js');
+//
+// Plugin host caches clone this repository without installing node_modules,
+// so the source CLI is preferred only when its runtime dependencies are
+// present; otherwise the committed self-contained bundle takes over (#77).
+const fs = require('fs');
+const path = require('path');
+
+const root = path.resolve(__dirname, '..');
+const hasRuntimeDeps = ['ajv', 'ajv-formats', 'js-yaml'].every((dependency) =>
+  fs.existsSync(path.join(root, 'node_modules', dependency, 'package.json')));
+const bundle = path.join(root, 'dist', 'bin', 'idd.js');
+
+if (hasRuntimeDeps || !fs.existsSync(bundle)) require('./idd.js');
+else require(bundle);

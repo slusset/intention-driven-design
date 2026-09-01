@@ -27,6 +27,7 @@
     "idd": "./bin/idd.js"
   },
   "scripts": {
+    "build": "node tools/build-dist.js",
     "test": "node --test"
   },
   "files": [
@@ -35,6 +36,7 @@
     ".agents/plugins/marketplace.json",
     ".github/actions/idd-check/",
     "bin/",
+    "dist/",
     "tools/lib/",
     "tools/validate-*.js",
     "tools/generate-evidence.js",
@@ -52,6 +54,7 @@
   },
   "devDependencies": {
     "@stoplight/spectral-cli": "^6.15.0",
+    "esbuild": "0.28.2",
     "gherkin-lint": "^4.2.4"
   }
 }

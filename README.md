@@ -149,7 +149,7 @@ codex plugin add idd-skills@idd
 
 ### As a Claude Code plugin (recommended)
 
-The repo is a self-contained Claude Code plugin — `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` are at the repo root. One install brings the core methodology skills (`skills/`), schemas, and the `idd` validator CLI (the plugin's `bin/` is added to Bash PATH while active, so skills and you can run `idd validate all` with no separate install). Node dependencies install automatically from the committed lockfile.
+The repo is a self-contained Claude Code plugin — `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` are at the repo root. One install brings the core methodology skills (`skills/`), schemas, and the `idd` validator CLI (the plugin's `bin/` is added to Bash PATH while active, so skills and you can run `idd validate all` with no separate install). Plugin caches do not install `node_modules`; the PATH wrapper falls back to the committed self-contained bundle `dist/bin/idd.js` (built by `just build`), which inlines the CLI, every validator, and the runtime dependencies, so `idd version`, `idd doctor --json`, and `idd validate all --json` work from a fresh plugin install with no `npm install` or `npm link`.
 
 In Claude Code:
 
@@ -216,6 +216,9 @@ idd generate-evidence          Generate certification evidence manifest
                                (into .idd/evidence/ — CI report input, not committed)
 idd init [dir]                 Scaffold IDD directory structure
 idd doctor [--repo <dir>]      Inspect migration alignment/catalog (report-only)
+idd doctor plan [--out <file>] Generate a deterministic, digest-pinned migration plan
+idd doctor apply --plan <file> Apply an accepted plan (--accept <migration-id>,
+                               writes .idd/evolution/ evidence, never journal history)
 idd version                    Print version
 ```
 
@@ -383,6 +386,15 @@ idd validate fixtures models --strict
 ```
 
 Available validators: `modules`, `verification`, `contracts`, `traceability`, `front-matter`, `capability-scope`, `capability-closure`, `fixtures`, `models`, `enforcement-bindings`, `journey-maps`, `evidence`.
+
+### Evaluating the methodology itself
+
+The same validators double as the deterministic checker tier of the
+methodology-evaluation instrument in [`evals/`](evals/README.md): scenario +
+condition trials recorded as closed, digest-pinned `experiment-record@1`
+artifacts, with a small pinned judged tier. The instrument lives outside the
+release unit and no benchmark number ever gates a merge — see the charter in
+`evals/README.md`.
 
 ## Module scaffolding
 

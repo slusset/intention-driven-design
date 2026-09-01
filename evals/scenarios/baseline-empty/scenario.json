@@ -1,0 +1,5 @@
+{
+  "id": "baseline-empty",
+  "task": "Add a small capability end-to-end: persona, journey, story, feature, contract, fixture, and verification map, using the IDD workflow.",
+  "description": "An empty consumer skeleton. A trial copies this seed, lets an agent perform task.md under one condition, and records the deterministic checker results over the produced tree. The untouched seed is the trivially-closed baseline."
+}

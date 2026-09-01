@@ -36,9 +36,15 @@
       "summary": "Record the accepted IDD Toolkit release, schema digest, and distribution provenance.",
       "steps": [
         {
-          "id": "record-consumer-contract",
+          "id": "review-consumer-contract",
           "mode": "review",
-          "description": "Add or review the idd_consumer front-matter record in specs/skills/repo-overlay.md."
+          "description": "Review the accepted toolkit candidate and confirm the idd_consumer record should move to it."
+        },
+        {
+          "id": "record-consumer-contract",
+          "mode": "transform",
+          "transformation": "record-consumer-contract",
+          "description": "Record or update the idd_consumer front-matter pins in specs/skills/repo-overlay.md for the running toolkit."
         },
         {
           "id": "validate-consumer-contract",
