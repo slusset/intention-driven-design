@@ -61,3 +61,22 @@ test('release workflow creates the release, verifies it, and attaches the toolki
   assert.match(workflow, /!contains\(steps\.release\.outputs\.version, '-'\)/);
   assert.match(workflow, /refs\/tags\/v\$\{MAJOR\}/);
 });
+
+test('a conventional pull request title is enforced for squash merges', () => {
+  const workflow = fs.readFileSync(
+    path.join(REPO_ROOT, '.github', 'workflows', 'pr-title.yml'),
+    'utf8',
+  );
+  assert.match(workflow, /amannn\/action-semantic-pull-request@v5/);
+  assert.match(workflow, /types: \[opened, edited, reopened, synchronize\]/);
+  // feat and fix are the types that move the UAT version line; a title
+  // Release Please cannot parse yields an empty release, not a failure.
+  assert.match(workflow, /^\s+feat$/m);
+  assert.match(workflow, /^\s+fix$/m);
+});
+
+test('release-prepare is guarded by the release preflight', () => {
+  const justfile = fs.readFileSync(path.join(REPO_ROOT, 'justfile'), 'utf8');
+  assert.match(justfile, /release-prepare: release-preflight/);
+  assert.match(justfile, /release-preflight:\n\s+node tools\/release-preflight\.js/);
+});
