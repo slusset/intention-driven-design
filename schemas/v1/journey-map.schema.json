@@ -10,15 +10,15 @@
     "id": { "type": "string", "minLength": 1 },
     "type": { "const": "journey-map" },
     "journey": { "type": "string", "minLength": 1 },
-    "description": {
-      "description": "Narrative summary of the journey this map describes.",
-      "type": "string"
-    },
+    "description": { "description": "Narrative summary of the journey this map describes.", "type": "string" },
     "preconditions": {
       "description": "Narrative or structured preconditions that must hold for this journey-map to apply.",
       "oneOf": [
         { "type": "string" },
-        { "type": "array", "items": { "type": ["string", "object"] } },
+        {
+          "type": "array",
+          "items": { "type": ["string", "object"] }
+        },
         { "type": "object" }
       ]
     },
@@ -130,8 +130,8 @@
           "type": "string"
         },
         "kind": {
-          "description": "Broad category of action. ui-interaction covers DOM-level verbs (click/fill/hover/...); navigation covers route changes; wait covers explicit delays or polling; network covers requests issued directly by the test.",
-          "enum": ["ui-interaction", "navigation", "wait", "network"]
+          "description": "Broad category of action. ui-interaction covers DOM-level verbs; navigation covers route changes; wait covers delays or polling; network covers requests issued directly by the test; cli runs an installed command; install manages a package or executable; mcp calls a Model Context Protocol server; harness drives an agent-harness integration.",
+          "enum": ["ui-interaction", "navigation", "wait", "network", "cli", "install", "mcp", "harness"]
         },
         "verb": {
           "description": "Optional fine-grained verb when `kind` alone is too coarse (e.g., kind:ui-interaction, verb:double-click).",
@@ -159,8 +159,20 @@
           "type": "string"
         },
         "kind": {
-          "description": "Broad category of assertion. dom = visible elements / text / attributes; url = route or query state; api = network response; cookie = cookie state; classification / tag / context = domain-level assertions about the principal or scenario.",
-          "enum": ["dom", "url", "api", "cookie", "classification", "tag", "context"]
+          "description": "Broad category of assertion. dom / url / api / cookie are browser-shaped; classification / tag / context are domain-level; lifecycle asserts a modeled state; authority asserts a grant, scope, or principal continuity; content asserts required or forbidden content; package asserts installed-artifact state.",
+          "enum": [
+            "dom",
+            "url",
+            "api",
+            "cookie",
+            "classification",
+            "tag",
+            "context",
+            "lifecycle",
+            "authority",
+            "content",
+            "package"
+          ]
         },
         "property": {
           "description": "What about the kind is being asserted. For dom: visibility | text | value | attribute | enabled | count. For url: matches | contains | query. For cookie: set | present | max-age. Open string because each kind has its own property vocabulary.",
@@ -177,14 +189,15 @@
           "description": "Expected HTTP status code for kind:api assertions.",
           "type": ["integer", "string"]
         },
-        "contains": {
-          "description": "Substring or fragment the assertion expects to find."
-        },
+        "contains": { "description": "Substring or fragment the assertion expects to find." },
         "pattern": {
           "description": "Regex or shape pattern the assertion expects to match.",
           "type": "string"
         },
-        "name": { "type": "string", "description": "Optional name for the assertion (useful when grouping)." },
+        "name": {
+          "type": "string",
+          "description": "Optional name for the assertion (useful when grouping)."
+        },
         "description": { "type": "string" },
         "$conformance": { "$ref": "#/$defs/conformance" },
         "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }

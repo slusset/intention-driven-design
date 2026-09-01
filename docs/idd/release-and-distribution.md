@@ -56,8 +56,11 @@ UAT update.
 
 When a schema pin is behind the candidate, the doctor also resolves the
 shortest ordered path in the packaged `migrations/catalog.json`. Review the
-listed IDs and steps as migration input; the catalog is report-only until a
-future doctor mode supplies deterministic transformations.
+listed IDs and steps as migration input. `idd doctor plan` writes the resolved
+path as an accepted-plan file, and `idd doctor apply` executes its `transform`
+steps through the registered deterministic transformations
+(`tools/lib/transformations.js`), then journals the evolution record under
+`.idd/evolution/`.
 
 Set a repository secret named `RELEASE_PLEASE_TOKEN` to a fine-grained token
 that can write contents, issues, and pull requests if checks must run

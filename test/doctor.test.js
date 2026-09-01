@@ -186,8 +186,9 @@ test('doctor reports stale consumer schema pins without writing', (t) => {
   assert.deepEqual(report.migration.catalog.migration_ids, [
     'schema-1-9-0-to-1-10-0',
     'schema-1-10-0-to-1-11-0',
+    'schema-1-11-0-to-1-12-0',
   ]);
-  assert.equal(report.migration.catalog.steps.length, 5);
+  assert.equal(report.migration.catalog.steps.length, 11);
   assert.equal(report.migration.writes, false);
 });
 

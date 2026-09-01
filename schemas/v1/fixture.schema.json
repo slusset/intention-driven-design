@@ -12,10 +12,37 @@
   "properties": {
     "id": { "type": "string", "minLength": 1 },
     "type": { "const": "fixture" },
+    "kind": {
+      "description": "Author taxonomy for the fixture (#81), e.g. `conformance-vector`, `application-contract-fixture`. `type` stays the constant `fixture` so the artifact kind is stable; `kind` says what sort of fixture it is.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
     "story": { "type": "string" },
+    "stories": { "type": "array", "items": { "type": "string" } },
     "feature": { "type": "string" },
+    "journey": { "type": "string" },
     "scenario": { "type": "string" },
+    "scenarios": { "type": "array", "items": { "type": "string" } },
     "contract": { "$ref": "#/$defs/contractRef" },
+    "contracts": { "type": "array", "items": { "$ref": "#/$defs/contractRef" } },
+    "rules": {
+      "description": "Rule ids the fixture exercises.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "sentinels": {
+      "description": "Tokens that must not appear where the fixture says they are discarded; a leak is detectable by substring. A list of tokens, or a field-name → token map.",
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        { "type": "object", "additionalProperties": { "type": "string" } }
+      ]
+    },
+    "description": { "type": "string" },
+    "statement": { "description": "Per-fixture statement of intent.", "type": "string" },
+    "harness": { "description": "Provenance of captured payloads (tool and version).", "type": "string" },
     "request": { "type": ["object", "array"] },
     "response": { "type": ["object", "array"] },
     "event": { "type": ["object", "array"] },
@@ -30,29 +57,51 @@
       "enum": ["canonical", "legacy-compatible", "experimental"]
     },
     "conformanceNotes": { "type": "string" },
-    "topLevelMetadata": {
-      "type": "object",
-      "required": ["id", "type"]
-    },
-    "nestedMetadata": {
-      "type": "object",
-      "required": ["_meta"]
-    },
+    "topLevelMetadata": { "type": "object", "required": ["id", "type"] },
+    "nestedMetadata": { "type": "object", "required": ["_meta"] },
     "metaBlock": {
       "type": "object",
       "required": ["id", "type"],
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "type": { "const": "fixture" },
+        "kind": {
+          "description": "Author taxonomy for the fixture (#81), e.g. `conformance-vector`, `application-contract-fixture`. `type` stays the constant `fixture` so the artifact kind is stable; `kind` says what sort of fixture it is.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
         "story": { "type": "string" },
+        "stories": { "type": "array", "items": { "type": "string" } },
         "feature": { "type": "string" },
+        "journey": { "type": "string" },
         "scenario": { "type": "string" },
+        "scenarios": { "type": "array", "items": { "type": "string" } },
         "contract": { "$ref": "#/$defs/contractRef" },
+        "contracts": { "type": "array", "items": { "$ref": "#/$defs/contractRef" } },
         "schema": { "type": "string" },
+        "rules": {
+          "description": "Rule ids the fixture exercises.",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "sentinels": {
+          "description": "Tokens that must not appear where the fixture says they are discarded; a leak is detectable by substring. A list of tokens, or a field-name → token map.",
+          "oneOf": [
+            {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            { "type": "object", "additionalProperties": { "type": "string" } }
+          ]
+        },
+        "description": { "type": "string" },
+        "statement": { "description": "Per-fixture statement of intent.", "type": "string" },
+        "harness": { "description": "Provenance of captured payloads (tool and version).", "type": "string" },
         "$conformance": { "$ref": "#/$defs/conformance" },
         "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
-      }
+      },
+      "description": "JSON fixture metadata. Enumerated keys are canonical; further keys are author-extensible because per-project fixture vocabulary cannot be enumerated ahead of time (#81)."
     },
     "contractRef": {
       "description": "Either a path to the contract file (string) or a structured contract reference.",

@@ -4,8 +4,12 @@
   "migrations": [
     {
       "id": "schema-1-9-0-to-1-10-0",
-      "from": { "schema": "1.9.0" },
-      "to": { "schema": "1.10.0" },
+      "from": {
+        "schema": "1.9.0"
+      },
+      "to": {
+        "schema": "1.10.0"
+      },
       "kind": "schema",
       "summary": "Adopt digest-pinned cross-module contract schemas.",
       "steps": [
@@ -30,8 +34,12 @@
     },
     {
       "id": "schema-1-10-0-to-1-11-0",
-      "from": { "schema": "1.10.0" },
-      "to": { "schema": "1.11.0" },
+      "from": {
+        "schema": "1.10.0"
+      },
+      "to": {
+        "schema": "1.11.0"
+      },
       "kind": "schema",
       "summary": "Record the accepted IDD Toolkit release, schema digest, and distribution provenance.",
       "steps": [
@@ -58,6 +66,60 @@
         "semantics": "review-required",
         "data": "unchanged",
         "operations": "review-required"
+      }
+    },
+    {
+      "id": "schema-1-11-0-to-1-12-0",
+      "from": {
+        "schema": "1.11.0"
+      },
+      "to": {
+        "schema": "1.12.0"
+      },
+      "kind": "schema",
+      "summary": "Adopt the canonical shapes from the second AlloyIdentity contact: kind-typed fixture metadata, identity kinds, conditional required, lifecycles over value objects, and protocol-shaped journey-map vocabulary.",
+      "steps": [
+        {
+          "id": "review-canonical-shapes",
+          "mode": "review",
+          "description": "Review the 1.12.0 canonical shapes (SCHEMA.md §Second consumer contact) and confirm the repository should adopt them; transformations below rewrite spec files in place."
+        },
+        {
+          "id": "fixture-meta-kind",
+          "mode": "transform",
+          "transformation": "fixture-meta-kind",
+          "description": "Move non-constant `_meta.type` values into `_meta.kind` and restore `type: fixture` on JSON fixtures."
+        },
+        {
+          "id": "identity-kind",
+          "mode": "transform",
+          "transformation": "identity-kind",
+          "description": "Write the inferred identity.kind into model documents that omit it."
+        },
+        {
+          "id": "attribute-required-when",
+          "mode": "transform",
+          "transformation": "attribute-required-when",
+          "description": "Rewrite bare-string conditional required: values into { when: … }."
+        },
+        {
+          "id": "record-consumer-contract",
+          "mode": "transform",
+          "transformation": "record-consumer-contract",
+          "description": "Move the idd_consumer front-matter pins in specs/skills/repo-overlay.md to the running toolkit."
+        },
+        {
+          "id": "validate-canonical-shapes",
+          "mode": "validate",
+          "description": "Run the deterministic validator suite and review remaining advisories (legacy-compatible spellings, narrative rules without ids)."
+        }
+      ],
+      "continuity": {
+        "identity": "preserved",
+        "intent": "preserved",
+        "semantics": "preserved",
+        "data": "transformed",
+        "operations": "unchanged"
       }
     }
   ]
