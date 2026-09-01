@@ -135,6 +135,41 @@ gaps:
   - "iPad viewport not included in visual regression"
 ```
 
+## Formal results and the evidence roll-up
+
+The verification map claims; a run observes. `idd evidence record` writes one
+`formal-result` record per observation into `.idd/evidence/results/`
+(JSONL per run), resolving the expected outcome and the satisfied rule ids
+from the maps, so a checker script only reports what it saw. Any checker can
+emit records — an Alloy driver per command, TLC per invariant, a vector
+replay per fixture, a mutation harness per probe — and a script that already
+writes JSON can write the record shape directly
+(`schemas/v1/formal-result.schema.json`).
+
+`idd evidence rollup --out .idd/evidence/rollup.json --markdown .idd/evidence/rollup.md`
+then derives, from the maps and the run's records, a coverage vector and a
+verification claim per rule and a derived claim per capability beside the
+declared one. Declared above derived is an error; an observation that
+contradicts the map is an error; an UNSAT assertion with no SAT witness is an
+advisory. The markdown is written for the CI job summary; the JSON is the
+durable artifact. Neither is committed.
+
+```
+.idd/evidence/
+├── results/               ← formal-result records, one JSONL per run
+│   └── <run-id>.jsonl
+├── rollup.json            ← derived roll-up (evidence-rollup schema)
+├── rollup.md              ← job-summary rendering of the same
+└── {capability-name}/     ← certification manifests (above)
+```
+
+The roll-up is the mechanical half of the gap between technical correctness
+and intent: it proves claims are grounded, observed, and not overstated. The
+other half — whether the rule's statement and its probe mean what the
+principal meant — stays a human decision, and the roll-up reserves a
+`ratification` field for the day that decision is recorded as a signed spec
+digest.
+
 ## Capability artifacts
 
 Certification happens at the capability level, not the PR level. A capability is the smallest unit of intent that delivers independently verifiable user value (C15).

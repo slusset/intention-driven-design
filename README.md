@@ -238,6 +238,10 @@ idd doctor [--repo <dir>]      Inspect migration alignment/catalog (report-only)
 idd doctor plan [--out <file>] Generate a deterministic, digest-pinned migration plan
 idd doctor apply --plan <file> Apply an accepted plan (--accept <migration-id>,
                                writes .idd/evolution/ evidence, never journal history)
+idd evidence record ...        Write one formal-result record for an observed probe
+                               (into .idd/evidence/results/, expected outcome resolved from the maps)
+idd evidence rollup            Derive per-rule coverage and per-capability verification claims
+                               from a run's records, beside the declared claims (--strict gates)
 idd version                    Print version
 ```
 

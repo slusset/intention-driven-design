@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/evidence-rollup.schema.json",
+  "title": "IDD Evidence Roll-up",
+  "description": "Derived per-run view of claims versus observations: a coverage vector and a derived verification claim per rule, the derived claim beside the declared one per capability, and findings. Generated, never committed (v1.14).",
+  "type": "object",
+  "required": ["rollup_version", "kind", "generated_at", "run", "capabilities", "rules", "findings", "summary"],
+  "properties": {
+    "rollup_version": { "const": 1 },
+    "kind": { "const": "evidence-rollup" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "repository": { "type": "object" },
+    "run": {
+      "type": "object",
+      "required": ["ids", "revisions", "environments"],
+      "properties": {
+        "ids": { "type": "array", "items": { "type": "string" } },
+        "revisions": { "type": "array", "items": { "type": "string" } },
+        "environments": {
+          "type": "array",
+          "items": { "enum": ["ci", "local"] }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["map", "rules", "derived", "status", "ratification"],
+        "properties": {
+          "map": { "type": "string" },
+          "module": { "type": ["string", "null"] },
+          "rules": { "type": "integer" },
+          "rules_with_executable_probes": { "type": "integer" },
+          "declared": { "type": ["object", "null"] },
+          "derived": {
+            "type": "object",
+            "required": ["verification"],
+            "properties": {
+              "verification": { "enum": ["not-verified", "locally-verified", "verified"] }
+            }
+          },
+          "status": { "enum": ["consistent", "overstated", "understated", "undeclared"] },
+          "ratification": {
+            "description": "Whether a principal has ratified the rule statements against their probes at the current spec digest. Reserved; always not-assessed until the journal anchor exists.",
+            "enum": ["not-assessed"]
+          }
+        }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["map", "coverage", "witness", "derived"],
+        "properties": {
+          "map": { "type": "string" },
+          "capability": { "type": "string" },
+          "module": { "type": ["string", "null"] },
+          "coverage": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["declared", "matched", "mismatched", "unpinned", "unobserved"],
+              "properties": {
+                "declared": { "type": "integer" },
+                "matched": { "type": "integer" },
+                "mismatched": { "type": "integer" },
+                "unpinned": { "type": "integer" },
+                "unobserved": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "witness": {
+            "type": "object",
+            "required": ["assertions", "witnessed", "witnessless"],
+            "properties": {
+              "assertions": { "type": "integer" },
+              "witnessed": { "type": "integer" },
+              "witnessless": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "derived": { "enum": ["not-verified", "locally-verified", "verified"] },
+          "reasons": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "orphan_results": { "type": "array" },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "subject", "detail"],
+        "properties": {
+          "id": { "type": "string" },
+          "severity": { "enum": ["error", "advisory", "info"] },
+          "subject": { "type": "string" },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["status", "errors", "advisories", "infos"],
+      "properties": {
+        "status": { "enum": ["pass", "advisories", "fail"] }
+      }
+    }
+  }
+}

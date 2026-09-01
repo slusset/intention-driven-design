@@ -157,6 +157,42 @@
         "data": "unchanged",
         "operations": "review-required"
       }
+    },
+    {
+      "id": "schema-1-13-0-to-1-14-0",
+      "from": {
+        "schema": "1.13.0"
+      },
+      "to": {
+        "schema": "1.14.0"
+      },
+      "kind": "schema",
+      "summary": "Introduce formal-result records and the evidence roll-up: checkers emit one record per probe into .idd/evidence/results/, and `idd evidence rollup` derives per-rule coverage and per-capability verification claims beside the declared ones.",
+      "steps": [
+        {
+          "id": "review-evidence-rollup",
+          "mode": "review",
+          "description": "Review how the repository gate will emit formal-result records (idd evidence record, or JSONL written by the checker scripts) and where the roll-up runs in CI."
+        },
+        {
+          "id": "record-consumer-contract",
+          "mode": "transform",
+          "transformation": "record-consumer-contract",
+          "description": "Move the idd_consumer front-matter pins in specs/skills/repo-overlay.md to the running toolkit."
+        },
+        {
+          "id": "validate-evidence-rollup",
+          "mode": "validate",
+          "description": "Run the deterministic validator suite; then run `idd evidence rollup` against a real run and review declared-above-derived findings before gating on --strict."
+        }
+      ],
+      "continuity": {
+        "identity": "preserved",
+        "intent": "preserved",
+        "semantics": "preserved",
+        "data": "unchanged",
+        "operations": "review-required"
+      }
     }
   ]
 }

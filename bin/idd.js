@@ -7,6 +7,8 @@ const fs = require('fs');
 const { execFileSync, spawn } = require('child_process');
 const { createModule, linkModule, statusModules } = require('../tools/lib/module-scaffold');
 const { SEVERITIES, filterReport, formatDoctorReport, runDoctor } = require('../tools/lib/doctor');
+const { OUTCOMES, PROBE_KINDS, appendFormalResult, buildFormalResult } = require('../tools/lib/formal-results');
+const { formatRollupMarkdown, rollupEvidence } = require('../tools/lib/evidence-rollup');
 const { applyMigrationPlan, buildMigrationPlan, formatApplyResult } = require('../tools/lib/evolution');
 const { toolCommand } = require('../tools/lib/tool-runner');
 const { findToolkitRoot } = require('../tools/lib/toolkit-root');
@@ -27,6 +29,7 @@ const commands = {
   init: cmdInit,
   module: cmdModule,
   doctor: cmdDoctor,
+  evidence: cmdEvidence,
   version: cmdVersion,
   help: cmdHelp,
   __tool: cmdTool,
@@ -447,6 +450,91 @@ function cmdGenerateEvidence(argv) {
   process.exit(exitCode);
 }
 
+// ── evidence ─────────────────────────────────────────────────────────
+// `evidence record` writes one formal-result record for an observation the
+// repository gate made (an Alloy command, a TLC invariant, a replayed vector,
+// a mutation probe); `evidence rollup` derives per-rule coverage and
+// per-capability verification claims from a run's records and puts them
+// beside the claims the verification maps declare. Both work in the
+// gitignored .idd/evidence/ workspace and never commit anything.
+
+function parseOptions(argv, spec, usage) {
+  const options = { _: [] };
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (!arg.startsWith('--')) { options._.push(arg); continue; }
+    const key = arg.slice(2);
+    if (spec.flags.includes(key)) { options[key] = true; continue; }
+    if (!spec.values.includes(key)) { console.error(`Unknown option: ${arg}\n${usage}`); process.exit(1); }
+    if (argv[i + 1] === undefined || argv[i + 1].startsWith('--')) { console.error(`${arg} requires a value`); process.exit(1); }
+    options[key] = argv[++i];
+  }
+  return options;
+}
+
+function evidenceRecordUsage() {
+  return `Usage: idd evidence record --tool <name> --kind <probe-kind> --name <probe> --observed <outcome>
+         [--source <repo-path>] [--scope <text>] [--expected <outcome>] [--lock <formal-tools.lock.json>]
+         [--tool-version <v>] [--run-id <id>] [--revision <sha>] [--environment ci|local]
+         [--duration-ms <n>] [--detail <text>] [--results-dir <dir>] [--repo <dir>] [--json]
+  probe kinds: ${PROBE_KINDS.join(', ')}`;
+}
+
+function evidenceRollupUsage() {
+  return 'Usage: idd evidence rollup [--results-dir <dir>] [--out <file>] [--markdown <file>] [--repo <dir>] [--json] [--strict]';
+}
+
+function cmdEvidence(argv) {
+  const operation = argv[0];
+  if (operation === 'record') return cmdEvidenceRecord(argv.slice(1));
+  if (operation === 'rollup') return cmdEvidenceRollup(argv.slice(1));
+  console.error(`${evidenceRecordUsage()}\n${evidenceRollupUsage()}`);
+  process.exit(1);
+}
+
+function cmdEvidenceRecord(argv) {
+  const o = parseOptions(argv, {
+    flags: ['json'],
+    values: ['tool', 'kind', 'name', 'observed', 'source', 'scope', 'expected', 'lock', 'tool-version', 'run-id', 'revision', 'environment', 'duration-ms', 'detail', 'results-dir', 'repo'],
+  }, evidenceRecordUsage());
+  for (const required of ['tool', 'kind', 'name', 'observed']) {
+    if (!o[required]) { console.error(`--${required} is required\n${evidenceRecordUsage()}`); process.exit(1); }
+  }
+  if (!PROBE_KINDS.includes(o.kind)) { console.error(`--kind must be one of ${PROBE_KINDS.join(', ')}`); process.exit(1); }
+  if (!OUTCOMES[o.kind].includes(o.observed)) { console.error(`--observed must be one of ${OUTCOMES[o.kind].join(', ')} for ${o.kind}`); process.exit(1); }
+  const repoRoot = path.resolve(o.repo || process.cwd());
+  const record = buildFormalResult(repoRoot, {
+    tool: o.tool, toolVersion: o['tool-version'], lock: o.lock,
+    kind: o.kind, name: o.name, source: o.source, scope: o.scope,
+    observed: o.observed, expected: o.expected,
+    runId: o['run-id'], revision: o.revision, environment: o.environment,
+    durationMs: o['duration-ms'] !== undefined ? Number(o['duration-ms']) : undefined, detail: o.detail,
+  });
+  const file = appendFormalResult(repoRoot, record, o['results-dir']);
+  if (o.json) console.log(JSON.stringify({ file, record }, null, 2));
+  else console.log(`${record.verdict}: ${record.probe.kind} ${record.probe.name}${record.probe.source ? ` (${record.probe.source})` : ''} observed ${record.observed}${record.expected ? `, expected ${record.expected}` : ''} → ${file}`);
+  process.exit(record.verdict === 'mismatch' ? 1 : 0);
+}
+
+function cmdEvidenceRollup(argv) {
+  const o = parseOptions(argv, { flags: ['json', 'strict'], values: ['results-dir', 'out', 'markdown', 'repo'] }, evidenceRollupUsage());
+  const repoRoot = path.resolve(o.repo || process.cwd());
+  const rollup = rollupEvidence(repoRoot, { resultsDir: o['results-dir'] });
+  if (o.out) {
+    fs.mkdirSync(path.dirname(path.resolve(o.out)), { recursive: true });
+    fs.writeFileSync(path.resolve(o.out), `${JSON.stringify(rollup, null, 2)}\n`);
+  }
+  const markdown = formatRollupMarkdown(rollup);
+  if (o.markdown) {
+    fs.mkdirSync(path.dirname(path.resolve(o.markdown)), { recursive: true });
+    fs.writeFileSync(path.resolve(o.markdown), `${markdown}\n`);
+  }
+  if (o.json) console.log(JSON.stringify(rollup, null, 2));
+  else console.log(markdown);
+  const failing = rollup.summary.errors > 0 || (o.strict && rollup.summary.advisories > 0);
+  process.exit(failing ? 1 : 0);
+}
+
 // ── init ─────────────────────────────────────────────────────────────
 
 function cmdInit(argv) {
@@ -561,6 +649,9 @@ Commands:
                                [--severity error,advisory,info] [--summary] [--verbose]
   doctor plan [--out <file>]   Generate a deterministic migration plan
   doctor apply --plan <file>   Apply an accepted plan (writes evolution evidence)
+  evidence record ...          Write one formal-result record for an observed probe
+  evidence rollup              Derive per-rule coverage and per-capability claims
+                               from a run's records, beside the declared claims
   version                      Print version
   help                         Show this help
 
@@ -575,6 +666,9 @@ Examples:
   idd doctor --repo ../consumer --severity error --summary
   idd doctor plan --repo ../consumer --out migration-plan.json
   idd doctor apply --plan migration-plan.json --accept adopt-consumer-contract --repo ../consumer
+  idd evidence record --tool alloy --kind alloy-command --name OneGenesisPerPrincipal \
+      --source alloy/identity_continuity.als --observed UNSAT --lock formal-tools.lock.json
+  idd evidence rollup --out .idd/evidence/rollup.json --markdown .idd/evidence/rollup.md --strict
 `);
 }
 
