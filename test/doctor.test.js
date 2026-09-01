@@ -10,6 +10,7 @@ const { digestJsonFile } = require('../tools/lib/contract-digests');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const IDD_BIN = path.join(REPO_ROOT, 'bin', 'idd.js');
+const TOOLKIT_VERSION = require(path.join(REPO_ROOT, 'package.json')).version;
 
 function runDoctor(args = []) {
   return JSON.parse(execFileSync(process.execPath, [IDD_BIN, 'doctor', '--json', ...args], {
@@ -37,8 +38,8 @@ test('doctor reports aligned toolkit surfaces without claiming continuity', () =
 
   assert.equal(report.mode, 'report-only');
   assert.equal(report.repository.toolkit_repository, true);
-  assert.equal(report.repository.toolkit_version, '0.1.0-uat.1');
-  assert.equal(report.repository.schema_version, '1.11.0');
+  assert.equal(report.repository.toolkit_version, TOOLKIT_VERSION);
+  assert.equal(report.repository.schema_version, require(path.join(REPO_ROOT, 'schemas', 'v1', 'index.json')).version);
   assert.equal(report.summary.status, 'aligned');
   assert.equal(report.migration.writes, false);
   assert.equal(report.migration.journal_mutation, false);
@@ -128,13 +129,13 @@ test('doctor accepts a valid overlay consumer contract and matches its schema di
     'idd_consumer:',
     '  schemaVersion: 1',
     '  toolkit:',
-    '    version: 0.1.0-uat.1',
+    `    version: ${TOOLKIT_VERSION}`,
     '    schema:',
     `      version: ${schemaVersion}`,
     `      digest: ${schemaDigest}`,
     '    source:',
     '      kind: github-tag',
-    '      ref: v0.1.0-uat.1',
+    `      ref: v${TOOLKIT_VERSION}`,
     '---',
     '# Consumer overlay',
     '',
