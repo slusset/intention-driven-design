@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/slusset/intention-driven-design/evals/contracts/experiment-record.schema.json",
+  "title": "IDD Experiment Record",
+  "description": "experiment-record@1: a closed, bounded, digest-pinned record of one methodology-evaluation trial. Every trial must be reconstructable from its record alone.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["record_version", "kind", "id", "scenario", "condition", "environment", "metrics", "artifacts", "timestamps", "digest"],
+  "properties": {
+    "record_version": { "const": 1 },
+    "kind": { "const": "idd-experiment-record" },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9.]+)*$" },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "task", "seed_digest"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "task": { "type": "string", "minLength": 1 },
+        "seed_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["toolkit_version", "schema_version", "schema_digest", "node"],
+      "properties": {
+        "toolkit_version": { "$ref": "#/$defs/semver" },
+        "schema_version": { "$ref": "#/$defs/semver" },
+        "schema_digest": { "$ref": "#/$defs/digest" },
+        "node": { "type": "string", "minLength": 1 }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deterministic", "judged"],
+      "properties": {
+        "deterministic": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["checks", "errors", "warnings", "traceability_closure", "contract_conformance", "fixture_integrity"],
+          "properties": {
+            "checks": {
+              "type": "object",
+              "additionalProperties": false,
+              "patternProperties": {
+                "^[a-z]+(?:-[a-z]+)*$": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["status", "errors", "warnings"],
+                  "properties": {
+                    "status": { "enum": ["pass", "advisory", "error"] },
+                    "errors": { "type": "integer", "minimum": 0 },
+                    "warnings": { "type": "integer", "minimum": 0 }
+                  }
+                }
+              }
+            },
+            "errors": { "type": "integer", "minimum": 0 },
+            "warnings": { "type": "integer", "minimum": 0 },
+            "traceability_closure": { "type": "boolean" },
+            "contract_conformance": { "type": "boolean" },
+            "fixture_integrity": { "type": "boolean" }
+          }
+        },
+        "judged": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["metric", "score", "rubric_digest", "judge", "human_spot_check_percent"],
+            "properties": {
+              "metric": { "type": "string", "minLength": 1 },
+              "score": { "type": "number" },
+              "rationale": { "type": "string" },
+              "rubric_digest": { "$ref": "#/$defs/digest" },
+              "judge": { "type": "string", "minLength": 1 },
+              "human_spot_check_percent": { "type": "number", "minimum": 0, "maximum": 100 }
+            }
+          }
+        }
+      }
+    },
+    "measurements": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "wall_clock_ms": { "type": "integer", "minimum": 0 },
+        "tokens": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "digest"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "digest": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "timestamps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["started", "finished"],
+      "properties": {
+        "started": { "type": "string", "format": "date-time" },
+        "finished": { "type": "string", "format": "date-time" }
+      }
+    },
+    "digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

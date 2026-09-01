@@ -387,6 +387,15 @@ idd validate fixtures models --strict
 
 Available validators: `modules`, `verification`, `contracts`, `traceability`, `front-matter`, `capability-scope`, `capability-closure`, `fixtures`, `models`, `enforcement-bindings`, `journey-maps`, `evidence`.
 
+### Evaluating the methodology itself
+
+The same validators double as the deterministic checker tier of the
+methodology-evaluation instrument in [`evals/`](evals/README.md): scenario +
+condition trials recorded as closed, digest-pinned `experiment-record@1`
+artifacts, with a small pinned judged tier. The instrument lives outside the
+release unit and no benchmark number ever gates a merge — see the charter in
+`evals/README.md`.
+
 ## Module scaffolding
 
 Create a bounded-context module chain without moving or overwriting existing specifications:
