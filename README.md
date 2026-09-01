@@ -402,6 +402,11 @@ pin; it never moves existing specs or edits a contract's `x-rules`.
 deprecated structures, and validator findings without writing files or
 mutating journal history. See [`docs/idd/evolution-and-migration.md`](docs/idd/evolution-and-migration.md).
 
+Consumer repositories can record their accepted toolkit contract in the
+`idd_consumer` front-matter block of `specs/skills/repo-overlay.md`. The record
+pins the toolkit release, schema-registry version/digest, and distribution
+provenance; it is separate from the consumer's own IDD modules and capabilities.
+
 Common CLI options:
 - `--files <paths...>` limit checks to specific files
 - `--json` machine-readable output for CI aggregation

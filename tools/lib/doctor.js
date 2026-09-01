@@ -3,6 +3,8 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { digestJsonFile } = require('./contract-digests');
+const { readConsumerContract } = require('./consumer-contract');
 
 const DIAGNOSTIC_CHECKS = [
   'modules',
@@ -162,6 +164,107 @@ function inspectToolkitSurfaces(repoRoot, report) {
 }
 
 function inspectConsumer(repoRoot, report) {
+  const toolkitRoot = path.resolve(__dirname, '..', '..');
+  const runningToolkit = readJson(path.join(toolkitRoot, 'package.json')) || {};
+  const runningSchema = readJson(path.join(toolkitRoot, 'schemas', 'v1', 'index.json')) || {};
+  let runningSchemaDigest = null;
+  try {
+    runningSchemaDigest = digestJsonFile(path.join(toolkitRoot, 'schemas', 'v1', 'index.json'));
+  } catch {
+    // The toolkit repository's own doctor reports an unreadable schema.
+  }
+  report.repository.doctor_toolkit_version = runningToolkit.version || null;
+  report.repository.doctor_schema_version = runningSchema.version || null;
+  report.repository.doctor_schema_digest = runningSchemaDigest;
+
+  const consumerContract = readConsumerContract(repoRoot);
+  report.repository.consumer_contract = {
+    path: consumerContract.path,
+    status: consumerContract.status,
+    toolkit_version: consumerContract.record?.toolkit?.version || null,
+    schema_version: consumerContract.record?.toolkit?.schema?.version || null,
+    schema_digest: consumerContract.record?.toolkit?.schema?.digest || null,
+    source: consumerContract.record?.toolkit?.source || null,
+  };
+  if (consumerContract.status === 'missing' || consumerContract.status === 'unrecorded') {
+    report.findings.push(finding(
+      'consumer-contract-unrecorded',
+      'advisory',
+      consumerContract.path,
+      'accepted IDD Toolkit contract is not recorded',
+      'idd_consumer front matter with toolkit/schema/source pins',
+      'semantic-continuity-unassessed',
+      'Record the accepted UAT toolkit and schema-registry contract before applying a consumer migration',
+      [consumerContract.path],
+    ));
+  } else if (consumerContract.status === 'invalid') {
+    for (const message of consumerContract.errors) {
+      report.findings.push(finding(
+        'consumer-contract-invalid',
+        'error',
+        consumerContract.path,
+        message,
+        'valid idd_consumer contract record',
+        'requires-migration-review',
+        'Repair the consumer contract record before relying on doctor drift findings',
+        [consumerContract.path],
+      ));
+    }
+  } else if (consumerContract.record) {
+    const pinnedToolkit = consumerContract.record.toolkit;
+    if (runningToolkit.version && pinnedToolkit.version !== runningToolkit.version) {
+      report.findings.push(finding(
+        'consumer-toolkit-pin-drift',
+        'advisory',
+        `${consumerContract.path}: toolkit.version`,
+        pinnedToolkit.version,
+        runningToolkit.version,
+        'requires-disposition',
+        'Run the doctor against the accepted toolkit candidate or update the consumer pin through a migration review',
+        [consumerContract.path],
+      ));
+    }
+    if (runningSchema.version && pinnedToolkit.schema.version !== runningSchema.version) {
+      report.findings.push(finding(
+        'consumer-schema-version-drift',
+        'advisory',
+        `${consumerContract.path}: toolkit.schema.version`,
+        pinnedToolkit.schema.version,
+        runningSchema.version,
+        'requires-disposition',
+        'Review schema migrations before accepting the new toolkit candidate',
+        [consumerContract.path],
+      ));
+    }
+    if (runningSchemaDigest && pinnedToolkit.schema.digest !== runningSchemaDigest) {
+      report.findings.push(finding(
+        'consumer-schema-digest-drift',
+        'advisory',
+        `${consumerContract.path}: toolkit.schema.digest`,
+        pinnedToolkit.schema.digest,
+        runningSchemaDigest,
+        'semantic-continuity-unassessed',
+        'Inspect the schema migration and record which consumer meanings remain continuous',
+        [consumerContract.path],
+      ));
+    }
+    const expectedSourceRef = pinnedToolkit.source.kind === 'github-tag'
+      ? `v${pinnedToolkit.version}`
+      : pinnedToolkit.source.kind === 'npm' ? pinnedToolkit.version : null;
+    if (expectedSourceRef && pinnedToolkit.source.ref !== expectedSourceRef) {
+      report.findings.push(finding(
+        'consumer-source-ref-drift',
+        'advisory',
+        `${consumerContract.path}: toolkit.source.ref`,
+        pinnedToolkit.source.ref,
+        expectedSourceRef,
+        'requires-disposition',
+        'Align source provenance with the accepted toolkit version',
+        [consumerContract.path],
+      ));
+    }
+  }
+
   const packageJson = readJson(path.join(repoRoot, 'package.json')) || {};
   const dependencies = {
     ...(packageJson.dependencies || {}),
@@ -170,7 +273,7 @@ function inspectConsumer(repoRoot, report) {
   };
   const toolkitDependency = dependencies['idd-toolkit'];
   report.repository.consumer_toolkit_spec = toolkitDependency || null;
-  if (!toolkitDependency) {
+  if (!toolkitDependency && !consumerContract.record) {
     report.findings.push(finding(
       'consumer-toolkit-version-unrecorded',
       'info',
@@ -309,6 +412,10 @@ function runDoctor(options = {}) {
       release_ledger_version: null,
       plugin_versions: {},
       consumer_toolkit_spec: null,
+      consumer_contract: null,
+      doctor_toolkit_version: null,
+      doctor_schema_version: null,
+      doctor_schema_digest: null,
     },
     continuity: {
       status: 'not-assessed',

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/consumer-contract.schema.json",
+  "title": "IDD Consumer Contract",
+  "description": "The methodology and distribution contract a consumer repository accepts from the IDD Toolkit.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["idd_consumer"],
+  "properties": {
+    "idd_consumer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "toolkit"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "toolkit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version", "schema", "source"],
+          "properties": {
+            "version": { "$ref": "#/$defs/semver" },
+            "schema": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["version", "digest"],
+              "properties": {
+                "version": { "$ref": "#/$defs/semver" },
+                "digest": { "$ref": "#/$defs/digest" }
+              }
+            },
+            "source": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "ref"],
+              "properties": {
+                "kind": {
+                  "enum": ["github-tag", "npm", "claude-plugin", "codex-plugin", "github-skills", "local"]
+                },
+                "ref": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "semver": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}
