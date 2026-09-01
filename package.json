@@ -39,6 +39,7 @@
     "tools/validate-*.js",
     "tools/generate-evidence.js",
     "tools/graph-generation/",
+    "migrations/",
     "schemas/",
     "skills/",
     "docs/",

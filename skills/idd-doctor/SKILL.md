@@ -31,6 +31,7 @@ stable integration surface for CI, migration planning, and later doctor modes.
 - consumer toolkit dependency pinning and module adoption;
 - the consumer's `idd_consumer` contract in repo-overlay front matter;
 - accepted toolkit release, schema-registry version/digest, and distribution provenance;
+- the toolkit's report-only migration catalog and applicable schema path;
 - committed generated certification evidence and other deprecated structures;
 - all read-only IDD validators, excluding run-specific evidence validation;
 - continuity impact for each finding.
@@ -66,11 +67,13 @@ For an accepted UAT candidate:
 1. Run `idd doctor --repo <consumer> --json` and retain the report.
 2. Review findings and decide whether each requires migration, disposition, or
    no action.
-3. Use the next doctor mode to produce a migration plan; do not hand-edit a
+3. Review any cataloged migration IDs and steps; a missing path is an explicit
+   design task, not permission to guess a transformation.
+4. Use the next doctor mode to produce a migration plan; do not hand-edit a
    consumer based only on the report.
-4. Apply transformations in a consumer feature branch, then run
+5. Apply transformations in a consumer feature branch, then run
    `idd validate all` and the consumer's own checks.
-5. Publish generated evidence with the migration PR before accepting the UAT.
+6. Publish generated evidence with the migration PR before accepting the UAT.
 
 The report-only phase is intentionally useful before migration code exists:
 it makes drift visible while keeping repository and journal state unchanged.

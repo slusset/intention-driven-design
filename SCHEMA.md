@@ -226,6 +226,11 @@ consumer's own capabilities, module DAG, or verification maps. `idd doctor`
 compares the record with the toolkit and schema registry it is running and
 reports drift without applying a migration.
 
+The report-only migration catalog under [`migrations/`](migrations/) is
+deliberately separate from the v1 schema registry. Adding catalog metadata does
+not change the schema-registry digest; a registry change still requires the
+consumer contract's schema version and digest review.
+
 ## Closed-world keys and `$conformance` (v1.1)
 
 Every structured-tier schema sets `additionalProperties: false` (or

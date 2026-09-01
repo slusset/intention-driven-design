@@ -54,6 +54,11 @@ The schema-registry digest is the `jcs-sha256@1` digest of the toolkit's exact
 installation so a stale pin becomes a migration finding before accepting the
 UAT update.
 
+When a schema pin is behind the candidate, the doctor also resolves the
+shortest ordered path in the packaged `migrations/catalog.json`. Review the
+listed IDs and steps as migration input; the catalog is report-only until a
+future doctor mode supplies deterministic transformations.
+
 Set a repository secret named `RELEASE_PLEASE_TOKEN` to a fine-grained token
 that can write contents, issues, and pull requests if checks must run
 automatically on prepared Release Please PRs. The workflow falls back to
