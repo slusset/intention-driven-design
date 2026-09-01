@@ -43,7 +43,7 @@ function pushRef(set, value) {
 function pushRefs(set, value) {
   if (!value) return;
   if (Array.isArray(value)) {
-    for (const item of value) pushRef(set, item);
+    for (const item of value) pushRefs(set, item); // items may be strings or { ref } objects
   } else if (typeof value === 'string') {
     pushRef(set, value);
   } else if (typeof value === 'object') {
@@ -135,12 +135,11 @@ function extractFromYamlDocument(filePath, content) {
   if (isFixture) {
     const meta = doc._meta && typeof doc._meta === 'object' ? doc._meta : doc;
     pushRefs(refs, meta.story);
+    pushRefs(refs, meta.stories);
     pushRefs(refs, meta.feature);
-    if (meta.contract && typeof meta.contract === 'object' && typeof meta.contract.ref === 'string') {
-      pushRef(refs, meta.contract.ref);
-    } else if (typeof meta.contract === 'string') {
-      pushRef(refs, meta.contract);
-    }
+    pushRefs(refs, meta.journey);
+    pushRefs(refs, meta.contract);
+    pushRefs(refs, meta.contracts);
   }
 
   // Contracts: walk recursively for x-story / x-feature / x-journey extensions.
@@ -177,8 +176,11 @@ function extractFromJsonFixture(content) {
   if (!doc || typeof doc !== 'object') return refs;
   const meta = doc._meta && typeof doc._meta === 'object' ? doc._meta : doc;
   pushRefs(refs, meta.story);
+  pushRefs(refs, meta.stories);
   pushRefs(refs, meta.feature);
+  pushRefs(refs, meta.journey);
   pushRefs(refs, meta.contract);
+  pushRefs(refs, meta.contracts);
   return refs;
 }
 

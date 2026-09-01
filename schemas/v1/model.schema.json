@@ -11,7 +11,28 @@
     "type": { "const": "model" },
     "description": { "type": "string" },
     "sources": { "$ref": "#/$defs/sources" },
-    "rules": { "type": "array", "items": { "$ref": "#/$defs/rule" } },
+    "lifecycle": { "description": "Path to the lifecycle document for this model.", "type": "string" },
+    "contract": {
+      "description": "Path to the contract (JSON Schema / OpenAPI / AsyncAPI) this model is realized by.",
+      "type": "string"
+    },
+    "contracts": {
+      "description": "Contract paths this model is realized by, as a list or a name → path map.",
+      "oneOf": [
+        { "type": "array", "items": { "type": "string" } },
+        { "type": "object", "additionalProperties": { "type": "string" } }
+      ]
+    },
+    "rules": {
+      "description": "Business rules. Object form carries an id (the join key cited by lifecycles, features, fixtures, and evidence); a bare string is accepted as narrative and reported as advisory.",
+      "type": "array",
+      "items": {
+        "anyOf": [
+          { "type": "string", "minLength": 1 },
+          { "$ref": "#/$defs/rule" }
+        ]
+      }
+    },
     "invariants": {
       "description": "Document-level invariants narrative — promotes to canonical from edyoucate-ai usage.",
       "type": "array",
@@ -25,21 +46,12 @@
     "aggregate": { "type": "string", "minLength": 1 },
     "catalog": { "type": "string", "minLength": 1 },
     "value_object": { "type": "string", "minLength": 1 },
-    "value_objects": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/nestedValueObject" }
-    },
-    "entities": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/nestedEntity" }
-    },
+    "value_objects": { "type": "object", "additionalProperties": { "$ref": "#/$defs/nestedValueObject" } },
+    "entities": { "type": "object", "additionalProperties": { "$ref": "#/$defs/nestedEntity" } },
     "identity": { "$ref": "#/$defs/identity" },
     "attributes": { "$ref": "#/$defs/attributeBlock" },
     "properties": { "$ref": "#/$defs/attributeBlock" },
-    "relationships": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/relationship" }
-    },
+    "relationships": { "type": "object", "additionalProperties": { "$ref": "#/$defs/relationship" } },
     "entries": { "type": "object" },
     "items": { "type": "object" },
     "value_type": {
@@ -84,12 +96,14 @@
     { "required": ["catalog"] },
     {
       "required": ["value_objects"],
-      "not": { "anyOf": [
-        { "required": ["entity"] },
-        { "required": ["aggregate"] },
-        { "required": ["catalog"] },
-        { "required": ["value_object"] }
-      ] }
+      "not": {
+        "anyOf": [
+          { "required": ["entity"] },
+          { "required": ["aggregate"] },
+          { "required": ["catalog"] },
+          { "required": ["value_object"] }
+        ]
+      }
     }
   ],
   "$defs": {
@@ -101,7 +115,10 @@
     "constraints": {
       "description": "Constraint declarations. Two accepted forms: an array of narrative tags (e.g., [non-empty, immutable]) or an object whose keys are constraint names with values (e.g., { minLength: 2, maxLength: 200, pattern: ... }). Both are canonical.",
       "oneOf": [
-        { "type": "array", "items": { "type": ["string", "object"] } },
+        {
+          "type": "array",
+          "items": { "type": ["string", "object"] }
+        },
         { "type": "object" }
       ]
     },
@@ -131,11 +148,55 @@
       }
     },
     "identity": {
+      "description": "How instances of this model are identified (#83). kind:field names one attribute; kind:composite names several attributes that identify together; kind:content has no field — identity is the canonical bytes, defined by equality. kind may be omitted and is then inferred from which of field / fields / equality is present.",
       "type": "object",
-      "required": ["field"],
       "additionalProperties": false,
+      "anyOf": [
+        { "required": ["field"] },
+        { "required": ["fields"] },
+        { "required": ["equality"] }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "kind": { "const": "field" } },
+            "required": ["kind"]
+          },
+          "then": { "required": ["field"] }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "composite" } },
+            "required": ["kind"]
+          },
+          "then": { "required": ["fields"] }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "content" } },
+            "required": ["kind"]
+          },
+          "then": { "required": ["equality"] }
+        }
+      ],
       "properties": {
-        "field": { "type": "string" },
+        "kind": { "enum": ["field", "composite", "content"] },
+        "field": { "type": "string", "minLength": 1 },
+        "fields": {
+          "description": "Attributes that identify the instance together (composite key).",
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "equality": {
+          "description": "What makes two instances the same. Required for content identity, where there is no field to name (e.g. `canonical-bytes`, `digest`, or a short statement of the comparison).",
+          "type": "string",
+          "minLength": 1
+        },
+        "immutable": {
+          "description": "The identity never changes for the lifetime of the instance. Implied for value objects.",
+          "type": "boolean"
+        },
         "type": { "type": "string" },
         "format": {
           "description": "ID format declaration (e.g., `prefixed-ulid`, `uuid-v4`). Drives ID generation and validation downstream.",
@@ -145,10 +206,8 @@
           "description": "Prefix string applied to generated IDs (e.g., `cust_` produces `cust_01HZZ...`).",
           "type": "string"
         },
-        "example": {
-          "description": "Concrete example of a valid identifier.",
-          "type": ["string", "number"]
-        },
+        "example": { "description": "Concrete example of a valid identifier.", "type": ["string", "number"] },
+        "description": { "type": "string" },
         "notes": { "type": "string" },
         "$conformance": { "$ref": "#/$defs/conformance" },
         "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
@@ -156,17 +215,57 @@
     },
     "attribute": {
       "type": "object",
-      "required": ["type"],
       "additionalProperties": false,
       "properties": {
         "type": { "type": "string" },
-        "required": { "type": "boolean" },
+        "required": {
+          "description": "Whether the attribute must be present (#82). boolean for an unconditional obligation; `{ when: <condition> }` for an obligation under a named condition; a bare string is the legacy spelling of the conditional form and is reported as legacy-compatible.",
+          "anyOf": [
+            { "type": "boolean" },
+            { "type": "string", "minLength": 1 },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["when"],
+              "properties": {
+                "when": { "$ref": "#/$defs/condition" },
+                "$conformance": { "$ref": "#/$defs/conformance" },
+                "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
+              }
+            }
+          ]
+        },
+        "required_when": {
+          "description": "Condition under which the attribute must be present: lifecycle states (shorthand for `required: { when: { state: [...] } }`) or a named condition / expression.",
+          "anyOf": [
+            {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1
+            },
+            { "$ref": "#/$defs/condition" }
+          ]
+        },
+        "forbidden_when": {
+          "description": "Condition under which the attribute must be absent. Same forms as required_when.",
+          "anyOf": [
+            {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1
+            },
+            { "$ref": "#/$defs/condition" }
+          ]
+        },
         "constraints": { "$ref": "#/$defs/constraints" },
         "values": { "type": "array" },
-        "description": { "type": "string" },
-        "default": {
-          "description": "Default value when the attribute is not explicitly set."
+        "const": { "description": "The attribute always carries this literal value." },
+        "source": {
+          "description": "Where the value is derived from when it is not authored directly (e.g. `digest of payload`, `journal sequence`).",
+          "type": "string"
         },
+        "description": { "type": "string" },
+        "default": { "description": "Default value when the attribute is not explicitly set." },
         "immutable": {
           "description": "Once set, the value cannot change for the lifetime of the entity (e.g., createdAt).",
           "type": "boolean"
@@ -183,9 +282,7 @@
           "description": "For ID-like attributes carrying a prefixed identifier (e.g., `trev_`).",
           "type": "string"
         },
-        "example": {
-          "description": "Example value for documentation and seed-data purposes."
-        },
+        "example": { "description": "Example value for documentation and seed-data purposes." },
         "itemType": {
           "description": "For array-typed attributes, the type of each element.",
           "type": ["string", "object"]
@@ -209,7 +306,15 @@
         },
         "$conformance": { "$ref": "#/$defs/conformance" },
         "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
-      }
+      },
+      "description": "An attribute definition. `type` may be omitted when `values` (implies enum), `const`, `source`, or `ref` determines the shape.",
+      "anyOf": [
+        { "required": ["type"] },
+        { "required": ["values"] },
+        { "required": ["const"] },
+        { "required": ["source"] },
+        { "required": ["ref"] }
+      ]
     },
     "attributeBlock": {
       "type": "object",
@@ -234,16 +339,12 @@
           "description": "Structural nature of the relationship. composition (lifecycle-bound), association (independent), aggregation (whole/part without lifecycle ownership), pointer (read-only reference, often to a specific revision).",
           "enum": ["composition", "association", "aggregation", "pointer"]
         },
-        "cardinality": {
-          "enum": ["one-to-one", "one-to-many", "many-to-one", "many-to-many"]
-        },
+        "cardinality": { "enum": ["one-to-one", "one-to-many", "many-to-one", "many-to-many"] },
         "temporality": {
           "description": "How time enters the reference. `live` follows the target; `pinned` references a specific revision; `snapshotted` carries an embedded copy; `versioned` tracks a specific version identifier.",
           "enum": ["live", "pinned", "snapshotted", "versioned"]
         },
-        "ownership": {
-          "enum": ["owned", "not-owned"]
-        },
+        "ownership": { "enum": ["owned", "not-owned"] },
         "required": { "type": "boolean" },
         "entity": { "type": "string" },
         "description": { "type": "string" },
@@ -257,6 +358,10 @@
       "properties": {
         "id": { "type": "string" },
         "description": { "type": "string" },
+        "statement": {
+          "description": "Long-form statement of the rule; the normative text a checker or reviewer holds the implementation to.",
+          "type": "string"
+        },
         "when": { "type": "string" },
         "then": { "type": "string" },
         "enforced": { "$ref": "#/$defs/enforced" },
@@ -269,11 +374,7 @@
       "oneOf": [
         { "type": "string" },
         { "$ref": "#/$defs/pendingEnforcement" },
-        {
-          "type": "array",
-          "minItems": 1,
-          "items": { "$ref": "#/$defs/enforcementBinding" }
-        }
+        { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/enforcementBinding" } }
       ]
     },
     "pendingEnforcement": {
@@ -332,6 +433,40 @@
         "$conformance": { "$ref": "#/$defs/conformance" },
         "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
       }
+    },
+    "condition": {
+      "description": "A named condition under which an obligation holds. A string names the condition (an event variant, a rule id, or a project vocabulary term). The object forms reference a lifecycle state set, an event variant, or a rule id explicitly.",
+      "anyOf": [
+        { "type": "string", "minLength": 1 },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state"],
+          "properties": {
+            "state": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["variant"],
+          "properties": {
+            "variant": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rule"],
+          "properties": {
+            "rule": { "type": "string", "minLength": 1 }
+          }
+        }
+      ]
     }
   }
 }

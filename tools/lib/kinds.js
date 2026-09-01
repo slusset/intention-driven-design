@@ -48,6 +48,14 @@ const ACTION_COMBINATIONS = {
   press: { kind: 'ui-interaction', verb: 'press' },
   type: { kind: 'ui-interaction', verb: 'type' },
   upload: { kind: 'ui-interaction', verb: 'upload' },
+  // Protocol / CLI vocabulary (v1.12) — promoted after contact with a kernel
+  // consumer whose journeys install and drive executables, not browsers.
+  'npm-global-install': { kind: 'install', verb: 'install', via: 'npm-global' },
+  'npm-global-uninstall': { kind: 'install', verb: 'uninstall', via: 'npm-global' },
+  'installed-executable': { kind: 'install', verb: 'verify-executable' },
+  'installed-cli': { kind: 'cli', verb: 'run' },
+  'installed-mcp': { kind: 'mcp', verb: 'call' },
+  'harness-integration': { kind: 'harness', verb: 'integrate' },
 };
 
 const ASSERTION_COMBINATIONS = {
@@ -71,11 +79,17 @@ const ASSERTION_COMBINATIONS = {
   'principal-classification': { kind: 'classification', target: 'principal' },
   'lead-tag-present': { kind: 'tag', property: 'present', target: 'lead' },
   'intake-prefill-available': { kind: 'context', property: 'available', target: 'intake-prefill' },
+  // Protocol / CLI vocabulary (v1.12)
+  'principal-continuity': { kind: 'authority', property: 'continuity', target: 'principal' },
+  'required-content': { kind: 'content', property: 'required' },
+  'forbidden-content': { kind: 'content', property: 'forbidden' },
+  'package-removal': { kind: 'package', property: 'removed' },
+  'package-installed': { kind: 'package', property: 'installed' },
 };
 
 const RELATIONSHIP_KINDS = new Set(['composition', 'association', 'aggregation', 'pointer']);
-const ACTION_KINDS = new Set(['ui-interaction', 'navigation', 'wait', 'network']);
-const ASSERTION_KINDS = new Set(['dom', 'url', 'api', 'cookie', 'classification', 'tag', 'context']);
+const ACTION_KINDS = new Set(['ui-interaction', 'navigation', 'wait', 'network', 'cli', 'install', 'mcp', 'harness']);
+const ASSERTION_KINDS = new Set(['dom', 'url', 'api', 'cookie', 'classification', 'tag', 'context', 'lifecycle', 'authority', 'content', 'package']);
 
 function describeCombination(combination) {
   return Object.entries(combination)

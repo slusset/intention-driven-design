@@ -119,14 +119,44 @@ function validateModelFile(filePath) {
   }
 
   const r = validateModelDocument(model, errors, warnings, info);
+  validateLifecycleSubject(model, filePath, errors, warnings);
   return { ...r, info: r.info || info };
+}
+
+/**
+ * Cross-document subject agreement (#84): a model that names a `lifecycle:`
+ * document must share its subject kind and name with it.
+ */
+function validateLifecycleSubject(model, filePath, errors, warnings) {
+  if (typeof model.lifecycle !== 'string') return;
+  const candidates = [
+    path.resolve(specsDir, '..', model.lifecycle),
+    path.resolve(process.cwd(), model.lifecycle),
+    path.resolve(path.dirname(filePath), model.lifecycle),
+  ];
+  const lifecyclePath = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!lifecyclePath) {
+    warnings.push(`Lifecycle document not found: ${model.lifecycle}`);
+    return;
+  }
+  const parsed = parseFrontMatter(lifecyclePath, fs.readFileSync(lifecyclePath, 'utf8'));
+  if (parsed.parseError || !isObject(parsed.body)) return; // reported when the lifecycle file itself is validated
+  const lifecycle = parsed.body;
+  const subjectKey = model.entity ? 'entity' : model.value_object ? 'value_object' : null;
+  if (!subjectKey) return;
+  const lifecycleKey = lifecycle.entity ? 'entity' : lifecycle.value_object ? 'value_object' : null;
+  if (lifecycleKey && lifecycleKey !== subjectKey) {
+    errors.push(`Lifecycle subject kind mismatch: model declares ${subjectKey} but ${model.lifecycle} declares ${lifecycleKey}`);
+  } else if (lifecycleKey && lifecycle[lifecycleKey] !== model[subjectKey]) {
+    errors.push(`Lifecycle subject mismatch: model ${subjectKey} "${model[subjectKey]}" but ${model.lifecycle} names "${lifecycle[lifecycleKey]}"`);
+  }
 }
 
 function isObject(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function validateAttributeBlock(block, blockLabel, itemLabel, errors, warnings) {
+function validateAttributeBlock(block, blockLabel, itemLabel, errors, warnings, info = []) {
   if (!isObject(block)) {
     errors.push(`${blockLabel} must be an object`);
     return;
@@ -139,9 +169,24 @@ function validateAttributeBlock(block, blockLabel, itemLabel, errors, warnings) 
     }
 
     if (!attr.type) {
-      errors.push(`${itemLabel} "${attrName}" missing type`);
+      const implied = ['values', 'const', 'source', 'ref'].find((key) => attr[key] !== undefined);
+      if (!implied) {
+        errors.push(`${itemLabel} "${attrName}" missing type (or values / const / source / ref that implies one)`);
+      } else {
+        info.push(`${itemLabel} "${attrName}" type implied by ${implied}`);
+      }
     } else if (!VALID_TYPES.includes(attr.type)) {
       warnings.push(`${itemLabel} "${attrName}" has unknown type: ${attr.type}`);
+    }
+
+    // required: boolean | { when } | bare string (legacy spelling of the conditional form, #82)
+    if (typeof attr.required === 'string') {
+      warnings.push(`${itemLabel} "${attrName}" required: "${attr.required}" uses the legacy conditional spelling — prefer required: { when: "${attr.required}" }`);
+    } else if (isObject(attr.required) && attr.required.when === undefined) {
+      errors.push(`${itemLabel} "${attrName}" required object must carry "when"`);
+    }
+    if (Array.isArray(attr.required_when) && attr.required === true) {
+      warnings.push(`${itemLabel} "${attrName}" declares both required: true and required_when — the unconditional form wins; drop one`);
     }
 
     if (!/^[a-z][a-zA-Z0-9]*$/.test(attrName)) {
@@ -196,6 +241,10 @@ function validateRulesBlock(rules, warnings) {
   }
 
   for (const rule of rules) {
+    if (typeof rule === 'string') {
+      warnings.push(`Business rule "${rule.slice(0, 40)}${rule.length > 40 ? '…' : ''}" is narrative only — give it an id so lifecycles, features, fixtures, and evidence can cite it`);
+      continue;
+    }
     if (!isObject(rule)) {
       warnings.push('Business rule entry should be an object');
       continue;
@@ -215,24 +264,52 @@ function validateSources(model, label, warnings) {
   }
 }
 
+/**
+ * Identity kinds (#83): field (one attribute), composite (several attributes
+ * together), content (no attribute — identity is the canonical bytes, defined
+ * by `equality`). `kind` may be omitted and is then inferred.
+ */
+function inferIdentityKind(identity) {
+  if (identity.kind) return identity.kind;
+  if (identity.field) return 'field';
+  if (identity.fields) return 'composite';
+  if (identity.equality) return 'content';
+  return null;
+}
+
+function validateIdentity(identity, errors, warnings, info) {
+  if (!isObject(identity)) {
+    errors.push('Identity must be an object');
+    return;
+  }
+  const kind = inferIdentityKind(identity);
+  if (!kind) {
+    errors.push('Identity must declare field, fields, or equality');
+    return;
+  }
+  if (kind === 'field' && !identity.field) errors.push('Identity kind:field must name a field');
+  if (kind === 'composite' && !(Array.isArray(identity.fields) && identity.fields.length > 0)) errors.push('Identity kind:composite must list fields');
+  if (kind === 'content' && !identity.equality) errors.push('Identity kind:content must define equality');
+  if (kind === 'composite' && Array.isArray(identity.fields) && identity.fields.length === 1) {
+    warnings.push(`Identity kind:composite lists a single field ("${identity.fields[0]}") — use kind:field`);
+  }
+  if (!identity.kind) info.push(`Identity kind inferred as ${kind}`);
+  if (kind === 'field' && !identity.type) warnings.push('Identity should specify type');
+}
+
 function validateEntityModel(model, errors, warnings, info) {
   if (!model.description) {
     warnings.push('Entity should have a description');
   }
 
   if (!model.identity) {
-    warnings.push('Entity should define identity field');
+    warnings.push('Entity should define identity');
   } else {
-    if (!model.identity.field) {
-      errors.push('Identity must have a field name');
-    }
-    if (!model.identity.type) {
-      warnings.push('Identity should specify type');
-    }
+    validateIdentity(model.identity, errors, warnings, info);
   }
 
   if (model.attributes) {
-    validateAttributeBlock(model.attributes, 'Attributes', 'Attribute', errors, warnings);
+    validateAttributeBlock(model.attributes, 'Attributes', 'Attribute', errors, warnings, info);
   }
 
   if (model.relationships) {
@@ -349,6 +426,9 @@ function validateModelDocument(model, errors, warnings, info = []) {
   }
 
   if (model.value_object) {
+    if (model.identity) validateIdentity(model.identity, errors, warnings, info);
+    if (model.attributes) validateAttributeBlock(model.attributes, 'Attributes', 'Attribute', errors, warnings, info);
+    if (model.rules) validateRulesBlock(model.rules, warnings);
     validateSources(model, 'Value object', warnings);
     return { errors, warnings, info };
   }
@@ -373,8 +453,10 @@ function validateModelDocument(model, errors, warnings, info = []) {
 }
 
 function validateLifecycle(model, errors, warnings, info = []) {
-  if (!model.entity) {
-    errors.push('Lifecycle must specify entity');
+  if (!model.entity && !model.value_object) {
+    errors.push('Lifecycle must specify entity or value_object');
+  } else if (model.entity && model.value_object) {
+    errors.push('Lifecycle must specify exactly one of entity or value_object');
   }
 
   if (!model.initial_state) {

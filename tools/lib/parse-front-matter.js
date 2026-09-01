@@ -253,6 +253,11 @@ function validateFrontMatter(filePath, frontMatter, expectedType) {
         field === 'journey') {
       value = getNestedValue(frontMatter, 'sources.journey');
     }
+    // Fixtures may carry the plural form (stories / scenarios, #81).
+    if ((value === undefined || value === null || value === '') && expectedType === 'fixture') {
+      const plural = getNestedValue(frontMatter, `${field}s`);
+      if (Array.isArray(plural) && plural.length > 0) value = plural;
+    }
     if (value === undefined || value === null || value === '') {
       warnings.push(`Missing recommended field: ${field}`);
     }
@@ -327,6 +332,16 @@ function extractRefs(frontMatter) {
   // From JSON _meta (fixture front-matter is already flattened)
   if (isSpecRef(frontMatter.feature)) {
     refs.push(frontMatter.feature);
+  }
+  for (const key of ['stories', 'contracts', 'scenarios']) {
+    if (Array.isArray(frontMatter[key])) {
+      for (const item of frontMatter[key]) {
+        if (isSpecRef(item)) refs.push(item);
+      }
+    }
+  }
+  if (isSpecRef(frontMatter.contract)) {
+    refs.push(frontMatter.contract);
   }
 
   return refs;

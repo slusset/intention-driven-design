@@ -91,7 +91,7 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.11.0`** (declared in
+The current version is **`1.12.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
 actions, and assertions landed in 1.2; declarative lifecycle and journey-map
@@ -114,7 +114,10 @@ dependencies and rule-family citations to the transitive module DAG, and
 prevents verification or certification claims from exceeding an explicitly
 declared dependency. Literal evidence bindings and reciprocal contract
 `x-rules` landed in 1.9. Cross-module contract digest pins landed in 1.10.
-Consumer toolkit contract pins landed in 1.11.
+Consumer toolkit contract pins landed in 1.11. The second consumer contact
+landed in 1.12: identity kinds, conditional `required`, lifecycles over value
+objects, kind-typed fixture metadata, and protocol-shaped journey-map
+vocabulary.
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward
@@ -230,6 +233,126 @@ The report-only migration catalog under [`migrations/`](migrations/) is
 deliberately separate from the v1 schema registry. Adding catalog metadata does
 not change the schema-registry digest; a registry change still requires the
 consumer contract's schema version and digest review.
+
+## Second consumer contact (v1.12)
+
+The second downstream contact (`slusset/AlloyIdentity`, a protocol kernel with
+no web UI) had the same character as the first: closed-world validation
+rejecting load-bearing IDD patterns rather than consumer inventions. Issues
+#81–#84 and the unfiled items in slusset/AlloyIdentity#235 are promoted here.
+Every change is additive; existing valid documents remain valid. The
+`schema-1-11-0-to-1-12-0` migration rewrites the three shapes that have a
+canonical spelling different from what consumers wrote.
+
+### Identity kinds (#83)
+
+`identity` no longer requires a single `field`. An identity says *something*
+about what identifies the instance, in one of three kinds:
+
+```yaml
+identity:                # kind: field — one attribute
+  kind: field
+  field: customerId
+  type: string
+
+identity:                # kind: composite — several attributes together
+  kind: composite
+  fields: [principalId, resourceId, instrumentDigest]
+  equality: exact string equality for all three fields
+
+identity:                # kind: content — no field; identity is the canonical bytes
+  kind: content
+  equality: canonical-bytes
+  immutable: true
+```
+
+`kind` may be omitted and is inferred from which of `field` / `fields` /
+`equality` is present (reported as info). When `kind` is present the matching
+key is required. `equality` and `immutable` are canonical. The
+`identity-kind` transformation writes the inferred kind into documents that
+omit it.
+
+### Conditional `required` (#82)
+
+`attribute.required` accepts an obligation under a named condition beside the
+boolean form:
+
+```yaml
+revokedGrantId:
+  type: string
+  required: { when: conditional-revoke }          # named condition
+actualByteLength:
+  type: integer
+  required: { when: { state: [materialized, integrity-failed] } }
+  # equivalently: required_when: [materialized, integrity-failed]
+scope:
+  type: string
+  required: { when: { rule: A-2-scope-declared } }
+```
+
+A condition is a string (an event variant, a rule id, or a project vocabulary
+term) or one of the explicit reference forms `{ state: [...] }`,
+`{ variant: ... }`, `{ rule: ... }`. A bare string
+(`required: conditional-revoke`) is the legacy spelling: it validates and is
+reported as a warning; the `attribute-required-when` transformation rewrites
+it.
+
+### Lifecycles over value objects (#84)
+
+A lifecycle names exactly one of `entity` or `value_object`. Value objects are
+immutable in their value, not forbidden from being observed in states (an
+artifact's materialization is runtime state over a content-addressed
+descriptor). A model that names a `lifecycle:` document must agree with it on
+subject kind and name; the models validator checks this across the two files.
+
+### Kind-typed fixture metadata (#81)
+
+`_meta.type` stays the constant `fixture` so the artifact kind is stable
+across the toolkit. The author taxonomy goes in `kind`:
+
+```json
+"_meta": {
+  "id": "claude-hook-cases",
+  "type": "fixture",
+  "kind": "application-contract-fixture",
+  "stories": ["specs/stories/a.md", "specs/stories/b.md"],
+  "feature": "specs/features/agent-session-continuity.feature",
+  "contracts": ["specs/contracts/lifecycle-delivery.schema.json"],
+  "rules": ["U-1-normalize-harness-lifecycle"],
+  "sentinels": ["FIXTURE-TRANSCRIPT-PATH", "FIXTURE-ASSISTANT-MESSAGE"],
+  "harness": "claude-code 2.1.185",
+  "statement": "Sentinels ride in every field the adapter must discard."
+}
+```
+
+`stories`, `contracts`, `scenarios`, `journey`, `rules`, `sentinels`,
+`description`, `statement`, and `harness` are canonical, and the reference
+graph follows the plural keys. `_meta` is otherwise author-extensible, as
+journey-map actions and assertions have been since v1.1: per-project fixture
+vocabulary cannot be enumerated ahead of time. `sentinels` is a list of
+tokens, or a field-name → token map; it names what must not leak, and the
+consumer's harness runs the substring check. The `fixture-meta-kind`
+transformation moves a non-constant `type` into `kind`.
+
+### Attributes without `type`; rules as strings; model contract keys
+
+- An attribute may omit `type` when `values` (implies enum), `const`,
+  `source`, or `ref` determines the shape; the validator reports the
+  implication as info.
+- `rules` entries may be bare strings. They validate and are reported as
+  advisory: a rule without an id cannot be cited by a lifecycle, feature,
+  fixture, or evidence binding.
+- `lifecycle`, `contract`, and `contracts` (list or name → path map) are
+  canonical model keys.
+
+### Protocol-shaped journey-map vocabulary
+
+Action kinds gain `cli`, `install`, `mcp`, `harness`; assertion kinds gain
+`lifecycle`, `authority`, `content`, `package`. Named combinations:
+`npm-global-install`, `npm-global-uninstall`, `installed-executable`,
+`installed-cli`, `installed-mcp`, `harness-integration`;
+`principal-continuity`, `required-content`, `forbidden-content`,
+`package-removal`, `package-installed`.
 
 ## Closed-world keys and `$conformance` (v1.1)
 

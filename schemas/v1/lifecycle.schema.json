@@ -2,14 +2,24 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/lifecycle.schema.json",
   "title": "IDD Lifecycle",
-  "description": "Schema for IDD lifecycle documents (.lifecycle.yaml). The 'at least one terminal state' rule is enforced today; issue #39 replaces it with a declarative shape selector. Closed-world keys per #37.",
+  "description": "Schema for IDD lifecycle documents (.lifecycle.yaml). The subject is an entity or a value object (#84): value objects are immutable in value, not forbidden from being observed in states. Declarative shape per #39. Closed-world keys per #37.",
   "type": "object",
-  "required": ["id", "type", "entity", "initial_state", "states"],
+  "required": ["id", "type", "initial_state", "states"],
+  "anyOf": [
+    { "required": ["entity"] },
+    { "required": ["value_object"] }
+  ],
+  "not": { "required": ["entity", "value_object"] },
   "additionalProperties": false,
   "properties": {
     "id": { "type": "string", "minLength": 1 },
     "type": { "const": "model" },
     "entity": { "type": "string", "minLength": 1 },
+    "value_object": {
+      "description": "Value object whose runtime state this lifecycle observes. Mutually exclusive with entity.",
+      "type": "string",
+      "minLength": 1
+    },
     "description": { "type": "string" },
     "shape": {
       "description": "Declarative lifecycle shape (#39). Selects which validator rule set applies. Default is `bounded` for back-compat.",
@@ -45,15 +55,8 @@
       "type": "array",
       "items": { "type": ["string", "object"] }
     },
-    "states": {
-      "type": "object",
-      "minProperties": 1,
-      "additionalProperties": { "$ref": "#/$defs/state" }
-    },
-    "transitions": {
-      "type": "object",
-      "additionalProperties": { "$ref": "#/$defs/transition" }
-    },
+    "states": { "type": "object", "minProperties": 1, "additionalProperties": { "$ref": "#/$defs/state" } },
+    "transitions": { "type": "object", "additionalProperties": { "$ref": "#/$defs/transition" } },
     "$conformance": { "$ref": "#/$defs/conformance" },
     "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
   },
@@ -92,7 +95,10 @@
           "description": "Preconditions that must hold for the transition to fire. Narrative or structured (e.g., a list of named guard rules).",
           "oneOf": [
             { "type": "string" },
-            { "type": "array", "items": { "type": ["string", "object"] } },
+            {
+              "type": "array",
+              "items": { "type": ["string", "object"] }
+            },
             { "type": "object" }
           ]
         },
@@ -100,7 +106,10 @@
           "description": "Side effects produced by the transition (events emitted, state changes elsewhere). Narrative or structured.",
           "oneOf": [
             { "type": "string" },
-            { "type": "array", "items": { "type": ["string", "object"] } },
+            {
+              "type": "array",
+              "items": { "type": ["string", "object"] }
+            },
             { "type": "object" }
           ]
         },
