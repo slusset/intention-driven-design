@@ -433,10 +433,19 @@ fixture directories, a planned verification map, and one `specs/modules.yaml`
 entry. Linking changes only an explicit DAG edge or a selected map's digest
 pin; it never moves existing specs or edits a contract's `x-rules`.
 
-`idd doctor` is currently report-only. It inspects consumer/version alignment,
+`idd doctor` inspection is report-only. It inspects consumer/version alignment,
 deprecated structures, validator findings, and cataloged schema migration paths
-without writing files or mutating journal history. See
+without writing files or mutating journal history; `idd doctor plan` and
+`idd doctor apply` execute accepted migrations through registered
+transformations. Findings carry discriminating ids (`validator-<check>-<code>`)
+and the text report groups them by id; `--severity error`, `--summary`, and
+`--verbose` control what is shown. See
 [`docs/idd/evolution-and-migration.md`](docs/idd/evolution-and-migration.md).
+
+The CLI also installs standalone, outside any plugin host or `node_modules`:
+`install/idd-install.sh` puts an immutable release under
+`~/.idd/toolkits/<version>/` and links `idd` into `~/.local/bin`. See
+[`docs/idd/release-and-distribution.md`](docs/idd/release-and-distribution.md).
 
 Consumer repositories can record their accepted toolkit contract in the
 `idd_consumer` front-matter block of `specs/skills/repo-overlay.md`. The record

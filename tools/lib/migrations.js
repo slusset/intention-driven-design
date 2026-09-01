@@ -103,4 +103,41 @@ function findMigrationPath(catalog, fromSchema, toSchema) {
   return [];
 }
 
-module.exports = { findMigrationPath, readMigrationCatalog };
+/**
+ * The synthetic adoption migration for a consumer with no recorded contract.
+ * No cataloged transition applies from "nothing"; the first evolution records
+ * the contract for the running toolkit. Shared by doctor inspection (so the
+ * report names the path it knows about) and doctor plan (which executes it).
+ */
+function adoptionMigration(toSchema) {
+  return {
+    id: 'adopt-consumer-contract',
+    from: { schema: null },
+    to: { schema: toSchema },
+    kind: 'adoption',
+    synthetic: true,
+    summary: 'Record the initial idd_consumer contract for the running toolkit.',
+    steps: [
+      {
+        id: 'record-consumer-contract',
+        mode: 'transform',
+        transformation: 'record-consumer-contract',
+        description: 'Record the idd_consumer front-matter pins in specs/skills/repo-overlay.md for the running toolkit.',
+      },
+      {
+        id: 'validate-consumer-contract',
+        mode: 'validate',
+        description: 'Run the deterministic validator suite after recording the contract.',
+      },
+    ],
+    continuity: {
+      identity: 'preserved',
+      intent: 'preserved',
+      semantics: 'review-required',
+      data: 'unchanged',
+      operations: 'review-required',
+    },
+  };
+}
+
+module.exports = { adoptionMigration, findMigrationPath, readMigrationCatalog };

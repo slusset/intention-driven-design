@@ -5,7 +5,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { digestJsonFile } = require('./contract-digests');
 const { readConsumerContract } = require('./consumer-contract');
-const { findMigrationPath, readMigrationCatalog } = require('./migrations');
+const { adoptionMigration, findMigrationPath, readMigrationCatalog } = require('./migrations');
 const { toolCommand } = require('./tool-runner');
 const { findToolkitRoot } = require('./toolkit-root');
 
@@ -67,13 +67,22 @@ function recordMigrationCatalog(repoRoot, report, fromSchemaVersion = null, toSc
   const migrationPath = migrationCatalog.status === 'valid'
     ? findMigrationPath(migrationCatalog.catalog, fromSchemaVersion, toSchemaVersion)
     : [];
+  // A consumer with nothing recorded has no cataloged edge to follow, but the
+  // doctor does know the path: the synthetic adoption migration that doctor
+  // plan synthesizes. Name it here so "migration_ids: []" never reads as
+  // "no path exists".
+  const synthetic = report.repository.toolkit_repository === false && fromSchemaVersion === null && toSchemaVersion
+    ? [adoptionMigration(toSchemaVersion)]
+    : [];
+  const resolvedPath = migrationPath.length > 0 ? migrationPath : synthetic;
   report.migration.catalog = {
     path: migrationCatalog.path,
     status: migrationCatalog.status,
     from_schema_version: fromSchemaVersion,
     to_schema_version: toSchemaVersion,
-    migration_ids: migrationPath.map((migration) => migration.id),
-    steps: migrationPath.flatMap((migration) => migration.steps.map((step) => ({
+    migration_ids: resolvedPath.map((migration) => migration.id),
+    synthetic: synthetic.length > 0 && migrationPath.length === 0,
+    steps: resolvedPath.flatMap((migration) => migration.steps.map((step) => ({
       migration_id: migration.id,
       id: step.id,
       mode: step.mode,
@@ -244,6 +253,18 @@ function inspectConsumer(repoRoot, report) {
       'Record the accepted UAT toolkit and schema-registry contract before applying a consumer migration',
       [consumerContract.path],
     ));
+    if (report.migration.catalog.synthetic) {
+      report.findings.push(finding(
+        'consumer-adoption-path-available',
+        'info',
+        'consumer schema migration catalog',
+        'no recorded schema pin',
+        runningSchema.version || 'unknown',
+        'requires-disposition',
+        'Run `idd doctor plan` to generate the synthetic adopt-consumer-contract migration, then `idd doctor apply --accept adopt-consumer-contract` to record the pins',
+        [migrationCatalog.path],
+      ));
+    }
   } else if (consumerContract.status === 'invalid') {
     for (const message of consumerContract.errors) {
       report.findings.push(finding(
@@ -453,29 +474,115 @@ function runValidator(repoRoot, check) {
   }
 }
 
+const SPEC_PATH = /^((?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+\.(?:ya?ml|json|md|feature))(?::\d+)?:\s+/;
+
+function slug(text, maxWords = 6) {
+  return text
+    .toLowerCase()
+    .replace(/(\w)'(\w)/g, '$1$2')                       // doesn't → doesnt, before quote stripping
+    .replace(/"[^"]*"|'[^']*'|`[^`]*`/g, ' ')          // quoted names
+    .replace(/\(schema: [^)]*\)/g, ' ')                  // schema url hint
+    .replace(/(?:[a-z0-9_.-]+\/)+[a-z0-9_.-]+/g, ' ')     // paths
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, maxWords)
+    .join('-');
+}
+
+/**
+ * Classify a validator message into a stable, discriminating code so findings
+ * can be grouped, deduplicated, and suppressed by id (AlloyIdentity #235
+ * doctor observations). The file the message names is split out; the code is
+ * derived from the message shape with names, paths, and numbers removed, so
+ * two files failing the same check share one id.
+ */
+function classifyValidatorMessage(message) {
+  let text = String(message);
+  let file = null;
+  const pathMatch = text.match(SPEC_PATH);
+  if (pathMatch) {
+    file = pathMatch[1];
+    text = text.slice(pathMatch[0].length);
+  }
+  let code;
+  const schema = text.match(/^(?:[a-z-]+ )?schema:\s*(?:\/\S*\s*:\s*)?(?:\(root\):\s*)?(.*)$/i);
+  if (schema) {
+    const detail = schema[1];
+    const unknown = detail.match(/^unknown property "([^"]+)"/);
+    const missing = detail.match(/^must have required property '([^']+)'/);
+    if (unknown) code = `schema-unknown-property-${slug(unknown[1], 3)}`;
+    else if (missing) code = `schema-missing-${slug(missing[1], 3)}`;
+    else if (/must be equal to constant/.test(detail)) code = 'schema-const';
+    else if (/must match a schema in anyOf|must match exactly one schema in oneOf/.test(detail)) code = 'schema-no-variant-matched';
+    else code = `schema-${slug(detail, 4)}`;
+  } else {
+    code = slug(text) || 'unclassified';
+  }
+  return { file, code, detail: text };
+}
+
 function addValidatorFindings(report, check, result) {
+  const push = (message, severity, expected, impact, recommendation) => {
+    const { file, code, detail } = classifyValidatorMessage(message);
+    const item = finding(`validator-${check}-${code}`, severity, `validator:${check}`, message, expected, impact, recommendation, file ? [file] : []);
+    item.check = check;
+    item.code = code;
+    item.file = file;
+    item.detail = detail;
+    report.findings.push(item);
+  };
   for (const message of result.errors || []) {
-    report.findings.push(finding(
-      `validator-${check}-error`,
-      'error',
-      `validator:${check}`,
-      message,
-      'zero validator errors',
-      'requires-migration-review',
-      `Resolve the ${check} validator finding before applying a migration`,
-    ));
+    push(message, 'error', 'zero validator errors', 'requires-migration-review', `Resolve the ${check} validator finding before applying a migration`);
   }
   for (const message of result.warnings || []) {
-    report.findings.push(finding(
-      `validator-${check}-advisory`,
-      'advisory',
-      `validator:${check}`,
-      message,
-      'no unresolved validator warnings',
-      'requires-disposition',
-      `Review the ${check} validator warning and record a migration disposition`,
-    ));
+    push(message, 'advisory', 'no unresolved validator warnings', 'requires-disposition', `Review the ${check} validator warning and record a migration disposition`);
   }
+}
+
+const SEVERITIES = ['error', 'advisory', 'info'];
+
+/**
+ * Group findings by id: one row per distinct finding with a count and the
+ * files it names. The grouped view is what a large consumer scans first.
+ */
+function groupFindings(findings) {
+  const groups = new Map();
+  for (const item of findings) {
+    let group = groups.get(item.id);
+    if (!group) {
+      group = {
+        id: item.id,
+        severity: item.severity,
+        subject: item.subject,
+        count: 0,
+        files: [],
+        sample: item.detail || item.current,
+        recommendation: item.recommendation,
+        continuity_impact: item.continuity_impact,
+      };
+      groups.set(item.id, group);
+    }
+    group.count += 1;
+    for (const file of item.paths || []) if (!group.files.includes(file)) group.files.push(file);
+  }
+  return [...groups.values()].sort((a, b) =>
+    SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity) || b.count - a.count || a.id.localeCompare(b.id));
+}
+
+/**
+ * Narrow a report to the requested severities. The summary keeps the totals
+ * of the full inspection; `filter` records what the caller asked to see.
+ */
+function filterReport(report, severities) {
+  if (!severities || severities.length === 0) return report;
+  const wanted = [...new Set(severities)];
+  return {
+    ...report,
+    filter: { severity: wanted },
+    findings: report.findings.filter((item) => wanted.includes(item.severity)),
+  };
 }
 
 function runDoctor(options = {}) {
@@ -547,7 +654,7 @@ function runDoctor(options = {}) {
     status: 'not-run',
     errors: [],
     warnings: [],
-    info: ['Generated evidence validation requires a run-specific manifest and is not performed by report-only inspection.'],
+    info: ['run-specific: generate a manifest with `idd generate-evidence`, then `idd validate evidence`; report-only inspection does not run it'],
   };
 
   const errors = report.findings.filter((item) => item.severity === 'error').length;
@@ -565,7 +672,9 @@ function runDoctor(options = {}) {
   return report;
 }
 
-function formatDoctorReport(report) {
+function formatDoctorReport(report, options = {}) {
+  const verbose = options.verbose === true;
+  const summaryOnly = options.summary === true;
   const lines = [
     'IDD Doctor (report-only)',
     '',
@@ -579,21 +688,45 @@ function formatDoctorReport(report) {
   ];
   const catalog = report.migration?.catalog;
   if (catalog?.status === 'valid') {
-    lines.push(`Migration catalog: ${catalog.path}${catalog.migration_ids.length > 0 ? ` (${catalog.migration_ids.join(' → ')})` : ''}`, '');
+    const pathLabel = catalog.migration_ids.length > 0
+      ? ` (${catalog.migration_ids.join(' → ')}${catalog.synthetic ? '; synthetic — generated by doctor plan' : ''})`
+      : '';
+    lines.push(`Migration catalog: ${catalog.path}${pathLabel}`, '');
   }
-  if (report.findings.length === 0) lines.push('No misalignments detected by the current inspection surface.');
-  else {
-    lines.push('Findings:');
-    for (const item of report.findings) {
-      lines.push(`- [${item.severity}] ${item.id}: ${item.subject} — ${item.current}`);
-      lines.push(`  Recommendation: ${item.recommendation}`);
-      lines.push(`  Continuity impact: ${item.continuity_impact}`);
+  if (report.filter) lines.push(`Showing severity: ${report.filter.severity.join(', ')}`, '');
+  if (report.findings.length === 0) {
+    lines.push(report.filter ? 'No findings at the requested severity.' : 'No misalignments detected by the current inspection surface.');
+  } else {
+    const groups = groupFindings(report.findings);
+    lines.push(`Findings by id (${groups.length} distinct, ${report.findings.length} total):`);
+    for (const group of groups) {
+      const files = group.files.length > 0
+        ? ` — ${group.files.slice(0, 3).join(', ')}${group.files.length > 3 ? `, +${group.files.length - 3} more` : ''}`
+        : '';
+      lines.push(`- [${group.severity}] ${group.id} ×${group.count}${files}`);
+      lines.push(`  e.g. ${group.sample}`);
+    }
+    // Every finding is listed when the report is small or the caller asks;
+    // a large consumer gets the grouped view and --verbose for the rest.
+    const listAll = verbose || (!summaryOnly && report.findings.length <= 40);
+    if (listAll) {
+      lines.push('', 'Findings:');
+      for (const item of report.findings) {
+        lines.push(`- [${item.severity}] ${item.id}: ${item.subject} — ${item.current}`);
+        lines.push(`  Recommendation: ${item.recommendation}`);
+        lines.push(`  Continuity impact: ${item.continuity_impact}`);
+      }
+    } else if (!summaryOnly) {
+      lines.push('', `${report.findings.length} findings; pass --verbose to list every one, or --severity error to narrow.`);
     }
   }
   lines.push('', 'Validator status:');
-  for (const [name, result] of Object.entries(report.validators)) lines.push(`- ${name}: ${result.status}`);
+  for (const [name, result] of Object.entries(report.validators)) {
+    const note = result.status === 'not-run' && result.info?.[0] ? ` — ${result.info[0]}` : '';
+    lines.push(`- ${name}: ${result.status}${note}`);
+  }
   lines.push('', 'No files were written. No journal history was mutated.');
   return lines.join('\n');
 }
 
-module.exports = { DIAGNOSTIC_CHECKS, formatDoctorReport, runDoctor, runValidator };
+module.exports = { DIAGNOSTIC_CHECKS, SEVERITIES, classifyValidatorMessage, filterReport, formatDoctorReport, groupFindings, runDoctor, runValidator };
