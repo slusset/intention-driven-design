@@ -65,6 +65,13 @@ The evidence manifest is generated into a gitignored workspace and published thr
     └── screenshots/            ← visual evidence (optional)
 ```
 
+Formal observations become `formal-result` records (`idd evidence record`,
+written to `.idd/evidence/results/`), and `idd evidence rollup` derives the
+per-rule coverage vector and per-capability verification claim beside the
+map's declared claim. Run the roll-up after the gate and before certifying;
+a `declared-above-derived` finding means the map claims more than this run
+observed.
+
 Published as part of the CI report:
 
 - **Job summary + PR comment** — per-capability certification status, traceability ratios, test counts, and declared gaps (rendered by the `idd-check` action).

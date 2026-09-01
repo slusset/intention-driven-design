@@ -91,7 +91,7 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.13.0`** (declared in
+The current version is **`1.14.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
 actions, and assertions landed in 1.2; declarative lifecycle and journey-map
@@ -119,6 +119,8 @@ landed in 1.12: identity kinds, conditional `required`, lifecycles over value
 objects, kind-typed fixture metadata, and protocol-shaped journey-map
 vocabulary. Formal evidence kinds landed in 1.13: Alloy and TLA+ probes with
 pinned outcomes, vectors with reciprocity, mutation probes, and tooling locks.
+Formal-result records and the evidence roll-up landed in 1.14, the first
+schemas for generated evidence rather than committed specs.
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward
@@ -427,6 +429,69 @@ Names are strings or `{ name, expected, note }`. Alloy outcomes are `SAT` /
 reach keeps a narrative `status` (`deferred`, `not-applicable-…`,
 `holds-by-construction-…`). A `formal:` block remains for rules with no
 executable probes at all.
+
+## Formal-result records and the evidence roll-up (v1.14)
+
+A verification map says what is claimed. v1.13 made the claims checkable
+against the sources. v1.14 makes them checkable against what a run observed.
+Two schemas cover generated evidence; they live under the registry's
+`evidence` group, apply to the gitignored `.idd/evidence/` workspace, and
+never describe committed files.
+
+**`formal-result`** is a record, not a report: one JSON object per probe
+observation, emitted by the repository gate (`idd evidence record`, or JSONL
+written by a checker script). It carries the run (id, revision, environment),
+the tool (name, version, digest from the formal-tools lock), the probe (kind,
+name, source and its digest, scope), the observed outcome, the outcome the map
+expects, and a verdict. `expected` and the satisfied rule ids are resolved
+from the maps when the record is written, so a checker only reports what it
+saw:
+
+```bash
+idd evidence record --tool alloy --kind alloy-command --name OneGenesisPerPrincipal \
+  --source alloy/identity_continuity.als --scope "for 8" --observed UNSAT --lock formal-tools.lock.json
+# match: alloy-command OneGenesisPerPrincipal (alloy/identity_continuity.als) observed UNSAT, expected UNSAT
+```
+
+Probe kinds: `alloy-command` (SAT / UNSAT), `tla-invariant` and
+`tla-property` (holds / violated), `conformance-vector` and `test-selector`
+(pass / fail), `mutation-probe` (detected / undetected),
+`independent-implementation` (pass / fail). An unpinned claim expects the
+kind's natural outcome — an Alloy `check` expects UNSAT and a `run` expects
+SAT, an invariant holds, a vector and a test pass, a mutation is detected —
+so a map pins only what differs: intentional counterexamples, or a scenario
+representable in the open profile and closed in the hardened one. Verdicts:
+`match`, `mismatch`, `unpinned` (a per-profile pin names no outcome for
+this source), `unclaimed` (no map names it).
+
+**`evidence-rollup`** is derived from the maps and one run's records by
+`idd evidence rollup`. Evidence is a lattice, not a sum, so the roll-up
+keeps a coverage vector per rule — alloy, tla, vectors, tests, mutation, each
+as matched / declared with mismatches and unobserved probes — rather than a
+score, and derives a verification claim per rule:
+
+- `not-verified` when the rule declares no executable probe, when any
+  observation contradicts the map, or when no declared dimension was fully
+  observed in the run;
+- `locally-verified` when at least one dimension was fully observed and
+  matched;
+- `verified` when that holds and every record in the run is from `ci` at
+  one recorded revision.
+
+A capability's derived claim is the minimum over its rules and sits beside
+the claim its map declares: `consistent`, `understated`, or `overstated`.
+Findings: `declared-above-derived` (error), `formal-result-mismatch`
+(error, recomputed against the map's pin so a record cannot smuggle a stale
+`expected` through), `witnessless-assertion` (advisory: an UNSAT assertion
+with no SAT predicate exercising its scenario in the rule or its map — the
+shape of vacuous formal evidence), `orphan-result` (advisory: a record no
+map claims), `probe-unobserved` and `unpinned-probe` (info).
+`--strict` fails on advisories; errors always fail.
+
+The roll-up establishes that claims are grounded, observed, and not
+overstated. It does not establish semantic alignment: every capability's
+`ratification` is `not-assessed` until a principal can sign rule statements
+against their probes at a spec digest.
 
 ## Closed-world keys and `$conformance` (v1.1)
 

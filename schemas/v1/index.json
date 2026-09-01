@@ -3,7 +3,7 @@
   "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/index.json",
   "title": "IDD Schema Registry (v1)",
   "description": "Registry of IDD artifact schemas and reusable definitions at v1. Each entry maps a kind to its canonical $id and local path under schemas/v1/. Consumers should prefer the $id URL; local validators resolve via the path.",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "dialect": "https://json-schema.org/draft/2020-12/schema",
   "artifacts": {
     "persona": {
@@ -108,8 +108,22 @@
       "fixture-contract: fixture payloads validate against their declared contract operation (tools/validate-fixtures.js)",
       "evidence: certification manifests reference real test outputs (tools/validate-evidence.js)",
       "lifecycle-subject: a model that names a `lifecycle:` document shares its subject kind and name with it (entity ↔ entity, value_object ↔ value_object) (tools/validate-models.js, #84)",
-      "formal-evidence: every Alloy assertion/predicate named by a rule is declared in the map's alloy sources or the rule's profiles; every TLA+ invariant/property is declared in the model or its configuration; every conformance vector names the rule in `_meta.rules`; a tooling lock pins the checker the map claims (tools/lib/formal-evidence.js, v1.13)"
+      "formal-evidence: every Alloy assertion/predicate named by a rule is declared in the map's alloy sources or the rule's profiles; every TLA+ invariant/property is declared in the model or its configuration; every conformance vector names the rule in `_meta.rules`; a tooling lock pins the checker the map claims (tools/lib/formal-evidence.js, v1.13)",
+      "evidence-rollup: every formal-result record matches a verification-map claim by kind, name, and source; its verdict is recomputed against the map's pinned outcome; a capability's declared verification claim never exceeds the claim derived from this run's records; every UNSAT assertion has a SAT witness (tools/lib/evidence-rollup.js, v1.14)"
     ],
     "future": []
+  },
+  "evidence": {
+    "description": "Run-specific evidence records. Generated into the gitignored .idd/evidence/ workspace and published through CI; never committed.",
+    "formal-result": {
+      "applies_to": ".idd/evidence/results/*.{json,jsonl}",
+      "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/formal-result.schema.json",
+      "path": "formal-result.schema.json"
+    },
+    "evidence-rollup": {
+      "applies_to": ".idd/evidence/rollup.json",
+      "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/evidence-rollup.schema.json",
+      "path": "evidence-rollup.schema.json"
+    }
   }
 }

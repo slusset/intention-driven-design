@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/formal-result.schema.json",
+  "title": "IDD Formal Result",
+  "description": "One observed probe outcome from one run: the tool that produced it, the source it ran, what was observed, what the verification map expects, and the verdict. Records are generated into the gitignored .idd/evidence/results/ workspace and never committed; the evidence roll-up derives every report from them (v1.14).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["record_version", "kind", "run", "tool", "probe", "observed", "verdict"],
+  "properties": {
+    "record_version": { "const": 1 },
+    "kind": { "const": "formal-result" },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at", "environment"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "at": { "type": "string", "format": "date-time" },
+        "revision": { "type": ["string", "null"] },
+        "environment": { "enum": ["ci", "local"] }
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": ["string", "null"] },
+        "digest": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+        "lock": { "type": ["string", "null"] }
+      }
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "alloy-command",
+            "tla-invariant",
+            "tla-property",
+            "conformance-vector",
+            "test-selector",
+            "mutation-probe",
+            "independent-implementation"
+          ]
+        },
+        "name": { "type": "string", "minLength": 1 },
+        "source": { "type": ["string", "null"] },
+        "source_digest": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+        "scope": {
+          "type": ["string", "null"],
+          "description": "The bound the result holds under (an Alloy scope, a TLC configuration, a replay ordering). A bounded result is evidence for its scope, not a proof."
+        }
+      }
+    },
+    "rules": {
+      "description": "Rule ids of every verification-map claim this record satisfies, resolved when the record was written.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "observed": { "enum": ["SAT", "UNSAT", "holds", "violated", "pass", "fail", "detected", "undetected"] },
+    "expected": {
+      "enum": ["SAT", "UNSAT", "holds", "violated", "pass", "fail", "detected", "undetected", null]
+    },
+    "verdict": { "enum": ["match", "mismatch", "unpinned", "unclaimed"] },
+    "duration_ms": { "type": ["number", "null"], "minimum": 0 },
+    "detail": { "type": ["string", "null"] }
+  }
+}

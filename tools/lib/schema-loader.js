@@ -58,6 +58,7 @@ function loadAjv() {
   const entries = [
     ...Object.values(index.definitions || {}),
     ...Object.values(index.artifacts),
+    ...Object.values(index.evidence || {}).filter((entry) => entry && typeof entry === 'object' && entry.path),
   ];
   for (const entry of entries) {
     const schemaPath = path.join(SCHEMAS_DIR, entry.path);
@@ -82,8 +83,8 @@ function getValidator(kind) {
 
   const ajv = loadAjv();
   const index = loadIndex();
-  const entry = index.artifacts[kind];
-  if (!entry) {
+  const entry = index.artifacts[kind] || (index.evidence || {})[kind];
+  if (!entry || typeof entry !== 'object' || !entry.$id) {
     throw new Error(`Unknown IDD artifact kind: ${kind}`);
   }
 
