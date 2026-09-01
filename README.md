@@ -149,7 +149,7 @@ codex plugin add idd-skills@idd
 
 ### As a Claude Code plugin (recommended)
 
-The repo is a self-contained Claude Code plugin — `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` are at the repo root. One install brings the core methodology skills (`skills/`), schemas, and the `idd` validator CLI (the plugin's `bin/` is added to Bash PATH while active, so skills and you can run `idd validate all` with no separate install). Node dependencies install automatically from the committed lockfile.
+The repo is a self-contained Claude Code plugin — `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` are at the repo root. One install brings the core methodology skills (`skills/`), schemas, and the `idd` validator CLI (the plugin's `bin/` is added to Bash PATH while active, so skills and you can run `idd validate all` with no separate install). Plugin caches do not install `node_modules`; the PATH wrapper falls back to the committed self-contained bundle `dist/bin/idd.js` (built by `just build`), which inlines the CLI, every validator, and the runtime dependencies, so `idd version`, `idd doctor --json`, and `idd validate all --json` work from a fresh plugin install with no `npm install` or `npm link`.
 
 In Claude Code:
 

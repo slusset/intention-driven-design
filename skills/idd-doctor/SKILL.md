@@ -25,6 +25,24 @@ idd doctor --repo ../consumer --json
 Without `--json`, the output is a concise human report. JSON output is the
 stable integration surface for CI, migration planning, and later doctor modes.
 
+## Running from a plugin install (code sessions)
+
+A Claude Code or Codex plugin install puts `idd` on the session PATH and is
+self-contained: the plugin's `bin/idd` wrapper falls back to the committed
+`dist/bin/idd.js` bundle, so `idd version`, `idd doctor --repo <consumer>
+--json`, and `idd validate all --json` work without a repository-local
+`node_modules`, an `npm install`, or a legacy `npm link`.
+
+To upgrade the toolkit from a code session:
+
+1. Update the plugin (Claude Code): `/plugin marketplace update idd`, then
+   `/plugin update idd-skills@idd` (or uninstall/reinstall the plugin).
+2. Confirm the running candidate: `idd version` and
+   `idd doctor --repo <consumer> --json` — the report's
+   `repository.doctor_toolkit_version` is the toolkit actually executing.
+3. Compare the consumer's `idd_consumer` pins against the new candidate and
+   treat every drift finding as migration input, not as an auto-update.
+
 ## What it inspects
 
 - toolkit, schema registry, package-lock, plugin, and Release Please versions;

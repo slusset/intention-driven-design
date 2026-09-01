@@ -24,8 +24,13 @@ const fs = require('fs');
 const path = require('path');
 const Ajv = require('ajv/dist/2020');
 const addFormats = require('ajv-formats');
+const { findToolkitRoot } = require('./toolkit-root');
 
-const SCHEMAS_DIR = path.join(__dirname, '..', '..', 'schemas', 'v1');
+const SCHEMAS_DIR = path.join(
+  findToolkitRoot(__dirname) || path.join(__dirname, '..', '..'),
+  'schemas',
+  'v1',
+);
 
 let cachedAjv = null;
 let cachedIndex = null;

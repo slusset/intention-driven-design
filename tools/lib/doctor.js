@@ -6,6 +6,8 @@ const { execFileSync } = require('child_process');
 const { digestJsonFile } = require('./contract-digests');
 const { readConsumerContract } = require('./consumer-contract');
 const { findMigrationPath, readMigrationCatalog } = require('./migrations');
+const { toolCommand } = require('./tool-runner');
+const { findToolkitRoot } = require('./toolkit-root');
 
 const DIAGNOSTIC_CHECKS = [
   'modules',
@@ -201,7 +203,7 @@ function inspectToolkitSurfaces(repoRoot, report) {
 }
 
 function inspectConsumer(repoRoot, report) {
-  const toolkitRoot = path.resolve(__dirname, '..', '..');
+  const toolkitRoot = findToolkitRoot(__dirname) || path.resolve(__dirname, '..', '..');
   const runningToolkit = readJson(path.join(toolkitRoot, 'package.json')) || {};
   const runningSchema = readJson(path.join(toolkitRoot, 'schemas', 'v1', 'index.json')) || {};
   let runningSchemaDigest = null;
@@ -421,9 +423,16 @@ function inspectDeprecatedStructures(repoRoot, report) {
 }
 
 function runValidator(repoRoot, check) {
-  const script = path.join(__dirname, '..', `validate-${check}.js`);
+  const command = toolCommand(`validate-${check}`);
+  if (!command) {
+    return {
+      errors: [`${check}: validator script not found in this toolkit installation`],
+      warnings: [],
+      info: [],
+    };
+  }
   try {
-    const output = execFileSync(process.execPath, [script, '--json'], {
+    const output = execFileSync(process.execPath, [...command, '--json'], {
       cwd: repoRoot,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],

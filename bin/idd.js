@@ -7,11 +7,15 @@ const fs = require('fs');
 const { execFileSync, spawn } = require('child_process');
 const { createModule, linkModule, statusModules } = require('../tools/lib/module-scaffold');
 const { formatDoctorReport, runDoctor } = require('../tools/lib/doctor');
+const { toolCommand } = require('../tools/lib/tool-runner');
+const { findToolkitRoot } = require('../tools/lib/toolkit-root');
 
-const PACKAGE_ROOT = path.resolve(__dirname, '..');
-const TOOLS_DIR = path.join(PACKAGE_ROOT, 'tools');
+// The CLI runs from the source tree, an npm install, or the self-contained
+// dist/ bundle inside a plugin cache, so the toolkit root that holds
+// package.json, skills/, and schemas/ is resolved at runtime.
+const PACKAGE_ROOT = findToolkitRoot(__dirname) || path.resolve(__dirname, '..');
 const SKILLS_DIR = path.join(PACKAGE_ROOT, 'skills');
-const pkg = require(path.join(PACKAGE_ROOT, 'package.json'));
+const pkg = JSON.parse(fs.readFileSync(path.join(PACKAGE_ROOT, 'package.json'), 'utf8'));
 
 // ── Subcommand dispatch ──────────────────────────────────────────────
 
@@ -24,7 +28,42 @@ const commands = {
   doctor: cmdDoctor,
   version: cmdVersion,
   help: cmdHelp,
+  __tool: cmdTool,
 };
+
+// ── __tool (internal) ───────────────────────────────────────────────
+// Hidden dispatch that lets the self-contained bundle re-enter itself as a
+// child process to run an inlined tool script. Static requires keep every
+// tool inside the bundle; in the source tree the same requires load the
+// scripts from tools/.
+
+const BUNDLED_TOOLS = {
+  'validate-modules': () => require('../tools/validate-modules.js'),
+  'validate-verification': () => require('../tools/validate-verification.js'),
+  'validate-contracts': () => require('../tools/validate-contracts.js'),
+  'validate-traceability': () => require('../tools/validate-traceability.js'),
+  'validate-front-matter': () => require('../tools/validate-front-matter.js'),
+  'validate-capability-scope': () => require('../tools/validate-capability-scope.js'),
+  'validate-capability-closure': () => require('../tools/validate-capability-closure.js'),
+  'validate-fixtures': () => require('../tools/validate-fixtures.js'),
+  'validate-models': () => require('../tools/validate-models.js'),
+  'validate-enforcement-bindings': () => require('../tools/validate-enforcement-bindings.js'),
+  'validate-journey-maps': () => require('../tools/validate-journey-maps.js'),
+  'validate-evidence': () => require('../tools/validate-evidence.js'),
+  'generate-evidence': () => require('../tools/generate-evidence.js'),
+};
+
+function cmdTool(argv) {
+  const name = argv[0];
+  const load = BUNDLED_TOOLS[name];
+  if (!load) {
+    console.error(`Unknown tool: ${name || '(none)'}`);
+    process.exit(1);
+  }
+  // Tool scripts read process.argv.slice(2) at require time.
+  process.argv = [process.argv[0], name, ...argv.slice(1)];
+  load();
+}
 
 const args = process.argv.slice(2);
 const subcommand = args[0] || 'help';
@@ -150,18 +189,18 @@ function outputModuleResult(result, json, dryRun) {
 
 function cmdValidate(argv) {
   const VALIDATORS = {
-    modules: 'validate-modules.js',
-    verification: 'validate-verification.js',
-    contracts: 'validate-contracts.js',
-    traceability: 'validate-traceability.js',
-    'front-matter': 'validate-front-matter.js',
-    'capability-scope': 'validate-capability-scope.js',
-    'capability-closure': 'validate-capability-closure.js',
-    fixtures: 'validate-fixtures.js',
-    models: 'validate-models.js',
-    'enforcement-bindings': 'validate-enforcement-bindings.js',
-    'journey-maps': 'validate-journey-maps.js',
-    evidence: 'validate-evidence.js',
+    modules: 'validate-modules',
+    verification: 'validate-verification',
+    contracts: 'validate-contracts',
+    traceability: 'validate-traceability',
+    'front-matter': 'validate-front-matter',
+    'capability-scope': 'validate-capability-scope',
+    'capability-closure': 'validate-capability-closure',
+    fixtures: 'validate-fixtures',
+    models: 'validate-models',
+    'enforcement-bindings': 'validate-enforcement-bindings',
+    'journey-maps': 'validate-journey-maps',
+    evidence: 'validate-evidence',
   };
 
   // Separate check names from pass-through flags
@@ -197,17 +236,16 @@ function cmdValidate(argv) {
   if (toRun.length === 0) {
     // No named checks — just pass everything through to the first validator
     // This handles `idd validate --evidence path --json` etc.
-    const script = path.join(TOOLS_DIR, VALIDATORS.evidence);
-    runValidator(script, passthrough);
+    runValidator(toolCommand(VALIDATORS.evidence), passthrough);
     return;
   }
 
   let failures = 0;
 
   for (const check of toRun) {
-    const script = path.join(TOOLS_DIR, VALIDATORS[check]);
-    if (!fs.existsSync(script)) {
-      console.error(`Validator not found: ${script}`);
+    const command = toolCommand(VALIDATORS[check]);
+    if (!command) {
+      console.error(`Validator not found: ${VALIDATORS[check]}`);
       failures++;
       continue;
     }
@@ -216,7 +254,7 @@ function cmdValidate(argv) {
       console.log(`\n--- ${check} ---`);
     }
 
-    const exitCode = runValidator(script, passthrough);
+    const exitCode = runValidator(command, passthrough);
     if (exitCode !== 0) failures++;
   }
 
@@ -227,9 +265,13 @@ function cmdValidate(argv) {
   process.exit(failures > 0 ? 1 : 0);
 }
 
-function runValidator(script, argv) {
+function runValidator(command, argv) {
+  if (!command) {
+    console.error('Validator not found');
+    return 1;
+  }
   try {
-    execFileSync(process.execPath, [script, ...argv], {
+    execFileSync(process.execPath, [...command, ...argv], {
       stdio: 'inherit',
       cwd: process.cwd(),
     });
@@ -349,8 +391,7 @@ function cmdInstallSkills(argv) {
 // ── generate-evidence ────────────────────────────────────────────────
 
 function cmdGenerateEvidence(argv) {
-  const script = path.join(TOOLS_DIR, 'generate-evidence.js');
-  const exitCode = runValidator(script, argv);
+  const exitCode = runValidator(toolCommand('generate-evidence'), argv);
   process.exit(exitCode);
 }
 
