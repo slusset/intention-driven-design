@@ -10,6 +10,35 @@ testing. Historical prototype entries retain their original `1.x` headings
 below active releases. Their commits remain available under `legacy/v1.*` tags,
 but those versions are not part of the active SemVer sequence.
 
+## [0.1.0-uat.2](https://github.com/slusset/intention-driven-design/compare/v0.1.0-uat.1...v0.1.0-uat.2) (2026-09-01)
+
+
+### Features
+
+* add cross-module contract digest pins ([bdab612](https://github.com/slusset/intention-driven-design/commit/bdab612f49be6b02bd8f38a9d26881e4a5de9a4b))
+* add cross-module contract digest pins ([811aa96](https://github.com/slusset/intention-driven-design/commit/811aa96b31684512b590a67e82e6a7a21dae8250))
+* add module manifest validation ([43cc035](https://github.com/slusset/intention-driven-design/commit/43cc0351f5f9840c8c47f79e4b3e478fc0f14880))
+* add module manifest validation ([1f0dcb2](https://github.com/slusset/intention-driven-design/commit/1f0dcb228ffc2c0dba0034dce31f92b5b76b7d3f))
+* add module scaffolding commands ([7a7b36c](https://github.com/slusset/intention-driven-design/commit/7a7b36c8012f311d5268a4c145e00e15f1fc110c))
+* add module scaffolding commands ([5cbd78e](https://github.com/slusset/intention-driven-design/commit/5cbd78e8ed94fecd664c04e179ec94b593095595))
+* add report-only idd doctor ([acfc0b3](https://github.com/slusset/intention-driven-design/commit/acfc0b30b66b46ecd739434a6f57888ae88f63c1))
+* add report-only idd doctor ([b67b2c8](https://github.com/slusset/intention-driven-design/commit/b67b2c80f5f78f134d760744eb3f5cac8533adc8))
+* add report-only migration catalog ([0330d21](https://github.com/slusset/intention-driven-design/commit/0330d216804406acbcfbfa356185ee16f3c2793d))
+* add report-only migration catalog ([661b341](https://github.com/slusset/intention-driven-design/commit/661b3412dde90dbc0709379a17b1722157424c40))
+* add SOPS encryption with age for secrets management ([3bd4d55](https://github.com/slusset/intention-driven-design/commit/3bd4d55716dfea8d61d958b02acd83e442889395))
+* add SOPS encryption with age for secrets management ([38b84da](https://github.com/slusset/intention-driven-design/commit/38b84dab3131e67134c5cca44d72210e58c5e6d2))
+* define verification map contracts ([73afc0e](https://github.com/slusset/intention-driven-design/commit/73afc0e91c077ae94285fe8ae602b7dd4c3bf01c))
+* define verification map contracts ([9cd3a55](https://github.com/slusset/intention-driven-design/commit/9cd3a557946d7941b9162fa872b5d48222c72d65))
+* enforce rule evidence bindings ([7290dc6](https://github.com/slusset/intention-driven-design/commit/7290dc645b9c1a5d24c9c4ae102d2595445259c3))
+* enforce rule evidence bindings ([95b986d](https://github.com/slusset/intention-driven-design/commit/95b986dd9a8290f1e237fbfef2f1f16a54a36ab3))
+* make certification reports root aware ([04016b7](https://github.com/slusset/intention-driven-design/commit/04016b73770ff2c05006844c58aa946e4cfa044d))
+* make certification reports root aware ([e59d933](https://github.com/slusset/intention-driven-design/commit/e59d933d97545d7fee8355b522b30de9ebeb371f))
+* make repo-overlay the sole implementation-skill authority ([9a2cb4d](https://github.com/slusset/intention-driven-design/commit/9a2cb4d025243bdd56fe11ba93fbd784561ca9e2))
+* pin consumer toolkit contracts ([bfa4c9e](https://github.com/slusset/intention-driven-design/commit/bfa4c9e4871dddfe7d8c2387b5b224cfe3c819d8))
+* pin consumer toolkit contracts ([d47ff01](https://github.com/slusset/intention-driven-design/commit/d47ff018ab6ddf75d1d7434a96371490080ed649))
+* **release:** require manual prepare and publish ([0292896](https://github.com/slusset/intention-driven-design/commit/02928969ae334b2af4a329473e55075380bce0fd))
+* **workflow:** make repo-overlay sole skill authority ([398707e](https://github.com/slusset/intention-driven-design/commit/398707ee06bdd276d68bbb374e74270a6ae31fd2))
+
 ## [0.1.0-uat.1](https://github.com/slusset/intention-driven-design/compare/v0.1.0-uat.0...v0.1.0-uat.1) (2026-08-30)
 
 
