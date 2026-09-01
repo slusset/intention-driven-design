@@ -6,7 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const { execFileSync, spawn } = require('child_process');
 const { createModule, linkModule, statusModules } = require('../tools/lib/module-scaffold');
-const { formatDoctorReport, runDoctor } = require('../tools/lib/doctor');
+const { SEVERITIES, filterReport, formatDoctorReport, runDoctor } = require('../tools/lib/doctor');
 const { applyMigrationPlan, buildMigrationPlan, formatApplyResult } = require('../tools/lib/evolution');
 const { toolCommand } = require('../tools/lib/tool-runner');
 const { findToolkitRoot } = require('../tools/lib/toolkit-root');
@@ -87,10 +87,15 @@ function cmdDoctor(argv) {
   let json = false;
   let out = null;
   let planPath = null;
+  let verbose = false;
+  let summary = false;
+  const severities = [];
   const accept = [];
-  const valueOptions = { '--repo': 'repo', '--out': 'out', '--plan': 'plan', '--accept': 'accept' };
+  const valueOptions = { '--repo': 'repo', '--out': 'out', '--plan': 'plan', '--accept': 'accept', '--severity': 'severity' };
   for (let i = 0; i < rest.length; i += 1) {
     if (rest[i] === '--json') json = true;
+    else if (rest[i] === '--verbose') verbose = true;
+    else if (rest[i] === '--summary') summary = true;
     else if (valueOptions[rest[i]]) {
       if (!rest[i + 1] || rest[i + 1].startsWith('--')) {
         console.error(`${rest[i]} requires a value`);
@@ -100,7 +105,15 @@ function cmdDoctor(argv) {
       if (rest[i - 1] === '--repo') repoRoot = path.resolve(value);
       else if (rest[i - 1] === '--out') out = path.resolve(value);
       else if (rest[i - 1] === '--plan') planPath = path.resolve(value);
-      else accept.push(value);
+      else if (rest[i - 1] === '--severity') {
+        for (const level of value.split(',')) {
+          if (!SEVERITIES.includes(level)) {
+            console.error(`--severity must be one of ${SEVERITIES.join(', ')} (comma-separated); got ${level}`);
+            process.exit(1);
+          }
+          severities.push(level);
+        }
+      } else accept.push(value);
     } else {
       console.error(`Unknown doctor option: ${rest[i]}`);
       process.exit(1);
@@ -133,9 +146,9 @@ function cmdDoctor(argv) {
     process.exit(result.status === 'applied' ? 0 : 1);
   }
 
-  const report = runDoctor({ repoRoot });
+  const report = filterReport(runDoctor({ repoRoot }), severities);
   if (json) console.log(JSON.stringify(report, null, 2));
-  else console.log(formatDoctorReport(report));
+  else console.log(formatDoctorReport(report, { verbose, summary }));
 }
 
 // ── module scaffolding ─────────────────────────────────────────────
@@ -545,6 +558,7 @@ Commands:
   module link <name>           Add an explicit DAG edge or contract pin
   module status                Show declared modules and verification maps
   doctor                       Inspect migration alignment (report-only)
+                               [--severity error,advisory,info] [--summary] [--verbose]
   doctor plan [--out <file>]   Generate a deterministic migration plan
   doctor apply --plan <file>   Apply an accepted plan (writes evolution evidence)
   version                      Print version
@@ -558,6 +572,7 @@ Examples:
   idd init .
   idd module create billing --root specs
   idd doctor --json
+  idd doctor --repo ../consumer --severity error --summary
   idd doctor plan --repo ../consumer --out migration-plan.json
   idd doctor apply --plan migration-plan.json --accept adopt-consumer-contract --repo ../consumer
 `);

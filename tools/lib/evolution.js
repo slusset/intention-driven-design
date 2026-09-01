@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { DIAGNOSTIC_CHECKS, runDoctor, runValidator } = require('./doctor');
 const { digestJsonFile, jcsSha256 } = require('./contract-digests');
-const { findMigrationPath, readMigrationCatalog } = require('./migrations');
+const { adoptionMigration, findMigrationPath, readMigrationCatalog } = require('./migrations');
 const { findToolkitRoot } = require('./toolkit-root');
 const { TRANSFORMATIONS } = require('./transformations');
 
@@ -65,33 +65,8 @@ function buildMigrationPlan(options = {}) {
   if (!isToolkit && fromSchema === null && toSchema) {
     // No recorded contract means no cataloged transition applies; the first
     // evolution is adoption: record the contract for the running toolkit.
-    plan.migrations.push({
-      id: 'adopt-consumer-contract',
-      from: { schema: null },
-      to: { schema: toSchema },
-      kind: 'adoption',
-      summary: 'Record the initial idd_consumer contract for the running toolkit.',
-      steps: [
-        {
-          id: 'record-consumer-contract',
-          mode: 'transform',
-          transformation: 'record-consumer-contract',
-          description: 'Record the idd_consumer front-matter pins in specs/skills/repo-overlay.md for the running toolkit.',
-        },
-        {
-          id: 'validate-consumer-contract',
-          mode: 'validate',
-          description: 'Run the deterministic validator suite after recording the contract.',
-        },
-      ],
-      continuity: {
-        identity: 'preserved',
-        intent: 'preserved',
-        semantics: 'review-required',
-        data: 'unchanged',
-        operations: 'review-required',
-      },
-    });
+    const { synthetic, ...adoption } = adoptionMigration(toSchema);
+    plan.migrations.push(adoption);
   } else if (!isToolkit && catalog.migration_ids.length > 0) {
     // Reuse the shortest cataloged path the doctor already resolved; the
     // catalog digest above pins the exact metadata the plan was built from.

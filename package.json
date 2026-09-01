@@ -35,6 +35,7 @@
     ".codex-plugin/",
     ".agents/plugins/marketplace.json",
     ".github/actions/idd-check/",
+    "install/",
     "bin/",
     "dist/",
     "tools/lib/",

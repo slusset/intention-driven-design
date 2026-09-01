@@ -25,8 +25,16 @@ idd doctor apply --plan plan.json \
   --accept <migration-id> --repo ../consumer         # apply (explicit writes)
 ```
 
-Without `--json`, the output is a concise human report. JSON output is the
-stable integration surface for CI and migration tooling.
+Without `--json`, the output is a concise human report: findings grouped by
+id with counts and the files each names, then every finding when there are
+few enough to read (`--verbose` lists all of them; `--summary` prints only the
+groups). `--severity error`, `--severity advisory,info` narrows what is shown
+while the summary keeps the totals of the full inspection. JSON output is the
+stable integration surface for CI and migration tooling; each validator
+finding carries a discriminating `id` (`validator-<check>-<code>`, where the
+code is derived from the message shape, not the file), plus `check`, `code`,
+and `file`, so triage, deduplication, and per-check suppression work on the
+id alone.
 
 Apply refuses before any write when the plan digest no longer matches the
 repository/toolkit/catalog state, when error findings block migration, or
@@ -35,7 +43,26 @@ steps run only transformations registered in the toolkit; invariants are
 re-validated afterwards; the evolution is journaled as an appended record
 under `.idd/evolution/`. Run apply on a feature branch — version control is
 the undo mechanism. A consumer with no recorded contract gets a synthetic
-`adopt-consumer-contract` plan that records the initial pins.
+`adopt-consumer-contract` plan that records the initial pins; inspection
+names that path (`migration.catalog.synthetic: true`) rather than reporting
+an empty migration list.
+
+## Running a standalone install (CI, gates, no plugin host)
+
+The CLI does not need a plugin host, a repository-local `node_modules`, or a
+global npm prefix. The release tarball attached to every GitHub release is
+self-contained; `install/idd-install.sh` places one immutable version under
+`~/.idd/toolkits/<version>/` and links `idd` into `~/.local/bin`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/slusset/intention-driven-design/main/install/idd-install.sh \
+  | sh -s -- --version 0.1.0-uat.4
+~/.idd/toolkits/0.1.0-uat.4/bin/idd doctor --repo . --json
+```
+
+Versions sit side by side, so a consumer gate can call the exact accepted
+release by path instead of trusting whatever `idd` is first on PATH.
+`npm i -g <release tarball url>` remains a valid alternative.
 
 ## Running from a plugin install (code sessions)
 

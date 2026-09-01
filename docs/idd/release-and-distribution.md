@@ -14,6 +14,33 @@ The adapters do not imply a shared installation state. Each host keeps its own
 plugin or skill cache, so operators update that host explicitly and verify what
 it loaded.
 
+## Standalone CLI installation
+
+The plugin adapters deliver skills plus the CLI into a host's cache. A
+consumer gate, a CI job, or an operator shell often needs only the CLI, at an
+exact version, with no plugin host, no repository-local `node_modules`, and no
+global npm prefix. That is a separate distribution surface from plugin
+release, and it needs nothing new from the release: the npm tarball attached
+to every GitHub release already carries the self-contained
+`dist/bin/idd.js` bundle and every data file the CLI reads (schemas,
+migration catalog, skills).
+
+`install/idd-install.sh` (also attached to each release) downloads that
+tarball, verifies it against the release's `SHA256SUMS` when present, unpacks
+it to `<prefix>/toolkits/<version>/`, checks that it runs, and links
+`<bin-dir>/idd` to it. Defaults are `~/.idd` and `~/.local/bin`;
+`--from-file` installs a local tarball offline. Only Node.js 18+ is required
+at runtime.
+
+Because versions sit side by side, a consumer that pins an accepted toolkit
+can invoke it by path and treat drift as an error rather than a fallback:
+
+```bash
+ACCEPTED=0.1.0-uat.4
+[ -x ~/.idd/toolkits/$ACCEPTED/bin/idd ] || sh install/idd-install.sh --version $ACCEPTED --no-link
+~/.idd/toolkits/$ACCEPTED/bin/idd doctor --repo . --severity error --json
+```
+
 ## Release lifecycle
 
 1. Merge feature and fix commits to `main` using Conventional Commit prefixes.
@@ -83,6 +110,7 @@ anything.
 | Codex desktop and CLI | Codex plugin: core skills plus repository tooling | Add the Git marketplace with `codex plugin marketplace add slusset/intention-driven-design --ref main`, then `codex plugin add idd-skills@idd` | `codex plugin marketplace upgrade idd`, then `codex plugin add idd-skills@idd`; start a new task/session | `codex plugin list` and `idd version` when the host exposes the bundled CLI |
 | GitHub Copilot App, CLI, VS Code, cloud agent, and code review | Agent Skills from the tagged repository; validators remain the npm/GitHub Action artifact | `gh skill install slusset/intention-driven-design --all --agent github-copilot --scope user` | `gh skill update --all` | `gh skill list --agent github-copilot --json skillName,sourceURL,version,pinned,path` |
 | CI and repositories | npm tarball or reusable GitHub Action | Install `github:slusset/intention-driven-design#v0.1.0-uat.N`, or use `slusset/intention-driven-design/.github/actions/idd-check@v0.1.0-uat.N` | Update to the next explicitly accepted immutable UAT tag | `npx idd version` and `npx idd validate all --json` |
+| Standalone CLI (any shell, no plugin host, no repository `node_modules`) | The release tarball, unpacked into a versioned directory | `curl -fsSL https://raw.githubusercontent.com/slusset/intention-driven-design/main/install/idd-install.sh \| sh -s -- --version 0.1.0-uat.N`, or `npm i -g https://github.com/slusset/intention-driven-design/releases/download/v0.1.0-uat.N/idd-toolkit-0.1.0-uat.N.tgz` | Run the installer with the next accepted version; releases sit side by side under `~/.idd/toolkits/` | `~/.idd/toolkits/0.1.0-uat.N/bin/idd version` |
 
 ## One-time reset from the retired prototype line
 

@@ -65,12 +65,15 @@ jobs:
         run: |
           mkdir -p dist
           npm pack --pack-destination dist
+          # Checksums let the standalone installer (install/idd-install.sh)
+          # verify the tarball it downloads.
+          (cd dist && sha256sum *.tgz > SHA256SUMS)
 
       - name: Attach the toolkit artifact
         if: ${{ steps.release.outputs.release_created }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ steps.release.outputs.tag_name }}" dist/*.tgz
+        run: gh release upload "${{ steps.release.outputs.tag_name }}" dist/*.tgz dist/SHA256SUMS install/idd-install.sh
 
       - name: Move the supported major action tag
         if: ${{ steps.release.outputs.release_created && steps.release.outputs.major != '0' && !contains(steps.release.outputs.version, '-') }}
