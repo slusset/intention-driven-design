@@ -12,7 +12,7 @@ idd_consumer:
   toolkit:
     version: 0.1.0-uat.1
     schema:
-      version: 1.12.0
+      version: 1.13.0
       digest: sha256:<64 lowercase hex characters>
     source:
       kind: github-tag

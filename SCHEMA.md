@@ -91,7 +91,7 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.12.0`** (declared in
+The current version is **`1.13.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
 actions, and assertions landed in 1.2; declarative lifecycle and journey-map
@@ -117,7 +117,8 @@ declared dependency. Literal evidence bindings and reciprocal contract
 Consumer toolkit contract pins landed in 1.11. The second consumer contact
 landed in 1.12: identity kinds, conditional `required`, lifecycles over value
 objects, kind-typed fixture metadata, and protocol-shaped journey-map
-vocabulary.
+vocabulary. Formal evidence kinds landed in 1.13: Alloy and TLA+ probes with
+pinned outcomes, vectors with reciprocity, mutation probes, and tooling locks.
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward
@@ -353,6 +354,79 @@ Action kinds gain `cli`, `install`, `mcp`, `harness`; assertion kinds gain
 `installed-cli`, `installed-mcp`, `harness-integration`;
 `principal-continuity`, `required-content`, `forbidden-content`,
 `package-removal`, `package-installed`.
+
+## Formal evidence kinds (v1.13)
+
+A verification map's formal claims were author-extensible prose until a
+consumer (AlloyIdentity) showed them carrying the whole verification spine:
+every rule id is cited by an Alloy assertion with a pinned SAT/UNSAT status, a
+TLA+ invariant under TLC, conformance vectors replayed under several receipt
+orderings, and named test selectors. v1.13 promotes those shapes to canonical
+keys and gives them the same cross-file checks literal bindings have. The
+validator checks that claims are grounded, not that they hold: a bounded
+result is evidence for its scope, never a proof.
+
+```yaml
+tooling:
+  alloy:
+    checker: Alloy Analyzer
+    version: 6.2.0
+    sources: [alloy/identity_continuity.als]
+    lock: formal-tools.lock.json          # entry "alloy" must pin a sha256 and agree on version
+  tla:
+    checker: TLC
+    sources: [specs/verification/identity-continuity/tla/GenesisSelection.tla,
+              specs/verification/identity-continuity/tla/GenesisSelection.cfg]
+
+rules:
+  - id: I-2-principal-genesis-root
+    source_models: [specs/models/identity-continuity/principal.model.yaml]
+    alloy:
+      assertions:
+        - { name: OneGenesisPerPrincipal, expected: UNSAT }     # check: no counterexample in scope
+      predicates:
+        - name: ConcurrentGrantRevokeExample                      # run: representable in the open model,
+          expected:                                               # closed in the hardened profile
+            alloy/identity_continuity.als: SAT
+            alloy/identity_continuity_closed.als: UNSAT
+      profiles: [alloy/identity_continuity_closed.als]
+    tla:
+      model: specs/verification/identity-continuity/tla/GenesisSelection.tla
+      invariants: [AtMostOneGenesis]
+      properties: [{ name: SelectionBoundaryIsFrozen, expected: holds }]
+    conformance_vectors:
+      - specs/fixtures/conformance/competing-genesis-batch.json
+    mutation_probes:
+      - id: invert-genesis-tie-break
+        mutation: invert the smallest-genesis selection
+        detected_by: [specs/fixtures/conformance/competing-genesis-batch.json]
+```
+
+Checks (errors unless noted):
+
+- every Alloy command a rule names (`assertions`, `predicates`,
+  `inherited_assertions`) is declared with `assert` / `pred` / `check` /
+  `run` / `fact` in one of `tooling.alloy.sources` or the rule's
+  `profiles`; a per-profile `expected` map may only name those sources;
+- every TLA+ `invariants` / `properties` / `preserved_invariants` name is
+  defined in the rule's `model` / `inherited_model` or the map's tla sources
+  (`Name ==`), or listed in a `.cfg` (`INVARIANT` / `PROPERTY`);
+- every `conformance_vectors` file names the rule in `_meta.rules` — the
+  reciprocity contracts have through `x-rules` (a vector with no
+  `_meta.rules` is a warning); other `*_vectors` corpora may be shared across
+  rules and are checked for existence only;
+- a `tooling.<tool>.lock` file carries an entry for the tool with a sha256,
+  and its version agrees with the map's;
+- `mutation_probes[].detected_by` paths exist;
+- an Alloy command with no `expected` outcome is info: pin it in the map so
+  the checker's expectations live beside the rule rather than in a script.
+
+Names are strings or `{ name, expected, note }`. Alloy outcomes are `SAT` /
+`UNSAT`, per command or per profile; TLA+ outcomes are `holds` (default) /
+`violated` for an intentional counterexample. A rule that a tool does not
+reach keeps a narrative `status` (`deferred`, `not-applicable-…`,
+`holds-by-construction-…`). A `formal:` block remains for rules with no
+executable probes at all.
 
 ## Closed-world keys and `$conformance` (v1.1)
 

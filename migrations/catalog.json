@@ -121,6 +121,42 @@
         "data": "transformed",
         "operations": "unchanged"
       }
+    },
+    {
+      "id": "schema-1-12-0-to-1-13-0",
+      "from": {
+        "schema": "1.12.0"
+      },
+      "to": {
+        "schema": "1.13.0"
+      },
+      "kind": "schema",
+      "summary": "Promote formal evidence kinds: alloy / tla probes with pinned outcomes, vectors with reciprocity, mutation probes, and tooling locks become canonical verification-map shapes with cross-file checks.",
+      "steps": [
+        {
+          "id": "review-formal-evidence",
+          "mode": "review",
+          "description": "Review every rule alloy / tla / *_vectors block: names must resolve in the declared sources, vectors must name the rule in _meta.rules, and outcomes pinned in scripts should move into the map as expected: values."
+        },
+        {
+          "id": "record-consumer-contract",
+          "mode": "transform",
+          "transformation": "record-consumer-contract",
+          "description": "Move the idd_consumer front-matter pins in specs/skills/repo-overlay.md to the running toolkit."
+        },
+        {
+          "id": "validate-formal-evidence",
+          "mode": "validate",
+          "description": "Run the deterministic validator suite; the verification validator now resolves formal probe names and vector reciprocity."
+        }
+      ],
+      "continuity": {
+        "identity": "preserved",
+        "intent": "preserved",
+        "semantics": "preserved",
+        "data": "unchanged",
+        "operations": "review-required"
+      }
     }
   ]
 }
