@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { findMigrationPath, readMigrationCatalog } = require('../tools/lib/migrations');
+const { TRANSFORMATIONS } = require('../tools/lib/transformations');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 
@@ -18,7 +19,12 @@ test('migration catalog is valid and resolves ordered schema paths', () => {
     'schema-1-9-0-to-1-10-0',
     'schema-1-10-0-to-1-11-0',
   ]);
-  assert.equal(pathResult.flatMap((migration) => migration.steps).every((step) => step.mode !== 'transform'), true);
+  // Every executable transform step must bind a registered deterministic
+  // transformation; anything else stays inspect/review/validate metadata.
+  for (const step of pathResult.flatMap((migration) => migration.steps)) {
+    if (step.mode === 'transform') assert.ok(TRANSFORMATIONS[step.transformation], `unregistered transformation: ${step.transformation}`);
+    else assert.equal(step.transformation, undefined);
+  }
 });
 
 test('migration catalog rejects duplicate ids', (t) => {

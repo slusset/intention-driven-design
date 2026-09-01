@@ -7,6 +7,7 @@ const fs = require('fs');
 const { execFileSync, spawn } = require('child_process');
 const { createModule, linkModule, statusModules } = require('../tools/lib/module-scaffold');
 const { formatDoctorReport, runDoctor } = require('../tools/lib/doctor');
+const { applyMigrationPlan, buildMigrationPlan, formatApplyResult } = require('../tools/lib/evolution');
 const { toolCommand } = require('../tools/lib/tool-runner');
 const { findToolkitRoot } = require('../tools/lib/toolkit-root');
 
@@ -79,21 +80,59 @@ if (commands[subcommand]) {
 // ── doctor ──────────────────────────────────────────────────────────
 
 function cmdDoctor(argv) {
+  const operation = argv[0] === 'plan' || argv[0] === 'apply' ? argv[0] : null;
+  const rest = operation ? argv.slice(1) : argv;
+
   let repoRoot = process.cwd();
   let json = false;
-  for (let i = 0; i < argv.length; i += 1) {
-    if (argv[i] === '--json') json = true;
-    else if (argv[i] === '--repo') {
-      if (!argv[i + 1] || argv[i + 1].startsWith('--')) {
-        console.error('--repo requires a directory');
+  let out = null;
+  let planPath = null;
+  const accept = [];
+  const valueOptions = { '--repo': 'repo', '--out': 'out', '--plan': 'plan', '--accept': 'accept' };
+  for (let i = 0; i < rest.length; i += 1) {
+    if (rest[i] === '--json') json = true;
+    else if (valueOptions[rest[i]]) {
+      if (!rest[i + 1] || rest[i + 1].startsWith('--')) {
+        console.error(`${rest[i]} requires a value`);
         process.exit(1);
       }
-      repoRoot = path.resolve(argv[++i]);
+      const value = rest[++i];
+      if (rest[i - 1] === '--repo') repoRoot = path.resolve(value);
+      else if (rest[i - 1] === '--out') out = path.resolve(value);
+      else if (rest[i - 1] === '--plan') planPath = path.resolve(value);
+      else accept.push(value);
     } else {
-      console.error(`Unknown doctor option: ${argv[i]}`);
+      console.error(`Unknown doctor option: ${rest[i]}`);
       process.exit(1);
     }
   }
+
+  if (operation === 'plan') {
+    const { plan } = buildMigrationPlan({ repoRoot });
+    const output = `${JSON.stringify(plan, null, 2)}\n`;
+    if (out) {
+      fs.writeFileSync(out, output);
+      console.log(`Wrote migration plan to ${out}`);
+      if (plan.acceptance_required.length > 0) {
+        console.log(`Apply requires: ${plan.acceptance_required.map((id) => `--accept ${id}`).join(' ')}`);
+      }
+    } else {
+      process.stdout.write(output);
+    }
+    return;
+  }
+
+  if (operation === 'apply') {
+    if (!planPath) {
+      console.error('Usage: idd doctor apply --plan <file> [--accept <migration-id>...] [--repo <dir>] [--json]');
+      process.exit(1);
+    }
+    const result = applyMigrationPlan({ repoRoot, planPath, accept });
+    if (json) console.log(JSON.stringify(result, null, 2));
+    else console.log(formatApplyResult(result));
+    process.exit(result.status === 'applied' ? 0 : 1);
+  }
+
   const report = runDoctor({ repoRoot });
   if (json) console.log(JSON.stringify(report, null, 2));
   else console.log(formatDoctorReport(report));
@@ -505,7 +544,9 @@ Commands:
   module create <name>         Scaffold a bounded-context module chain
   module link <name>           Add an explicit DAG edge or contract pin
   module status                Show declared modules and verification maps
-  doctor                      Inspect migration alignment (report-only)
+  doctor                       Inspect migration alignment (report-only)
+  doctor plan [--out <file>]   Generate a deterministic migration plan
+  doctor apply --plan <file>   Apply an accepted plan (writes evolution evidence)
   version                      Print version
   help                         Show this help
 
@@ -517,6 +558,8 @@ Examples:
   idd init .
   idd module create billing --root specs
   idd doctor --json
+  idd doctor plan --repo ../consumer --out migration-plan.json
+  idd doctor apply --plan migration-plan.json --accept adopt-consumer-contract --repo ../consumer
 `);
 }
 

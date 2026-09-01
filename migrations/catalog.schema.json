@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/slusset/intention-driven-design/migrations/catalog.schema.json",
   "title": "IDD Migration Catalog",
-  "description": "Report-only migration metadata shipped with the IDD Toolkit.",
+  "description": "Migration metadata shipped with the IDD Toolkit. Doctor reports cataloged paths; doctor apply executes accepted plans, with transform steps bound to registered deterministic transformations.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "migrations"],
@@ -53,8 +53,12 @@
       "properties": {
         "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
         "mode": { "enum": ["inspect", "review", "transform", "validate"] },
-        "description": { "type": "string", "minLength": 1 }
-      }
+        "description": { "type": "string", "minLength": 1 },
+        "transformation": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+      },
+      "if": { "properties": { "mode": { "const": "transform" } } },
+      "then": { "required": ["transformation"] },
+      "else": { "not": { "required": ["transformation"] } }
     },
     "continuity": {
       "type": "object",

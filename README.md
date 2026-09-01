@@ -216,6 +216,9 @@ idd generate-evidence          Generate certification evidence manifest
                                (into .idd/evidence/ — CI report input, not committed)
 idd init [dir]                 Scaffold IDD directory structure
 idd doctor [--repo <dir>]      Inspect migration alignment/catalog (report-only)
+idd doctor plan [--out <file>] Generate a deterministic, digest-pinned migration plan
+idd doctor apply --plan <file> Apply an accepted plan (--accept <migration-id>,
+                               writes .idd/evolution/ evidence, never journal history)
 idd version                    Print version
 ```
 

@@ -77,6 +77,7 @@ function recordMigrationCatalog(repoRoot, report, fromSchemaVersion = null, toSc
       migration_id: migration.id,
       id: step.id,
       mode: step.mode,
+      ...(step.transformation ? { transformation: step.transformation } : {}),
       description: step.description,
     }))),
   };
@@ -595,4 +596,4 @@ function formatDoctorReport(report) {
   return lines.join('\n');
 }
 
-module.exports = { formatDoctorReport, runDoctor };
+module.exports = { DIAGNOSTIC_CHECKS, formatDoctorReport, runDoctor, runValidator };
