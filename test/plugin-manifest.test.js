@@ -29,6 +29,7 @@ test('Claude manifest exposes the same core-only skill surface', () => {
   assert.doesNotMatch(JSON.stringify(pluginManifest), /technical-skills/);
   assert.equal(pkg.files.includes('technical-skills/'), false);
   assert.equal(fs.existsSync(path.join(REPO_ROOT, 'technical-skills')), false);
+  assert.ok(pkg.files.includes('migrations/'), 'published toolkit must include the migration catalog');
 });
 
 test('repo overlay is the only stack-specific skill selection authority', () => {

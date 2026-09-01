@@ -151,6 +151,8 @@ function validateTooling() {
   requireFile('bin/idd', 'IDD PATH shim');
   requireFile('.github/actions/idd-check/action.yml', 'IDD GitHub Action');
   requireFile('schemas/v1/index.json', 'IDD schema registry');
+  requireFile('migrations/catalog.json', 'IDD migration catalog');
+  requireFile('migrations/catalog.schema.json', 'IDD migration catalog schema');
 
   if (fs.existsSync(path.join(REPO_ROOT, 'technical-skills'))) {
     errors.push('Bundled technical-skills directory must be removed; consumers bind stack skills in repo-overlay');

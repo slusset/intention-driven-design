@@ -181,5 +181,42 @@ test('doctor reports stale consumer schema pins without writing', (t) => {
 
   assert.ok(ids.includes('consumer-schema-version-drift'));
   assert.ok(ids.includes('consumer-schema-digest-drift'));
+  assert.ok(ids.includes('consumer-migration-path-available'));
+  assert.deepEqual(report.migration.catalog.migration_ids, [
+    'schema-1-9-0-to-1-10-0',
+    'schema-1-10-0-to-1-11-0',
+  ]);
+  assert.equal(report.migration.catalog.steps.length, 4);
+  assert.equal(report.migration.writes, false);
+});
+
+test('doctor reports when no cataloged path covers a schema transition', (t) => {
+  const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'idd-doctor-no-migration-'));
+  t.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(repoRoot, 'specs', 'skills'), { recursive: true });
+  fs.writeFileSync(path.join(repoRoot, 'specs', 'skills', 'repo-overlay.md'), [
+    '---',
+    'idd_consumer:',
+    '  schemaVersion: 1',
+    '  toolkit:',
+    '    version: 0.1.0-uat.1',
+    '    schema:',
+    '      version: 9.9.9',
+    `      digest: sha256:${'0'.repeat(64)}`,
+    '    source:',
+    '      kind: github-tag',
+    '      ref: v0.1.0-uat.1',
+    '---',
+    '# Consumer overlay',
+    '',
+  ].join('\n'));
+
+  const report = JSON.parse(execFileSync(process.execPath, [IDD_BIN, 'doctor', '--repo', repoRoot, '--json'], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+  }));
+
+  assert.ok(report.findings.some((item) => item.id === 'consumer-migration-path-unavailable'));
+  assert.deepEqual(report.migration.catalog.migration_ids, []);
   assert.equal(report.migration.writes, false);
 });

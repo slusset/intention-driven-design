@@ -23,6 +23,22 @@ The current report deliberately distinguishes:
 - `migration.status: not-applied` from a successful transformation; and
 - `continuity.status: not-assessed` from a continuity claim.
 
+## Report-only migration catalog
+
+The toolkit ships [`migrations/catalog.json`](../../migrations/catalog.json), a
+small ordered catalog of schema transitions. Its shape is checked by
+[`migrations/catalog.schema.json`](../../migrations/catalog.schema.json). Each
+entry names an exact source and target schema version, a short sequence of
+inspect/review/validate steps, and continuity dispositions.
+
+This borrows the useful part of Angular upgrade schematics: migrations are
+versioned, discoverable package metadata selected by the source and target
+versions. The current IDD implementation intentionally stops at discovery.
+`idd doctor` reports the shortest cataloged path and its steps; it does not
+execute a factory, edit a repository, or mutate journal history. A future
+plan/apply mode can attach deterministic transformations to the same IDs after
+their authority and continuity contracts are specified.
+
 ## Declarative evolution policy
 
 The proposed policy is:

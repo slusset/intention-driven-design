@@ -1,0 +1,58 @@
+{
+  "$schema": "./catalog.schema.json",
+  "schemaVersion": 1,
+  "migrations": [
+    {
+      "id": "schema-1-9-0-to-1-10-0",
+      "from": { "schema": "1.9.0" },
+      "to": { "schema": "1.10.0" },
+      "kind": "schema",
+      "summary": "Adopt digest-pinned cross-module contract schemas.",
+      "steps": [
+        {
+          "id": "review-contract-pins",
+          "mode": "review",
+          "description": "Review verification-map contract_pins and confirm each digest names the intended upstream JSON Schema bytes."
+        },
+        {
+          "id": "validate-contract-pins",
+          "mode": "validate",
+          "description": "Run the verification validator and retain its digest and reciprocal-rule results with the update review."
+        }
+      ],
+      "continuity": {
+        "identity": "preserved",
+        "intent": "preserved",
+        "semantics": "review-required",
+        "data": "unchanged",
+        "operations": "review-required"
+      }
+    },
+    {
+      "id": "schema-1-10-0-to-1-11-0",
+      "from": { "schema": "1.10.0" },
+      "to": { "schema": "1.11.0" },
+      "kind": "schema",
+      "summary": "Record the accepted IDD Toolkit release, schema digest, and distribution provenance.",
+      "steps": [
+        {
+          "id": "record-consumer-contract",
+          "mode": "review",
+          "description": "Add or review the idd_consumer front-matter record in specs/skills/repo-overlay.md."
+        },
+        {
+          "id": "validate-consumer-contract",
+          "mode": "validate",
+          "description": "Run idd doctor from the candidate toolkit installation and review any pin or source-provenance drift."
+        }
+      ],
+      "continuity": {
+        "identity": "preserved",
+        "intent": "preserved",
+        "semantics": "review-required",
+        "data": "unchanged",
+        "operations": "review-required"
+      }
+    }
+  ]
+}

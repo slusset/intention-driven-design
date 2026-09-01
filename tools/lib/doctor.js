@@ -5,6 +5,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { digestJsonFile } = require('./contract-digests');
 const { readConsumerContract } = require('./consumer-contract');
+const { findMigrationPath, readMigrationCatalog } = require('./migrations');
 
 const DIAGNOSTIC_CHECKS = [
   'modules',
@@ -59,6 +60,41 @@ function finding(id, severity, subject, current, expected, continuityImpact, rec
   };
 }
 
+function recordMigrationCatalog(repoRoot, report, fromSchemaVersion = null, toSchemaVersion = null) {
+  const migrationCatalog = readMigrationCatalog(repoRoot);
+  const migrationPath = migrationCatalog.status === 'valid'
+    ? findMigrationPath(migrationCatalog.catalog, fromSchemaVersion, toSchemaVersion)
+    : [];
+  report.migration.catalog = {
+    path: migrationCatalog.path,
+    status: migrationCatalog.status,
+    from_schema_version: fromSchemaVersion,
+    to_schema_version: toSchemaVersion,
+    migration_ids: migrationPath.map((migration) => migration.id),
+    steps: migrationPath.flatMap((migration) => migration.steps.map((step) => ({
+      migration_id: migration.id,
+      id: step.id,
+      mode: step.mode,
+      description: step.description,
+    }))),
+  };
+  if (migrationCatalog.status === 'invalid') {
+    for (const message of migrationCatalog.errors) {
+      report.findings.push(finding(
+        'migration-catalog-invalid',
+        'error',
+        migrationCatalog.path,
+        message,
+        'valid report-only migration catalog',
+        'requires-migration-review',
+        'Repair the toolkit migration catalog before relying on a reported migration path',
+        [migrationCatalog.path],
+      ));
+    }
+  }
+  return { migrationCatalog, migrationPath };
+}
+
 function inspectToolkitSurfaces(repoRoot, report) {
   const packageJson = readJson(path.join(repoRoot, 'package.json'));
   if (!packageJson) {
@@ -88,6 +124,7 @@ function inspectToolkitSurfaces(repoRoot, report) {
     claude: claudeManifest?.version || null,
     codex: codexManifest?.version || null,
   };
+  recordMigrationCatalog(repoRoot, report, null, schemaIndex?.version || null);
 
   if (!VALID_VERSION.test(packageJson.version || '')) {
     report.findings.push(finding(
@@ -178,6 +215,13 @@ function inspectConsumer(repoRoot, report) {
   report.repository.doctor_schema_digest = runningSchemaDigest;
 
   const consumerContract = readConsumerContract(repoRoot);
+  const pinnedSchemaVersion = consumerContract.record?.toolkit?.schema?.version || null;
+  const { migrationCatalog, migrationPath } = recordMigrationCatalog(
+    toolkitRoot,
+    report,
+    pinnedSchemaVersion,
+    runningSchema.version || null,
+  );
   report.repository.consumer_contract = {
     path: consumerContract.path,
     status: consumerContract.status,
@@ -247,6 +291,31 @@ function inspectConsumer(repoRoot, report) {
         'Inspect the schema migration and record which consumer meanings remain continuous',
         [consumerContract.path],
       ));
+    }
+    if (pinnedToolkit.schema.version !== runningSchema.version) {
+      if (migrationPath.length > 0) {
+        report.findings.push(finding(
+          'consumer-migration-path-available',
+          'info',
+          'consumer schema migration catalog',
+          pinnedToolkit.schema.version,
+          runningSchema.version || 'unknown',
+          'requires-disposition',
+          `Review the cataloged path: ${migrationPath.map((migration) => migration.id).join(' → ')}`,
+          [migrationCatalog.path],
+        ));
+      } else if (migrationCatalog.status === 'valid') {
+        report.findings.push(finding(
+          'consumer-migration-path-unavailable',
+          'advisory',
+          'consumer schema migration catalog',
+          pinnedToolkit.schema.version,
+          runningSchema.version || 'unknown',
+          'semantic-continuity-unassessed',
+          'No cataloged path covers this schema transition; define and review a migration before accepting the toolkit candidate',
+          [migrationCatalog.path],
+        ));
+      }
     }
     const expectedSourceRef = pinnedToolkit.source.kind === 'github-tag'
       ? `v${pinnedToolkit.version}`
@@ -433,6 +502,14 @@ function runDoctor(options = {}) {
       plan: 'not-generated',
       writes: false,
       journal_mutation: false,
+      catalog: {
+        path: null,
+        status: 'not-loaded',
+        from_schema_version: null,
+        to_schema_version: null,
+        migration_ids: [],
+        steps: [],
+      },
     },
     findings: [],
     validators: {},
@@ -490,6 +567,10 @@ function formatDoctorReport(report) {
     `Status: ${report.summary.status} (${report.summary.errors} errors, ${report.summary.advisories} advisories, ${report.summary.infos} infos)`,
     '',
   ];
+  const catalog = report.migration?.catalog;
+  if (catalog?.status === 'valid') {
+    lines.push(`Migration catalog: ${catalog.path}${catalog.migration_ids.length > 0 ? ` (${catalog.migration_ids.join(' → ')})` : ''}`, '');
+  }
   if (report.findings.length === 0) lines.push('No misalignments detected by the current inspection surface.');
   else {
     lines.push('Findings:');
