@@ -6,6 +6,7 @@ const yaml = require('js-yaml');
 const { getValidator, formatAjvErrors } = require('./schema-loader');
 const { moduleRoots, normalizeRepoPath, validateModulesDocument } = require('./modules');
 const { validateEvidenceBindings } = require('./evidence-bindings');
+const { validateFormalEvidence } = require('./formal-evidence');
 const { digestJsonFile } = require('./contract-digests');
 
 const CLASSIFICATION_RANKS = {
@@ -329,6 +330,11 @@ function validateVerificationFile(options = {}) {
   results.errors.push(...evidenceResults.errors);
   results.warnings.push(...evidenceResults.warnings);
   results.info.push(...evidenceResults.info);
+
+  const formalResults = validateFormalEvidence({ repoRoot, maps });
+  results.errors.push(...formalResults.errors);
+  results.warnings.push(...formalResults.warnings);
+  results.info.push(...formalResults.info);
 
   if (results.errors.length === 0) {
     results.info.push(
