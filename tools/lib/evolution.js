@@ -57,7 +57,8 @@ function buildMigrationPlan(options = {}) {
     },
     migrations: [],
     acceptance_required: [],
-    blockers: [...new Set(report.findings.filter((item) => item.severity === 'error').map((item) => item.id))].sort(),
+    blockers: [],
+    resolved_by_plan: [],
     writes: false,
     journal_mutation: false,
   };
@@ -77,6 +78,19 @@ function buildMigrationPlan(options = {}) {
   }
 
   plan.acceptance_required = plan.migrations.filter(requiresAcceptance).map((migration) => migration.id);
+
+  // Error findings block apply — except those the plan's own transformations
+  // declare they resolve. A consumer whose fixtures fail the old schema is
+  // exactly the consumer the fixture rewrite exists for; refusing on that
+  // error would make the migration unreachable. The post-apply validation
+  // still has to confirm the resolved findings are gone.
+  const errorIds = [...new Set(report.findings.filter((item) => item.severity === 'error').map((item) => item.id))].sort();
+  const resolvable = new Set(plan.migrations
+    .flatMap((migration) => migration.steps)
+    .filter((step) => step.mode === 'transform' && TRANSFORMATIONS[step.transformation])
+    .flatMap((step) => TRANSFORMATIONS[step.transformation].resolves || []));
+  plan.resolved_by_plan = errorIds.filter((id) => resolvable.has(id));
+  plan.blockers = errorIds.filter((id) => !resolvable.has(id));
   plan.digest = planDigest(plan);
   return { plan, report };
 }
@@ -92,6 +106,12 @@ function runValidatorSuite(repoRoot) {
     suite.checks[check] = { errors, warnings };
   }
   return suite;
+}
+
+function unexpectedErrorIds(report, allowed = []) {
+  return [...new Set(report.findings.filter((item) => item.severity === 'error').map((item) => item.id))]
+    .filter((id) => !allowed.includes(id))
+    .sort();
 }
 
 function refusal(result, reason, detail) {
@@ -112,6 +132,7 @@ function refusal(result, reason, detail) {
 function applyMigrationPlan(options = {}) {
   const repoRoot = path.resolve(options.repoRoot || process.cwd());
   const accept = options.accept || [];
+  const allowBlockers = options.allowBlockers || [];
   const result = {
     mode: 'apply',
     status: 'applied',
@@ -122,6 +143,8 @@ function applyMigrationPlan(options = {}) {
     invariants: null,
     findings_before: null,
     findings_after: null,
+    blockers_allowed: [],
+    resolved_by_plan: [],
     evolution_record: null,
     writes: [],
     journal_mutation: false,
@@ -146,9 +169,17 @@ function applyMigrationPlan(options = {}) {
   if (current.digest !== stored.digest) {
     return refusal(result, 'plan-stale', 'repository, toolkit, or catalog state changed since the plan was generated — regenerate with `idd doctor plan`');
   }
-  if (stored.blockers.length > 0) {
-    return refusal(result, 'error-findings-block-apply', `resolve error findings first: ${stored.blockers.join(', ')}`);
+  const blockers = stored.blockers || [];
+  const unallowed = blockers.filter((id) => !allowBlockers.includes(id));
+  if (unallowed.length > 0) {
+    return refusal(
+      result,
+      'error-findings-block-apply',
+      `resolve error findings first, or accept them explicitly: ${unallowed.map((id) => `--allow-blocker ${id}`).join(' ')}`,
+    );
   }
+  result.blockers_allowed = blockers.filter((id) => allowBlockers.includes(id));
+  result.resolved_by_plan = stored.resolved_by_plan || [];
   if (stored.migrations.length === 0) {
     return refusal(result, 'nothing-to-apply', 'the plan contains no applicable migrations');
   }
@@ -192,8 +223,10 @@ function applyMigrationPlan(options = {}) {
         const suite = runValidatorSuite(repoRoot);
         stepResult.errors = suite.errors;
         stepResult.warnings = suite.warnings;
-        if (suite.errors > 0) {
+        const unexpected = unexpectedErrorIds(runDoctor({ repoRoot }), result.blockers_allowed);
+        if (unexpected.length > 0) {
           stepResult.status = 'failed';
+          stepResult.detail = `unresolved error findings: ${unexpected.join(', ')}`;
           result.status = 'failed';
         }
       } else if (step.mode === 'inspect') {
@@ -209,10 +242,21 @@ function applyMigrationPlan(options = {}) {
   // the plan's own steps included a validate pass.
   if (result.status !== 'failed') {
     result.invariants = runValidatorSuite(repoRoot);
-    if (result.invariants.errors > 0) result.status = 'failed';
   }
   const after = runDoctor({ repoRoot });
   result.findings_after = { ...after.summary };
+  // Post-apply invariants: every error finding must be one the caller
+  // explicitly allowed; the plan's own resolved findings must be gone.
+  const unexpectedAfter = unexpectedErrorIds(after, result.blockers_allowed);
+  if (unexpectedAfter.length > 0 && result.status !== 'failed') {
+    result.status = 'failed';
+    result.refusals.push({ reason: 'errors-after-apply', detail: `error findings remain after apply: ${unexpectedAfter.join(', ')}` });
+  }
+  const stillPresent = result.resolved_by_plan.filter((id) => after.findings.some((item) => item.id === id && item.severity === 'error'));
+  if (stillPresent.length > 0 && result.status !== 'failed') {
+    result.status = 'failed';
+    result.refusals.push({ reason: 'resolved-findings-still-present', detail: `the plan claimed to resolve ${stillPresent.join(', ')} but they remain after apply` });
+  }
 
   const record = {
     record_version: 1,
@@ -226,6 +270,8 @@ function applyMigrationPlan(options = {}) {
     invariants: result.invariants,
     findings_before: result.findings_before,
     findings_after: result.findings_after,
+    blockers_allowed: result.blockers_allowed,
+    resolved_by_plan: result.resolved_by_plan,
     writes: result.writes,
     journal_mutation: false,
   };
@@ -259,6 +305,8 @@ function formatApplyResult(result) {
       lines.push(`  - [${step.mode}] ${step.id}: ${step.status}${extras ? ` (${extras})` : ''}`);
     }
   }
+  if (result.resolved_by_plan.length > 0) lines.push('', `Resolved by the plan's transformations: ${result.resolved_by_plan.join(', ')}`);
+  if (result.blockers_allowed.length > 0) lines.push(`Blockers accepted explicitly (--allow-blocker): ${result.blockers_allowed.join(', ')}`);
   if (result.invariants) {
     lines.push('', `Invariants: ${result.invariants.errors} errors, ${result.invariants.warnings} warnings across ${Object.keys(result.invariants.checks).length} validators`);
   }
