@@ -10,6 +10,16 @@ testing. Historical prototype entries retain their original `1.x` headings
 below active releases. Their commits remain available under `legacy/v1.*` tags,
 but those versions are not part of the active SemVer sequence.
 
+## [0.1.0-uat.4](https://github.com/slusset/intention-driven-design/compare/v0.1.0-uat.3...v0.1.0-uat.4) (2026-09-02)
+
+
+### Features
+
+* **doctor:** discriminating finding ids, severity filter, grouped report, standalone CLI installer ([#86](https://github.com/slusset/intention-driven-design/issues/86)) ([66b537a](https://github.com/slusset/intention-driven-design/commit/66b537a54260657e2cef2b4e38f500a141439916))
+* **evidence:** formal-result records and the evidence roll-up (schema 1.14.0) ([#88](https://github.com/slusset/intention-driven-design/issues/88)) ([3df1de3](https://github.com/slusset/intention-driven-design/commit/3df1de3bf279acce95e8fc3dbf4c0e053f23bc03))
+* schema 1.12.0 — canonical shapes from the second AlloyIdentity contact ([#85](https://github.com/slusset/intention-driven-design/issues/85)) ([54f5e01](https://github.com/slusset/intention-driven-design/commit/54f5e01b7a0a1984759f8df0da56328fb0cd24bd))
+* **schema:** promote formal evidence kinds (schema 1.13.0) ([#87](https://github.com/slusset/intention-driven-design/issues/87)) ([e9971e2](https://github.com/slusset/intention-driven-design/commit/e9971e26a8f3ea285eafe4b836df105df0fd7840))
+
 ## [0.1.0-uat.3](https://github.com/slusset/intention-driven-design/compare/v0.1.0-uat.2...v0.1.0-uat.3) (2026-09-01)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "idd-skills",
-  "version": "0.1.0-uat.3",
+  "version": "0.1.0-uat.4",
   "description": "Core Intention-Driven Design methodology skills. Narrative-first development: personas, journeys, stories, domain models, behavior contracts, and e2e journey testing. Bundles the idd validator CLI (bin/idd on PATH), tools, and schemas.",
   "author": {
     "name": "Ted Slusser",
