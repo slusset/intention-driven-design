@@ -10,6 +10,13 @@ testing. Historical prototype entries retain their original `1.x` headings
 below active releases. Their commits remain available under `legacy/v1.*` tags,
 but those versions are not part of the active SemVer sequence.
 
+## [0.1.0-uat.5](https://github.com/slusset/intention-driven-design/compare/v0.1.0-uat.4...v0.1.0-uat.5) (2026-09-02)
+
+
+### Bug Fixes
+
+* **doctor:** plan-resolved findings are not blockers; --allow-blocker for explicit exceptions ([#97](https://github.com/slusset/intention-driven-design/issues/97)) ([599f585](https://github.com/slusset/intention-driven-design/commit/599f585fa97c6d931600374dcd4fa334b63cf45f))
+
 ## [0.1.0-uat.4](https://github.com/slusset/intention-driven-design/compare/v0.1.0-uat.3...v0.1.0-uat.4) (2026-09-02)
 
 
