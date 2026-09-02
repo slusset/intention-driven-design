@@ -38,7 +38,13 @@ id alone.
 
 Apply refuses before any write when the plan digest no longer matches the
 repository/toolkit/catalog state, when error findings block migration, or
-when a review-required migration lacks `--accept <migration-id>`. Transform
+when a review-required migration lacks `--accept <migration-id>`. Error
+findings that the plan's own transformations declare they resolve (a fixture
+`_meta.type` the `fixture-meta-kind` rewrite fixes, for instance) are listed
+as `resolved_by_plan`, not as blockers; apply confirms they are gone
+afterwards. Any other error can be accepted explicitly with
+`--allow-blocker <finding-id>`, which the evolution record retains, so a
+consumer gate's report-only exceptions have a toolkit-side equivalent. Transform
 steps run only transformations registered in the toolkit; invariants are
 re-validated afterwards; the evolution is journaled as an appended record
 under `.idd/evolution/`. Run apply on a feature branch — version control is

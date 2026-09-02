@@ -129,6 +129,51 @@ test('doctor apply refuses when error findings block the migration', (t) => {
   assert.equal(result.refusals[0].reason, 'error-findings-block-apply');
 });
 
+test('error findings the plan\'s transformations resolve are not blockers, and apply confirms they are gone', (t) => {
+  const repoRoot = makeConsumer(t, [
+    '---', 'idd_consumer:', '  schemaVersion: 1', '  toolkit:', '    version: 0.1.0-uat.3', '    schema:', '      version: 1.11.0',
+    `      digest: sha256:${'0'.repeat(64)}`, '    source:', '      kind: github-tag', '      ref: v0.1.0-uat.3', '---', '# Overlay', '',
+  ].join('\n'));
+  fs.mkdirSync(path.join(repoRoot, 'specs', 'fixtures'), { recursive: true });
+  // The fixtures validator only runs when a protocol contract exists.
+  fs.mkdirSync(path.join(repoRoot, 'specs', 'contracts', 'openapi'), { recursive: true });
+  fs.writeFileSync(path.join(repoRoot, 'specs', 'contracts', 'openapi', 'api.yaml'), 'openapi: 3.1.0\ninfo: { title: x, version: "1" }\npaths: {}\n');
+  fs.writeFileSync(path.join(repoRoot, 'specs', 'fixtures', 'cases.json'), JSON.stringify({ _meta: { id: 'cases', type: 'conformance-vector' }, cases: [] }, null, 2));
+  const { plan, report } = buildMigrationPlan({ repoRoot });
+  assert.ok(report.findings.some((item) => item.id === 'validator-fixtures-schema-const' && item.severity === 'error'));
+  assert.ok(plan.resolved_by_plan.includes('validator-fixtures-schema-const'), JSON.stringify(plan.resolved_by_plan));
+  assert.ok(!plan.blockers.includes('validator-fixtures-schema-const'));
+  assert.deepEqual(plan.blockers, []);
+  const planPath = path.join(repoRoot, 'plan.json');
+  fs.writeFileSync(planPath, JSON.stringify(plan));
+  const result = applyMigrationPlan({ repoRoot, planPath, accept: plan.acceptance_required });
+  assert.equal(result.status, 'applied', JSON.stringify(result.refusals));
+  assert.deepEqual(result.resolved_by_plan, ['validator-fixtures-schema-const']);
+  const rewritten = JSON.parse(fs.readFileSync(path.join(repoRoot, 'specs', 'fixtures', 'cases.json'), 'utf8'));
+  assert.equal(rewritten._meta.type, 'fixture');
+  assert.equal(rewritten._meta.kind, 'conformance-vector');
+  assert.equal(result.findings_after.errors, 0);
+});
+
+test('--allow-blocker accepts a named error finding explicitly and records it in the evolution record', (t) => {
+  const repoRoot = makeConsumer(t, stalePinOverlay());
+  // An unrelated error the plan cannot fix: a story reference to a missing file.
+  fs.mkdirSync(path.join(repoRoot, 'specs', 'features'), { recursive: true });
+  fs.writeFileSync(path.join(repoRoot, 'specs', 'features', 'x.feature'), '# story: specs/stories/missing.md\nFeature: X\n');
+  const { plan } = buildMigrationPlan({ repoRoot });
+  assert.ok(plan.blockers.length > 0, 'the missing reference must block');
+  const planPath = path.join(repoRoot, 'plan.json');
+  fs.writeFileSync(planPath, JSON.stringify(plan));
+  const refused = applyMigrationPlan({ repoRoot, planPath, accept: plan.acceptance_required });
+  assert.equal(refused.status, 'refused');
+  assert.match(refused.refusals[0].detail, /--allow-blocker validator-traceability-/);
+  const allowed = applyMigrationPlan({ repoRoot, planPath, accept: plan.acceptance_required, allowBlockers: plan.blockers });
+  assert.equal(allowed.status, 'applied', JSON.stringify(allowed.refusals));
+  assert.deepEqual(allowed.blockers_allowed, plan.blockers);
+  const record = JSON.parse(fs.readFileSync(path.join(repoRoot, allowed.evolution_record), 'utf8'));
+  assert.deepEqual(record.blockers_allowed, plan.blockers);
+});
+
 test('doctor apply executes accepted migrations, resolves drift, and journals the evolution', (t) => {
   const repoRoot = makeConsumer(t, stalePinOverlay());
   const planPath = path.join(repoRoot, 'plan.json');

@@ -127,6 +127,13 @@ const TRANSFORMATIONS = {
 
   'fixture-meta-kind': {
     summary: 'Move a non-constant JSON fixture `_meta.type` into `_meta.kind` and restore `type: fixture` (#81).',
+    // Error findings this rewrite removes. The plan lists them as
+    // resolved_by_plan instead of blockers, so apply is not refused on the
+    // very errors it exists to fix.
+    resolves: [
+      'validator-fixtures-schema-const',
+      'validator-front-matter-declared-type-doesnt-match-expected-for',
+    ],
     apply(repoRoot) {
       const files = walkFiles(path.join(repoRoot, 'specs', 'fixtures'), /\.json$/i);
       return rewriteFiles(repoRoot, files, (source) => {
@@ -152,6 +159,7 @@ const TRANSFORMATIONS = {
 
   'identity-kind': {
     summary: 'Write the inferred `identity.kind` (field / composite / content) into model documents that omit it (#83).',
+    resolves: [],
     apply(repoRoot) {
       const files = walkFiles(path.join(repoRoot, 'specs', 'models'), /\.model\.ya?ml$/i);
       return rewriteFiles(repoRoot, files, rewriteIdentityBlocks);
@@ -160,6 +168,7 @@ const TRANSFORMATIONS = {
 
   'attribute-required-when': {
     summary: 'Rewrite bare-string conditional `required:` values into the canonical `{ when: … }` form (#82).',
+    resolves: [],
     apply(repoRoot) {
       const files = walkFiles(path.join(repoRoot, 'specs', 'models'), /\.model\.ya?ml$/i);
       return rewriteFiles(repoRoot, files, rewriteRequiredLines);

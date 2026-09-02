@@ -94,7 +94,8 @@ function cmdDoctor(argv) {
   let summary = false;
   const severities = [];
   const accept = [];
-  const valueOptions = { '--repo': 'repo', '--out': 'out', '--plan': 'plan', '--accept': 'accept', '--severity': 'severity' };
+  const allowBlockers = [];
+  const valueOptions = { '--repo': 'repo', '--out': 'out', '--plan': 'plan', '--accept': 'accept', '--allow-blocker': 'allow-blocker', '--severity': 'severity' };
   for (let i = 0; i < rest.length; i += 1) {
     if (rest[i] === '--json') json = true;
     else if (rest[i] === '--verbose') verbose = true;
@@ -116,7 +117,8 @@ function cmdDoctor(argv) {
           }
           severities.push(level);
         }
-      } else accept.push(value);
+      } else if (rest[i - 1] === '--allow-blocker') allowBlockers.push(value);
+      else accept.push(value);
     } else {
       console.error(`Unknown doctor option: ${rest[i]}`);
       process.exit(1);
@@ -132,6 +134,12 @@ function cmdDoctor(argv) {
       if (plan.acceptance_required.length > 0) {
         console.log(`Apply requires: ${plan.acceptance_required.map((id) => `--accept ${id}`).join(' ')}`);
       }
+      if (plan.resolved_by_plan.length > 0) {
+        console.log(`Error findings the plan's transformations resolve (not blockers): ${plan.resolved_by_plan.join(', ')}`);
+      }
+      if (plan.blockers.length > 0) {
+        console.log(`Blockers: ${plan.blockers.join(', ')} — resolve them, or accept explicitly with ${plan.blockers.map((id) => `--allow-blocker ${id}`).join(' ')}`);
+      }
     } else {
       process.stdout.write(output);
     }
@@ -140,10 +148,10 @@ function cmdDoctor(argv) {
 
   if (operation === 'apply') {
     if (!planPath) {
-      console.error('Usage: idd doctor apply --plan <file> [--accept <migration-id>...] [--repo <dir>] [--json]');
+      console.error('Usage: idd doctor apply --plan <file> [--accept <migration-id>...] [--allow-blocker <finding-id>...] [--repo <dir>] [--json]');
       process.exit(1);
     }
-    const result = applyMigrationPlan({ repoRoot, planPath, accept });
+    const result = applyMigrationPlan({ repoRoot, planPath, accept, allowBlockers });
     if (json) console.log(JSON.stringify(result, null, 2));
     else console.log(formatApplyResult(result));
     process.exit(result.status === 'applied' ? 0 : 1);
@@ -649,6 +657,7 @@ Commands:
                                [--severity error,advisory,info] [--summary] [--verbose]
   doctor plan [--out <file>]   Generate a deterministic migration plan
   doctor apply --plan <file>   Apply an accepted plan (writes evolution evidence)
+                               [--accept <migration-id>] [--allow-blocker <finding-id>]
   evidence record ...          Write one formal-result record for an observed probe
   evidence rollup              Derive per-rule coverage and per-capability claims
                                from a run's records, beside the declared claims
