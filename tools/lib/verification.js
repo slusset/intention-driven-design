@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 const { getValidator, formatAjvErrors } = require('./schema-loader');
-const { moduleRoots, normalizeRepoPath, validateModulesDocument } = require('./modules');
+const { missingModuleManifestResult, moduleRoots, normalizeRepoPath, validateModulesDocument } = require('./modules');
 const { validateEvidenceBindings } = require('./evidence-bindings');
 const { validateFormalEvidence } = require('./formal-evidence');
 const { digestJsonFile } = require('./contract-digests');
@@ -92,8 +92,7 @@ function validateVerificationFile(options = {}) {
   const manifestLabel = toPosix(path.relative(repoRoot, manifestPath));
 
   if (!fs.existsSync(manifestPath)) {
-    results.info.push(`${manifestLabel}: not present — verification-map validation skipped`);
-    return results;
+    return missingModuleManifestResult(repoRoot, manifestPath, 'verification-map');
   }
 
   const manifest = parseYamlFile(manifestPath, manifestLabel, results);

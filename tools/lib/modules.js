@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 const { getValidator, formatAjvErrors } = require('./schema-loader');
+const { readConsumerContract } = require('./consumer-contract');
 
 const CAPABILITY_PATTERN = /\.capability\.ya?ml$/i;
 
@@ -19,13 +20,13 @@ function normalizeRepoPath(value) {
   return normalized;
 }
 
-function findCapabilityFiles(dir) {
+function findArtifactFiles(dir, pattern = CAPABILITY_PATTERN) {
   if (!fs.existsSync(dir)) return [];
   const files = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) files.push(...findCapabilityFiles(full));
-    else if (CAPABILITY_PATTERN.test(entry.name)) files.push(full);
+    if (entry.isDirectory()) files.push(...findArtifactFiles(full, pattern));
+    else if (pattern.test(entry.name)) files.push(full);
   }
   return files;
 }
@@ -137,7 +138,7 @@ function validateModulesDocument(manifest, options = {}) {
 
   for (const root of [...validRoots].sort()) {
     const capabilitiesDir = path.join(repoRoot, root, 'capabilities');
-    for (const capabilityFile of findCapabilityFiles(capabilitiesDir)) {
+    for (const capabilityFile of findArtifactFiles(capabilitiesDir)) {
       const capability = toPosix(path.relative(repoRoot, capabilityFile));
       if (!assignments.has(capability)) {
         results.errors.push(`${label}: ${capability} is not assigned to any module`);
@@ -155,17 +156,49 @@ function validateModulesDocument(manifest, options = {}) {
   return results;
 }
 
+// SCHEMA.md: Missing module manifest. Both validator entry points must make
+// the same adoption decision before allowing an informational skip (#105).
+function missingModuleManifestResult(repoRoot, manifestPath, validation) {
+  const label = toPosix(path.relative(repoRoot, manifestPath));
+  const specsDir = path.dirname(manifestPath);
+  const consumer = readConsumerContract(repoRoot);
+  const results = { errors: [], warnings: [], info: [] };
+
+  function required(reason) {
+    results.errors.push(`${label}: required module manifest is missing after adoption; ${reason}; restore the manifest before validation`);
+    return results;
+  }
+
+  if (consumer.status === 'valid') return required(`${consumer.path} records a valid idd_consumer contract`);
+
+  const candidates = [
+    ...findArtifactFiles(path.join(specsDir, 'capabilities')),
+    ...findArtifactFiles(path.join(specsDir, 'verification'), /^verification\.ya?ml$/i),
+  ].sort();
+  for (const file of candidates) {
+    const artifact = toPosix(path.relative(repoRoot, file));
+    let document;
+    try {
+      document = yaml.load(fs.readFileSync(file, 'utf8'));
+    } catch (error) {
+      results.errors.push(`${artifact}: cannot assess module adoption while ${label} is missing: ${error.message}`);
+      continue;
+    }
+    if (document && typeof document === 'object' && Object.hasOwn(document, 'depends_on')) {
+      return required(`${artifact} declares depends_on`);
+    }
+  }
+  if (results.errors.length === 0) results.info.push(`${label}: not present — ${validation} validation skipped`);
+  return results;
+}
+
 function validateModulesFile(options = {}) {
   const repoRoot = options.repoRoot || process.cwd();
   const manifestPath = options.manifestPath || path.join(repoRoot, 'specs', 'modules.yaml');
   const label = toPosix(path.relative(repoRoot, manifestPath));
 
   if (!fs.existsSync(manifestPath)) {
-    return {
-      errors: [],
-      warnings: [],
-      info: [`${label}: not present — module validation skipped`],
-    };
+    return missingModuleManifestResult(repoRoot, manifestPath, 'module');
   }
 
   let manifest;
@@ -179,6 +212,7 @@ function validateModulesFile(options = {}) {
 }
 
 module.exports = {
+  missingModuleManifestResult,
   moduleRoots,
   normalizeRepoPath,
   validateModulesDocument,
