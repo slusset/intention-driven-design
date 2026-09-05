@@ -10,6 +10,19 @@ testing. Historical prototype entries retain their original `1.x` headings
 below active releases. Their commits remain available under `legacy/v1.*` tags,
 but those versions are not part of the active SemVer sequence.
 
+## [0.1.0-uat.6](https://github.com/slusset/intention-driven-design/compare/v0.1.0-uat.5...v0.1.0-uat.6) (2026-09-05)
+
+
+### Bug Fixes
+
+* **contracts:** discover AsyncAPI 3 operations and messages ([#111](https://github.com/slusset/intention-driven-design/issues/111)) ([2069fde](https://github.com/slusset/intention-driven-design/commit/2069fde997f2e8753bedfc47f43e8e13a311b9fa))
+* **doctor:** bootstrap migrations from an explicit source schema ([#112](https://github.com/slusset/intention-driven-design/issues/112)) ([bd7c6f8](https://github.com/slusset/intention-driven-design/commit/bd7c6f81038dfe3153cb17a46c4d95e6390c4094))
+* **doctor:** recognize standalone toolkit pins ([#113](https://github.com/slusset/intention-driven-design/issues/113)) ([88d0ef6](https://github.com/slusset/intention-driven-design/commit/88d0ef64a82f6feafdc45035bf20e97140b6a551))
+* **models:** validate dotted attribute paths by segment ([#115](https://github.com/slusset/intention-driven-design/issues/115)) ([f7db180](https://github.com/slusset/intention-driven-design/commit/f7db180ad9389d344833374d1c68c1be81eb4aef))
+* **traceability:** preserve plural references across validators ([#110](https://github.com/slusset/intention-driven-design/issues/110)) ([798bf92](https://github.com/slusset/intention-driven-design/commit/798bf928b40f43ea093d95eca950c2803d275600))
+* **validation:** require module manifest after adoption ([#109](https://github.com/slusset/intention-driven-design/issues/109)) ([6f6853f](https://github.com/slusset/intention-driven-design/commit/6f6853fdcd029ac82aabfe034ed758e239472e76))
+* **verification:** remove obsolete Alloy pinning reminder ([#114](https://github.com/slusset/intention-driven-design/issues/114)) ([2e36d91](https://github.com/slusset/intention-driven-design/commit/2e36d91005743a3193e9e7a84850ba07d82390a2))
+
 ## [0.1.0-uat.5](https://github.com/slusset/intention-driven-design/compare/v0.1.0-uat.4...v0.1.0-uat.5) (2026-09-02)
 
 
