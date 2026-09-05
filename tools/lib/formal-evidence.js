@@ -78,7 +78,6 @@ function validateFormalEvidence({ repoRoot, maps }) {
   let alloyCount = 0;
   let tlaCount = 0;
   let vectorCount = 0;
-  let unpinned = 0;
 
   for (const [mapPath, entry] of maps) {
     const document = entry.document;
@@ -141,7 +140,6 @@ function validateFormalEvidence({ repoRoot, maps }) {
             const probe = probeName(ref);
             if (!probe) continue;
             alloyCount += 1;
-            if (probe.expected === undefined && key !== 'inherited_assertions') unpinned += 1;
             if (corpus.length === 0) {
               if (sources.length === 0) errors.add(`${mapPath}: rule ${rule.id} names alloy ${key} but the map declares no tooling.alloy.sources or profiles`);
               continue;
@@ -219,9 +217,6 @@ function validateFormalEvidence({ repoRoot, maps }) {
     }
   }
 
-  if (unpinned > 0) {
-    info.push(`${unpinned} alloy command(s) carry no expected outcome; pin SAT/UNSAT in the map so the checker's expectations live beside the rule`);
-  }
   info.push(`Validated ${alloyCount} alloy command(s), ${tlaCount} tla name(s), ${vectorCount} vector file(s)`);
   return { errors: [...errors], warnings: [...warnings], info };
 }
