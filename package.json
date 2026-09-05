@@ -1,6 +1,6 @@
 {
   "name": "idd-toolkit",
-  "version": "0.1.0-uat.5",
+  "version": "0.1.0-uat.6",
   "description": "Intention-Driven Design toolkit: skills, validators, and evidence generators for traceable software development.",
   "author": {
     "name": "Ted Slusser",
