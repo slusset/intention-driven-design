@@ -128,6 +128,33 @@ compatibility for at least one minor release of `idd-toolkit`.
 
 ## Verification maps and four maturity claims (v1.8)
 
+### Missing module manifest
+
+`idd validate modules` and `idd validate verification` must report an error
+when the selected spec directory has no `modules.yaml` and any of these
+adoption signals remains:
+
+- a schema-valid `idd_consumer` record in the repository's
+  `specs/skills/repo-overlay.md`;
+- a top-level `depends_on` declaration in a capability under `capabilities/`;
+- a top-level `depends_on` declaration in a map under `verification/`.
+
+An explicit `depends_on: []` counts as adoption. Both validators identify the
+missing manifest and the artifact that requires it, and exit nonzero. Restore
+the manifest before relying on module ownership or verification claims.
+Without an adoption signal, absence retains the informational skip for
+repositories that have not adopted modules. Artifact discovery is recursive
+within the selected spec directory's capability and verification directories;
+it does not scan unrelated example trees. An unreadable or malformed candidate
+artifact is an error, since its dependency declaration cannot be assessed.
+An invalid consumer contract is not a valid
+adoption signal; doctor remains responsible for diagnosing that contract.
+
+This preserves the existing schemas and strengthens the cross-file check
+specified by [issue #105](https://github.com/slusset/intention-driven-design/issues/105).
+
+### Map ownership and claims
+
 Every capability assigned by `specs/modules.yaml` has one expected map at
 `<module-root>/verification/<capability-id>/verification.yaml`. The map owns:
 

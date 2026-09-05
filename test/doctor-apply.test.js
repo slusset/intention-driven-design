@@ -6,7 +6,9 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const yaml = require('js-yaml');
 const { applyMigrationPlan, buildMigrationPlan, planDigest } = require('../tools/lib/evolution');
+const { createModule } = require('../tools/lib/module-scaffold');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const IDD_BIN = path.join(REPO_ROOT, 'bin', 'idd.js');
@@ -17,6 +19,8 @@ function makeConsumer(t, overlay = null) {
   const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'idd-doctor-apply-'));
   t.after(() => fs.rmSync(repoRoot, { recursive: true, force: true }));
   if (overlay !== null) {
+    // Recorded consumers must retain their module manifest (#105).
+    assert.deepEqual(createModule({ repoRoot, name: 'core' }).errors, []);
     fs.mkdirSync(path.join(repoRoot, 'specs', 'skills'), { recursive: true });
     fs.writeFileSync(path.join(repoRoot, 'specs', 'skills', 'repo-overlay.md'), overlay);
   }
@@ -129,6 +133,26 @@ test('doctor apply refuses when error findings block the migration', (t) => {
   assert.equal(result.refusals[0].reason, 'error-findings-block-apply');
 });
 
+test('doctor reports both missing-manifest errors and blocks migration without writes (#105)', (t) => {
+  const repoRoot = makeConsumer(t, stalePinOverlay());
+  fs.unlinkSync(path.join(repoRoot, 'specs/modules.yaml'));
+  const { plan, report } = buildMigrationPlan({ repoRoot });
+  for (const check of ['modules', 'verification']) {
+    const error = report.findings.find((item) => item.check === check && item.severity === 'error');
+    assert.ok(error, `doctor must report the ${check} error`);
+    assert.equal(error.file, 'specs/modules.yaml');
+    assert.match(error.current, /required module manifest is missing/);
+    assert.ok(plan.blockers.includes(error.id));
+  }
+  const planPath = path.join(repoRoot, 'plan.json');
+  fs.writeFileSync(planPath, JSON.stringify(plan));
+  const before = snapshotTree(repoRoot);
+  const result = applyMigrationPlan({ repoRoot, planPath, accept: plan.acceptance_required });
+  assert.equal(result.status, 'refused');
+  assert.equal(result.refusals[0].reason, 'error-findings-block-apply');
+  assert.deepEqual(snapshotTree(repoRoot), before);
+});
+
 test('error findings the plan\'s transformations resolve are not blockers, and apply confirms they are gone', (t) => {
   const repoRoot = makeConsumer(t, [
     '---', 'idd_consumer:', '  schemaVersion: 1', '  toolkit:', '    version: 0.1.0-uat.3', '    schema:', '      version: 1.11.0',
@@ -139,6 +163,11 @@ test('error findings the plan\'s transformations resolve are not blockers, and a
   fs.mkdirSync(path.join(repoRoot, 'specs', 'contracts', 'openapi'), { recursive: true });
   fs.writeFileSync(path.join(repoRoot, 'specs', 'contracts', 'openapi', 'api.yaml'), 'openapi: 3.1.0\ninfo: { title: x, version: "1" }\npaths: {}\n');
   fs.writeFileSync(path.join(repoRoot, 'specs', 'fixtures', 'cases.json'), JSON.stringify({ _meta: { id: 'cases', type: 'conformance-vector' }, cases: [] }, null, 2));
+  const capabilityPath = path.join(repoRoot, 'specs/capabilities/core.capability.yaml');
+  const capability = yaml.load(fs.readFileSync(capabilityPath, 'utf8'));
+  capability.scope.contracts = ['specs/contracts/openapi/api.yaml'];
+  capability.scope.fixtures = ['specs/fixtures/cases.json'];
+  fs.writeFileSync(capabilityPath, yaml.dump(capability));
   const { plan, report } = buildMigrationPlan({ repoRoot });
   assert.ok(report.findings.some((item) => item.id === 'validator-fixtures-schema-const' && item.severity === 'error'));
   assert.ok(plan.resolved_by_plan.includes('validator-fixtures-schema-const'), JSON.stringify(plan.resolved_by_plan));
