@@ -354,6 +354,18 @@ key is required. `equality` and `immutable` are canonical. The
 `identity-kind` transformation writes the inferred kind into documents that
 omit it.
 
+### Dotted attribute paths (#104)
+
+Model attribute and catalog property names may be dotted paths such as
+`artifact.address` or `artifact.byteLength`. The naming check applies camelCase
+to each segment: an ASCII lowercase letter followed by ASCII letters or digits.
+Every segment must be nonempty, so leading, trailing, and repeated dots remain
+invalid. An invalid key produces one naming warning, promoted to an error by
+`--strict`. Keys remain literal strings, including references from
+`identity.field`. This corrects the false warnings reported in
+[#104](https://github.com/slusset/intention-driven-design/issues/104) without
+changing the model schema.
+
 ### Conditional `required` (#82)
 
 `attribute.required` accepts an obligation under a named condition beside the
