@@ -499,8 +499,10 @@ Checks (errors unless noted):
 - a `tooling.<tool>.lock` file carries an entry for the tool with a sha256,
   and its version agrees with the map's;
 - `mutation_probes[].detected_by` paths exist;
-- an Alloy command with no `expected` outcome is info: pin it in the map so
-  the checker's expectations live beside the rule rather than in a script.
+- an omitted Alloy `expected` outcome produces no pinning reminder:
+  formal-result records use the natural default (`check`: UNSAT, `run`: SAT).
+  Explicit pins declare exceptions to those defaults
+  ([#100](https://github.com/slusset/intention-driven-design/issues/100)).
 
 Names are strings or `{ name, expected, note }`. Alloy outcomes are `SAT` /
 `UNSAT`, per command or per profile; TLA+ outcomes are `holds` (default) /

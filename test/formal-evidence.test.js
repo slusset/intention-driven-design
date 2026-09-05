@@ -8,6 +8,7 @@ const path = require('node:path');
 const yaml = require('js-yaml');
 const { getValidator, loadIndex } = require('../tools/lib/schema-loader');
 const { validateVerificationFile } = require('../tools/lib/verification');
+const { buildFormalResult } = require('../tools/lib/formal-results');
 
 function write(repoRoot, relativePath, content) {
   const filePath = path.join(repoRoot, relativePath);
@@ -131,12 +132,44 @@ test('a tooling lock must carry the tool, a sha256, and an agreeing version', (t
   assert.ok(result.errors.some((m) => /has no entry for alloy/.test(m)));
 });
 
-test('unpinned alloy commands are reported as info, never as errors', (t) => {
+test('Alloy natural outcomes need no pinning reminder and still adjudicate observations (#100)', (t) => {
   const repoRoot = fixture(t);
-  mutateMap(repoRoot, (doc) => { doc.rules[0].alloy.assertions = ['OneGenesisPerPrincipal']; });
+  mutateMap(repoRoot, (doc) => {
+    doc.rules[0].alloy.assertions = ['OneGenesisPerPrincipal'];
+    doc.rules[0].alloy.predicates = ['ConcurrentExample'];
+  });
   const result = run(repoRoot);
   assert.deepEqual(result.errors, []);
-  assert.ok(result.info.some((m) => /1 alloy command\(s\) carry no expected outcome/.test(m)), result.info.join('\n'));
+  assert.deepEqual(result.warnings, []);
+  assert.doesNotMatch(result.info.join('\n'), /carry no expected outcome|pin SAT\/UNSAT/);
+  assert.match(result.info.join('\n'), /Validated 2 alloy command\(s\)/);
+  for (const [name, expected] of [['OneGenesisPerPrincipal', 'UNSAT'], ['ConcurrentExample', 'SAT']]) {
+    for (const observed of ['SAT', 'UNSAT']) {
+      const record = buildFormalResult(repoRoot, { tool: 'alloy', kind: 'alloy-command', name, source: 'alloy/kernel.als', observed });
+      assert.equal(record.expected, expected);
+      assert.equal(record.verdict, observed === expected ? 'match' : 'mismatch');
+    }
+  }
+});
+
+test('explicit Alloy counterexample and per-profile pins still override natural outcomes', (t) => {
+  const repoRoot = fixture(t);
+  mutateMap(repoRoot, (doc) => {
+    doc.rules[0].alloy.assertions = [{ name: 'OneGenesisPerPrincipal', expected: 'SAT' }];
+    doc.rules[0].alloy.predicates = [{ name: 'ConcurrentExample', expected: { 'alloy/kernel.als': 'UNSAT', 'alloy/kernel_closed.als': 'SAT' } }];
+  });
+  assert.deepEqual(run(repoRoot).errors, []);
+  for (const [name, source, expected] of [
+    ['OneGenesisPerPrincipal', 'alloy/kernel.als', 'SAT'],
+    ['ConcurrentExample', 'alloy/kernel.als', 'UNSAT'],
+    ['ConcurrentExample', 'alloy/kernel_closed.als', 'SAT'],
+  ]) {
+    for (const observed of ['SAT', 'UNSAT']) {
+      const record = buildFormalResult(repoRoot, { tool: 'alloy', kind: 'alloy-command', name, source, observed });
+      assert.equal(record.expected, expected);
+      assert.equal(record.verdict, observed === expected ? 'match' : 'mismatch');
+    }
+  }
 });
 
 test('a mutation probe detected by a missing path is an error', (t) => {
