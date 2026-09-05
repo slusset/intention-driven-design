@@ -189,7 +189,7 @@ function validateAttributeBlock(block, blockLabel, itemLabel, errors, warnings, 
       warnings.push(`${itemLabel} "${attrName}" declares both required: true and required_when — the unconditional form wins; drop one`);
     }
 
-    if (!/^[a-z][a-zA-Z0-9]*$/.test(attrName)) {
+    if (!attrName.split('.').every(segment => /^[a-z][a-zA-Z0-9]*$/.test(segment))) {
       warnings.push(`${itemLabel} "${attrName}" should be camelCase`);
     }
   }
