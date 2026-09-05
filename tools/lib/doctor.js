@@ -359,35 +359,51 @@ function inspectConsumer(repoRoot, report) {
   }
 
   const packageJson = readJson(path.join(repoRoot, 'package.json')) || {};
-  const dependencies = {
-    ...(packageJson.dependencies || {}),
-    ...(packageJson.devDependencies || {}),
-    ...(packageJson.optionalDependencies || {}),
-  };
-  const toolkitDependency = dependencies['idd-toolkit'];
-  report.repository.consumer_toolkit_spec = toolkitDependency || null;
-  if (!toolkitDependency && !consumerContract.record) {
+  const dependencies = ['dependencies', 'devDependencies', 'optionalDependencies']
+    .filter(section => packageJson[section] && Object.hasOwn(packageJson[section], 'idd-toolkit'))
+    .map(section => ({ section, spec: packageJson[section]['idd-toolkit'] }));
+  report.repository.consumer_toolkit_spec = dependencies.at(-1)?.spec ?? null;
+  const pinnedToolkit = consumerContract.status === 'valid' ? consumerContract.record.toolkit : null;
+  const standalonePin = pinnedToolkit && ['github-tag', 'local'].includes(pinnedToolkit.source.kind);
+  const acceptedSources = 'an exact npm version or GitHub/Git UAT tag in package.json, or a valid idd_consumer contract with github-tag/local provenance';
+  if (dependencies.length === 0 && !standalonePin) {
+    const recorded = pinnedToolkit !== null;
     report.findings.push(finding(
-      'consumer-toolkit-version-unrecorded',
-      'info',
+      recorded ? 'consumer-toolkit-version-floating' : 'consumer-toolkit-version-unrecorded',
+      recorded ? 'advisory' : 'info',
       'consumer toolkit dependency',
       'not declared in package.json',
-      'explicit accepted UAT version or host-native pin',
-      'unassessed',
-      'Record the accepted toolkit version before applying a migration',
-      ['package.json'],
+      acceptedSources,
+      recorded ? 'requires-disposition' : 'unassessed',
+      'Declare an exact package.json dependency, or record the standalone accepted version with github-tag/local provenance in specs/skills/repo-overlay.md',
+      ['package.json', consumerContract.path],
     ));
-  } else if (!isExplicitToolkitSpec(toolkitDependency)) {
-    report.findings.push(finding(
-      'consumer-toolkit-version-floating',
-      'advisory',
-      'consumer toolkit dependency',
-      toolkitDependency,
-      'exact accepted version',
-      'requires-disposition',
-      'Pin the consumer to the UAT candidate being evaluated',
-      ['package.json'],
-    ));
+  }
+  for (const { section, spec } of dependencies) {
+    const version = explicitToolkitVersion(spec);
+    if (version === null) {
+      report.findings.push(finding(
+        'consumer-toolkit-version-floating',
+        'advisory',
+        `package.json: ${section}.idd-toolkit`,
+        spec,
+        'an exact npm version or supported GitHub/Git UAT tag in package.json',
+        'requires-disposition',
+        'Pin this declared dependency to an exact version; a standalone contract does not replace the check on an existing package.json entry',
+        ['package.json'],
+      ));
+    } else if (pinnedToolkit && version !== pinnedToolkit.version) {
+      report.findings.push(finding(
+        'consumer-toolkit-dependency-drift',
+        'advisory',
+        `package.json: ${section}.idd-toolkit`,
+        spec,
+        pinnedToolkit.version,
+        'requires-disposition',
+        'Align the package.json dependency with toolkit.version in the accepted idd_consumer contract through a migration review',
+        ['package.json', consumerContract.path],
+      ));
+    }
   }
 
   const capabilityFiles = findFiles(path.join(repoRoot, 'specs', 'capabilities'), (_, name) => /\.capability\.ya?ml$/i.test(name));
@@ -406,9 +422,10 @@ function inspectConsumer(repoRoot, report) {
   }
 }
 
-function isExplicitToolkitSpec(value) {
-  if (/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(value)) return true;
-  return /^(?:github:|git\+https?:\/\/)[^#]+#v?0\.\d+\.\d+-uat\.\d+$/.test(value);
+function explicitToolkitVersion(value) {
+  if (typeof value !== 'string') return null;
+  if (VALID_VERSION.test(value)) return value;
+  return value.match(/^(?:github:|git\+https?:\/\/)[^#]+#v?(0\.\d+\.\d+-uat\.\d+)$/)?.[1] || null;
 }
 
 function inspectDeprecatedStructures(repoRoot, report) {
@@ -682,10 +699,14 @@ function formatDoctorReport(report, options = {}) {
     `Mode: ${report.mode}; continuity: ${report.continuity.status}`,
     report.repository.toolkit_repository
       ? `Toolkit: ${report.repository.toolkit_version || 'unknown'}; schema: ${report.repository.schema_version || 'unknown'}`
-      : `Consumer toolkit spec: ${report.repository.consumer_toolkit_spec || 'not recorded'}`,
+      : `Consumer toolkit spec: ${report.repository.consumer_toolkit_spec || 'none in package.json'}`,
     `Status: ${report.summary.status} (${report.summary.errors} errors, ${report.summary.advisories} advisories, ${report.summary.infos} infos)`,
     '',
   ];
+  const consumerContract = report.repository.consumer_contract;
+  if (consumerContract?.status === 'valid') {
+    lines.push(`Accepted toolkit contract: ${consumerContract.toolkit_version} (${consumerContract.source.kind}; ${consumerContract.path})`, '');
+  }
   const catalog = report.migration?.catalog;
   if (catalog?.status === 'valid') {
     const pathLabel = catalog.migration_ids.length > 0

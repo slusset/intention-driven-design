@@ -289,6 +289,28 @@ consumer's own capabilities, module DAG, or verification maps. `idd doctor`
 compares the record with the toolkit and schema registry it is running and
 reports drift without applying a migration.
 
+### Accepted toolkit pins (#102)
+
+When `package.json` has no `idd-toolkit` dependency, a schema-valid consumer
+contract with `toolkit.source.kind: github-tag` or `local` is the accepted
+version pin. Doctor must not require an npm dependency for that installation.
+Other source kinds do not supply this standalone-pin exception; missing or
+invalid contracts continue to receive their own findings.
+
+Every declared `idd-toolkit` entry in `dependencies`, `devDependencies`, or
+`optionalDependencies` remains checked even when a valid contract exists.
+An exact npm version or a supported `github:` / `git+http(s):` UAT tag is an
+explicit dependency pin. Its version must equal the contract's
+`toolkit.version`; disagreement produces
+`consumer-toolkit-dependency-drift` with both source paths. Ranges, floating
+refs, empty values, and malformed declarations still produce
+`consumer-toolkit-version-floating`.
+
+Findings name the accepted pin sources. Runtime-toolkit, schema-digest, and
+source-ref drift checks remain independent: recognizing a standalone pin
+does not suppress those findings. This is the diagnostic contract for
+[#102](https://github.com/slusset/intention-driven-design/issues/102).
+
 The report-only migration catalog under [`migrations/`](migrations/) is
 deliberately separate from the v1 schema registry. Adding catalog metadata does
 not change the schema-registry digest; a registry change still requires the
