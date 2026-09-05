@@ -81,6 +81,13 @@ Versions sit side by side, so a consumer gate can call the exact accepted
 release by path instead of trusting whatever `idd` is first on PATH.
 `npm i -g <release tarball url>` remains a valid alternative.
 
+A valid `idd_consumer` contract with `github-tag` or `local` provenance is
+sufficient as the version pin when no npm dependency is declared. If
+`package.json` does declare `idd-toolkit`, each dependency entry must use an
+exact supported pin and agree with `toolkit.version` in the contract. Doctor
+reports dependency disagreement separately from drift between the accepted
+contract and the toolkit actually running.
+
 ## Running from a plugin install (code sessions)
 
 A Claude Code or Codex plugin install puts `idd` on the session PATH and is
