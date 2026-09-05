@@ -45,6 +45,21 @@ const REQUIRED_FIELDS = {
   capability:   { required: ['id', 'type', 'scope'], recommended: [] },
 };
 
+const REFERENCE_PLURALS = { story: 'stories', journey: 'journeys', scenario: 'scenarios', contract: 'contracts' };
+
+// Combine primary and plural metadata without losing secondary links (#99).
+function referenceValues(metadata, field) {
+  const values = new Set();
+  function add(value) {
+    if (Array.isArray(value)) value.forEach(add);
+    else if (typeof value === 'string' && value.trim()) values.add(value.trim());
+    else if (value && typeof value === 'object' && typeof value.ref === 'string') add(value.ref);
+  }
+  add(metadata?.[field]);
+  if (REFERENCE_PLURALS[field]) add(metadata?.[REFERENCE_PLURALS[field]]);
+  return [...values];
+}
+
 /**
  * Determine the expected artifact type from a file path.
  * Returns null if the file doesn't match any known pattern.
@@ -86,32 +101,52 @@ function parseGherkinFrontMatter(content) {
   const lines = content.split('\n');
   const frontMatter = {};
   let lastHeaderLine = -1;
+  let listKey = null;
+  const referenceHeaders = new Set(['story', 'stories', 'journey', 'journeys']);
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+  try {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line === '') continue;
 
-    // Skip empty lines at the top
-    if (line === '' && lastHeaderLine === -1) continue;
-
-    // Match # key: value pattern (but not # followed by space then word = regular comment)
-    const match = line.match(/^#\s+([a-z_-]+):\s*(.*)$/);
-    if (match) {
-      const key = match[1];
-      const value = match[2].trim();
-      if (frontMatter[key] === undefined) {
-        frontMatter[key] = value;
-      } else if (Array.isArray(frontMatter[key])) {
-        frontMatter[key].push(value);
-      } else {
-        frontMatter[key] = [frontMatter[key], value];
+      const item = line.match(/^#\s+-(?:\s+(.*))?$/);
+      if (item && listKey) {
+        const value = yaml.load(item[1] || '');
+        if (typeof value !== 'string') throw new Error(`${listKey} list items must be strings`);
+        frontMatter[listKey].push(value);
+        lastHeaderLine = i;
+        continue;
       }
-      lastHeaderLine = i;
-    } else if (line.startsWith('#') && lastHeaderLine === -1) {
-      // Regular comment before any headers — skip
-      continue;
-    } else {
-      break;
+
+      const match = line.match(/^#\s+([a-z_-]+):\s*(.*)$/i);
+      if (match) {
+        // Also retain legacy capitalized Story/Journey comment headers.
+        const key = match[1].toLowerCase();
+        const rawValue = match[2].trim();
+        let value = rawValue;
+        listKey = null;
+        if (referenceHeaders.has(key)) {
+          if (rawValue === '') {
+            value = [];
+            listKey = key;
+          } else if (/^[\["']/.test(rawValue)) {
+            value = yaml.load(rawValue);
+          }
+          const plural = key === 'stories' || key === 'journeys';
+          if ((plural && !Array.isArray(value)) ||
+              ![value].flat().every((entry) => typeof entry === 'string')) {
+            throw new Error(`${key} must contain ${plural ? 'a list of strings' : 'strings'}`);
+          }
+        }
+        frontMatter[key] = Object.hasOwn(frontMatter, key) ? [frontMatter[key], value].flat() : value;
+        lastHeaderLine = i;
+      } else if (!line.startsWith('#')) {
+        // Ordinary comments do not end the header; Gherkin tokens do.
+        break;
+      }
     }
+  } catch (error) {
+    return { frontMatter: null, body: content, parseError: error.message };
   }
 
   if (Object.keys(frontMatter).length === 0) {
@@ -148,6 +183,10 @@ function parseYamlFrontMatter(content) {
       return { frontMatter: null, body: data };
     }
 
+    if (data._meta && typeof data._meta === 'object' && !Array.isArray(data._meta)) {
+      return { frontMatter: data._meta, body: data };
+    }
+
     // Extract id, type, and refs-like fields as front-matter
     const frontMatter = {};
     if (data.id) frontMatter.id = data.id;
@@ -158,6 +197,9 @@ function parseYamlFrontMatter(content) {
     if (data.feature) frontMatter.feature = data.feature;
     if (data.contract) frontMatter.contract = data.contract;
     if (data.scenario) frontMatter.scenario = data.scenario;
+    for (const field of Object.values(REFERENCE_PLURALS)) {
+      if (Object.hasOwn(data, field)) frontMatter[field] = data[field];
+    }
     if (data.sources) frontMatter.sources = data.sources;
     if (data.scope) frontMatter.scope = data.scope;
 
@@ -246,17 +288,16 @@ function validateFrontMatter(filePath, frontMatter, expectedType) {
 
   // Check recommended fields
   for (const field of schema.recommended) {
+    if ((expectedType === 'feature' || expectedType === 'fixture') && REFERENCE_PLURALS[field]) {
+      if (referenceValues(frontMatter, field).length === 0) warnings.push(`Missing recommended field: ${field}`);
+      continue;
+    }
     let value = getNestedValue(frontMatter, field);
     // Journey maps may keep the canonical journey link in sources.journey.
     if ((value === undefined || value === null || value === '') &&
         expectedType === 'journey-map' &&
         field === 'journey') {
       value = getNestedValue(frontMatter, 'sources.journey');
-    }
-    // Fixtures may carry the plural form (stories / scenarios, #81).
-    if ((value === undefined || value === null || value === '') && expectedType === 'fixture') {
-      const plural = getNestedValue(frontMatter, `${field}s`);
-      if (Array.isArray(plural) && plural.length > 0) value = plural;
     }
     if (value === undefined || value === null || value === '') {
       warnings.push(`Missing recommended field: ${field}`);
@@ -321,30 +362,12 @@ function extractRefs(frontMatter) {
     }
   }
 
-  // From Gherkin comment headers
-  if (isSpecRef(frontMatter.story)) {
-    refs.push(frontMatter.story);
-  }
-  if (isSpecRef(frontMatter.journey)) {
-    refs.push(frontMatter.journey);
+  // Feature headers and flattened fixture metadata share reference aliases.
+  for (const field of ['story', 'journey', 'feature', 'contract', 'scenario']) {
+    refs.push(...referenceValues(frontMatter, field).filter(isSpecRef));
   }
 
-  // From JSON _meta (fixture front-matter is already flattened)
-  if (isSpecRef(frontMatter.feature)) {
-    refs.push(frontMatter.feature);
-  }
-  for (const key of ['stories', 'contracts', 'scenarios']) {
-    if (Array.isArray(frontMatter[key])) {
-      for (const item of frontMatter[key]) {
-        if (isSpecRef(item)) refs.push(item);
-      }
-    }
-  }
-  if (isSpecRef(frontMatter.contract)) {
-    refs.push(frontMatter.contract);
-  }
-
-  return refs;
+  return [...new Set(refs)];
 }
 
 /**
@@ -409,6 +432,7 @@ module.exports = {
   VALID_TYPES,
   FILE_TYPE_MAP,
   REQUIRED_FIELDS,
+  referenceValues,
   getExpectedType,
   parseFrontMatter,
   parseMarkdownFrontMatter,

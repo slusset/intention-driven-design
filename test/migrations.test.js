@@ -14,13 +14,14 @@ test('migration catalog is valid and resolves ordered schema paths', () => {
   const result = readMigrationCatalog(REPO_ROOT);
   assert.equal(result.status, 'valid', JSON.stringify(result.errors));
 
-  const pathResult = findMigrationPath(result.catalog, '1.9.0', '1.14.0');
+  const pathResult = findMigrationPath(result.catalog, '1.9.0', '1.15.0');
   assert.deepEqual(pathResult.map((migration) => migration.id), [
     'schema-1-9-0-to-1-10-0',
     'schema-1-10-0-to-1-11-0',
     'schema-1-11-0-to-1-12-0',
     'schema-1-12-0-to-1-13-0',
     'schema-1-13-0-to-1-14-0',
+    'schema-1-14-0-to-1-15-0',
   ]);
   // Every executable transform step must bind a registered deterministic
   // transformation; anything else stays inspect/review/validate metadata.

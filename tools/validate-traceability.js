@@ -37,6 +37,7 @@ const {
 } = require('./lib/contracts');
 const {
   parseFrontMatter,
+  referenceValues,
   findFiles,
   fileExists,
   formatResults,
@@ -119,22 +120,24 @@ function checkFeatureFiles() {
 
     // Try front-matter first
     const parsed = parseFrontMatter(featureFile, content);
+    if (parsed.parseError) {
+      results.errors.push(`${relativePath}: Parse error: ${parsed.parseError}`);
+      continue;
+    }
     let storyFound = false;
     let journeyFound = false;
     let contractFound = false;
 
     if (parsed.frontMatter) {
       // Front-matter path: # story: <root>/stories/...
-      const story = parsed.frontMatter.story;
-      if (story) {
+      for (const story of referenceValues(parsed.frontMatter, 'story')) {
         storyFound = true;
         if (!fileExistsIfScoped(story)) {
           results.errors.push(`${relativePath}: Referenced story not found: ${story}`);
         }
       }
 
-      const journey = parsed.frontMatter.journey;
-      if (journey) {
+      for (const journey of referenceValues(parsed.frontMatter, 'journey')) {
         journeyFound = true;
         if (!fileExistsIfScoped(journey)) {
           results.errors.push(`${relativePath}: Referenced journey not found: ${journey}`);
@@ -145,32 +148,6 @@ function checkFeatureFiles() {
       if (contract) {
         contractFound = true;
       }
-    }
-
-    // Fall back to legacy patterns if front-matter didn't provide the ref
-    if (!storyFound) {
-      const storyMatch = content.match(new RegExp(`# [Ss]tory:\\s*(${escapeRegExp(rootPrefix)}\\/stories\\/[^\\s]+)`));
-      if (storyMatch) {
-        storyFound = true;
-        if (!fileExistsIfScoped(storyMatch[1])) {
-          results.errors.push(`${relativePath}: Referenced story not found: ${storyMatch[1]}`);
-        }
-      }
-    }
-
-    if (!journeyFound) {
-      const journeyMatch = content.match(new RegExp(`# [Jj]ourney:\\s*(${escapeRegExp(rootPrefix)}\\/journeys\\/[^\\s]+)`));
-      if (journeyMatch) {
-        journeyFound = true;
-        if (!fileExistsIfScoped(journeyMatch[1])) {
-          results.errors.push(`${relativePath}: Referenced journey not found: ${journeyMatch[1]}`);
-        }
-      }
-    }
-
-    if (!contractFound) {
-      const contractMatch = content.match(/^#\s*[Cc]ontract:\s*(.+)$/m);
-      contractFound = !!contractMatch;
     }
 
     // Report missing references
@@ -448,6 +425,11 @@ function checkFixtures() {
 
     const parsed = parseFrontMatter(fixtureFile, content);
 
+    if (parsed.parseError) {
+      results.errors.push(`${relativePath}: Parse error: ${parsed.parseError}`);
+      continue;
+    }
+
     if (!parsed.frontMatter) {
       results.warnings.push(`${relativePath}: Missing fixture metadata`);
       continue;
@@ -456,9 +438,12 @@ function checkFixtures() {
     const meta = parsed.frontMatter;
 
     // Check story reference
-    if (meta.story) {
-      if (!fileExistsIfScoped(meta.story)) {
-        results.errors.push(`${relativePath}: Referenced story not found: ${meta.story}`);
+    const stories = referenceValues(meta, 'story');
+    if (stories.length > 0) {
+      for (const story of stories) {
+        if (!fileExistsIfScoped(story)) {
+          results.errors.push(`${relativePath}: Referenced story not found: ${story}`);
+        }
       }
     } else {
       results.warnings.push(`${relativePath}: Missing story reference`);
@@ -471,6 +456,13 @@ function checkFixtures() {
       }
     } else {
       results.info.push(`${relativePath}: No feature reference (optional)`);
+    }
+    for (const field of ['journey', 'scenario']) {
+      for (const ref of referenceValues(meta, field)) {
+        if (!fileExistsIfScoped(ref)) {
+          results.errors.push(`${relativePath}: Referenced ${field} not found: ${ref}`);
+        }
+      }
     }
   }
 

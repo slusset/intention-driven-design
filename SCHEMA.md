@@ -91,7 +91,7 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.14.0`** (declared in
+The current version is **`1.15.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
 actions, and assertions landed in 1.2; declarative lifecycle and journey-map
@@ -121,6 +121,8 @@ vocabulary. Formal evidence kinds landed in 1.13: Alloy and TLA+ probes with
 pinned outcomes, vectors with reciprocity, mutation probes, and tooling locks.
 Formal-result records and the evidence roll-up landed in 1.14, the first
 schemas for generated evidence rather than committed specs.
+Schema 1.15 adds `stories` and `journeys` arrays to feature metadata and makes
+plural reference handling consistent across parsers, validators, and closure.
 
 When the major version increments, the new schemas are published under a new
 directory (`schemas/v2/`) and the previous directory is retained for backward
@@ -769,16 +771,22 @@ The authoritative extractor lives at
 | Persona (`.md`) | `refs.*` (any string path under refs) |
 | Journey (`.md`) | `refs.persona` |
 | Story (`.md`) | `refs.journey`, `refs.persona` |
-| Feature (`.feature`) | `# story:`, `# journey:`, `# contract:`, `# feature:` (Gherkin header) |
+| Feature (`.feature`) | `# story:` / `# stories:`, `# journey:` / `# journeys:`, `# contract:`, `# feature:` (Gherkin headers; flow or indented lists for plural references) |
 | Model (`.model.yaml`) | `sources.stories`, `sources.journeys`, `sources.features` |
 | Lifecycle (`.lifecycle.yaml`) | `sources.stories`, `sources.journeys`, `sources.features` |
 | Journey-map (`.journey-map.yaml`) | `sources.journey`, `sources.stories`, `sources.features`, `fixtures.*.ref` |
-| Fixture (`.fixture.yaml` / `.json`) | `story`, `feature`, `contract` (string or `.ref`) |
+| Fixture (`.fixture.yaml` / `.json`) | `story` / `stories`, `scenario` / `scenarios`, `journey`, `feature`, `contract` / `contracts` (top-level YAML or `_meta`; strings, lists, or `.ref`) |
 | Contract (OpenAPI / AsyncAPI / JSON-RPC) | `x-story`, `x-feature`, `x-journey` extensions on any node |
 | Capability (`.capability.yaml`) | Not walked as a source — its `scope` is the *declared* set the closure is compared against. |
 
 Only paths under `specs/` or `examples/` count as references. Absolute and
 external URLs are ignored.
+
+Singular and plural references are combined and deduplicated. A nonempty
+plural list satisfies the corresponding recommended metadata field; an empty
+list does not. Scenario labels are not paths and create no graph edge.
+See [the front-matter contract](docs/idd/front-matter-spec.md) for the header
+grammar and [#99](https://github.com/slusset/intention-driven-design/issues/99).
 
 ### Closure rule
 
