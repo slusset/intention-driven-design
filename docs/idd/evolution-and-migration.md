@@ -27,8 +27,9 @@ The report deliberately distinguishes:
 - `continuity.status: not-assessed` from a continuity claim.
 
 `idd doctor plan` produces a deterministic `idd-migration-plan` artifact: a
-pure function of the repository tree, the running toolkit, and the shipped
-migration catalog, with no timestamps. Its JCS digest pins the exact state the
+pure function of repository diagnostics, the running toolkit, the shipped
+migration catalog, and any explicit source-schema assertion, with no
+timestamps. Its JCS digest pins the planning inputs the
 plan was built from and doubles as replay protection. A plan writes nothing.
 
 `idd doctor apply` is the explicit-compatibility boundary. It refuses before
@@ -66,6 +67,41 @@ A consumer with no recorded contract has no cataloged transition to select,
 so the plan proposes a synthetic `adopt-consumer-contract` migration: the
 first evolution is adoption, recording the contract for the running toolkit
 under the same acceptance, validation, and evidence rules.
+
+### Bootstrap a previously accepted schema without a contract (#101)
+
+A consumer may already use an older schema while its `idd_consumer` record is
+still missing. If plain adoption is blocked by errors that a catalog migration
+would repair, explicitly name the schema the consumer previously accepted:
+
+```bash
+idd doctor plan --repo ../consumer --from-schema 1.11.0 --out plan.json
+```
+
+`--from-schema` is a planning-only option. Use the consumer's accepted gate
+pin or another reviewed acceptance record as its source; the doctor does not
+infer acceptance from validation errors. The plan records
+`source_schema: { version: "1.11.0", source: "operator-asserted" }` in its
+digest-bound content, selects the exact catalog path to the running schema,
+and lists the errors its transformations resolve separately from blockers.
+Inspection still reports the missing consumer contract. Planning does not
+write an intermediate historical contract or change any consumer files.
+
+The option requires a missing or unrecorded contract. It cannot override a
+valid or invalid recorded contract, or target the toolkit itself. Malformed
+versions and absent catalog paths are errors, never a fallback to adoption.
+If the declared version already equals the target, the plan records adoption
+without schema transformations.
+
+Apply reads the declared source from the saved plan; do not repeat the option
+on `apply`. It rechecks eligibility and the plan digest before any writes,
+requires the listed `--accept` values, preserves unrelated blockers, and
+validates the resulting state. The evolution record retains `source_schema`
+as an operator assertion, alongside the transition and the target contract
+actually written. A newly recorded contract makes the bootstrap plan stale.
+
+This is the bounded bootstrap fix in
+[#101](https://github.com/slusset/intention-driven-design/issues/101).
 
 ## Declarative evolution policy
 

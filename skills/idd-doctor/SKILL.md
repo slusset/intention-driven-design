@@ -53,6 +53,17 @@ the undo mechanism. A consumer with no recorded contract gets a synthetic
 names that path (`migration.catalog.synthetic: true`) rather than reporting
 an empty migration list.
 
+If a consumer previously accepted an older schema but never recorded its
+contract, use `idd doctor plan --from-schema <version> --repo <consumer>
+--out plan.json`. Read that version from the consumer's accepted gate pin or
+another reviewed acceptance record; do not infer it from errors. The plan
+labels the source `operator-asserted`, binds it into the plan digest, and
+selects the catalog transformations without hand-writing a historical
+contract. The option cannot override an existing valid or invalid record.
+Review the source assertion and every migration before applying the saved
+plan with its listed `--accept` values; apply needs no `--from-schema` flag.
+The evolution record retains the assertion and post-apply validation evidence.
+
 ## Running a standalone install (CI, gates, no plugin host)
 
 The CLI does not need a plugin host, a repository-local `node_modules`, or a

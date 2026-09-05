@@ -90,12 +90,13 @@ function cmdDoctor(argv) {
   let json = false;
   let out = null;
   let planPath = null;
+  let fromSchema = null;
   let verbose = false;
   let summary = false;
   const severities = [];
   const accept = [];
   const allowBlockers = [];
-  const valueOptions = { '--repo': 'repo', '--out': 'out', '--plan': 'plan', '--accept': 'accept', '--allow-blocker': 'allow-blocker', '--severity': 'severity' };
+  const valueOptions = { '--repo': 'repo', '--out': 'out', '--plan': 'plan', '--accept': 'accept', '--allow-blocker': 'allow-blocker', '--severity': 'severity', '--from-schema': 'from-schema' };
   for (let i = 0; i < rest.length; i += 1) {
     if (rest[i] === '--json') json = true;
     else if (rest[i] === '--verbose') verbose = true;
@@ -109,6 +110,13 @@ function cmdDoctor(argv) {
       if (rest[i - 1] === '--repo') repoRoot = path.resolve(value);
       else if (rest[i - 1] === '--out') out = path.resolve(value);
       else if (rest[i - 1] === '--plan') planPath = path.resolve(value);
+      else if (rest[i - 1] === '--from-schema') {
+        if (fromSchema !== null) {
+          console.error('--from-schema may only be specified once');
+          process.exit(1);
+        }
+        fromSchema = value;
+      }
       else if (rest[i - 1] === '--severity') {
         for (const level of value.split(',')) {
           if (!SEVERITIES.includes(level)) {
@@ -125,12 +133,24 @@ function cmdDoctor(argv) {
     }
   }
 
+  if (fromSchema !== null && operation !== 'plan') {
+    console.error('--from-schema is only supported by doctor plan; apply reads it from the saved plan');
+    process.exit(1);
+  }
+
   if (operation === 'plan') {
-    const { plan } = buildMigrationPlan({ repoRoot });
+    let plan;
+    try {
+      ({ plan } = buildMigrationPlan({ repoRoot, ...(fromSchema !== null ? { fromSchema } : {}) }));
+    } catch (error) {
+      console.error(`Cannot build migration plan: ${error.message}`);
+      process.exit(1);
+    }
     const output = `${JSON.stringify(plan, null, 2)}\n`;
     if (out) {
       fs.writeFileSync(out, output);
       console.log(`Wrote migration plan to ${out}`);
+      if (plan.source_schema) console.log(`Source schema: ${plan.source_schema.version} (${plan.source_schema.source})`);
       if (plan.acceptance_required.length > 0) {
         console.log(`Apply requires: ${plan.acceptance_required.map((id) => `--accept ${id}`).join(' ')}`);
       }
@@ -656,6 +676,7 @@ Commands:
   doctor                       Inspect migration alignment (report-only)
                                [--severity error,advisory,info] [--summary] [--verbose]
   doctor plan [--out <file>]   Generate a deterministic migration plan
+                               [--from-schema <version>] for an unrecorded consumer
   doctor apply --plan <file>   Apply an accepted plan (writes evolution evidence)
                                [--accept <migration-id>] [--allow-blocker <finding-id>]
   evidence record ...          Write one formal-result record for an observed probe
@@ -674,6 +695,7 @@ Examples:
   idd doctor --json
   idd doctor --repo ../consumer --severity error --summary
   idd doctor plan --repo ../consumer --out migration-plan.json
+  idd doctor plan --repo ../consumer --from-schema 1.11.0 --out migration-plan.json
   idd doctor apply --plan migration-plan.json --accept adopt-consumer-contract --repo ../consumer
   idd evidence record --tool alloy --kind alloy-command --name OneGenesisPerPrincipal \
       --source alloy/identity_continuity.als --observed UNSAT --lock formal-tools.lock.json
