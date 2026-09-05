@@ -191,6 +191,10 @@ function checkContracts() {
 
     for (const operation of operations) {
       operationCount += 1;
+      if (operation.errors?.length) {
+        results.errors.push(...operation.errors.map(error => `${contractLabel}: ${error}`));
+        continue;
+      }
       const opId = operation.label || operation.signature;
 
       if (operation.storyRefs.length === 0) {

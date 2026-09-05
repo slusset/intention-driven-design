@@ -114,13 +114,17 @@ function validateOperations(contract, results) {
   }
 
   for (const operation of operations) {
+    if (operation.errors?.length) {
+      results.errors.push(...operation.errors.map(error => `${contract.relativePath}: ${error}`));
+      continue;
+    }
     if (operation.protocol === 'openapi') {
       if (!operation.source.responses || typeof operation.source.responses !== 'object') {
         results.warnings.push(`${contract.relativePath}: ${operation.label}: Missing responses block`);
       }
     }
 
-    if (operation.protocol === 'asyncapi' && !operation.payloadSchema) {
+    if (operation.protocol === 'asyncapi' && operation.payloadSchema == null) {
       results.warnings.push(`${contract.relativePath}: ${operation.label}: Missing message payload schema`);
     }
 

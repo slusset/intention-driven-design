@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 const { moduleRoots, normalizeRepoPath } = require('./modules');
+const { extractContractOperations } = require('./contracts');
 
 const COMMON_ROOTS = ['test', 'tests', 'src', 'alloy', 'scripts', 'certification', 'docs', '.github', 'evals'];
 const NARRATIVE_KEYS = new Set([
@@ -223,17 +224,25 @@ function validateEvidenceBindings({ repoRoot, manifest, maps, ruleIds }) {
     } catch {
       continue;
     }
-    if (contract?.['x-rules'] === undefined) continue;
     const relative = toPosix(path.relative(repoRoot, filePath));
-    const xRules = contract['x-rules'];
-    contractCount += 1;
-    if (!Array.isArray(xRules) || xRules.some((id) => typeof id !== 'string')) {
-      errors.add(`${relative}: x-rules must be an array of rule IDs`);
-      continue;
+    const declarations = contract?.['x-rules'] === undefined ? [] : [{ label: relative, rules: contract['x-rules'] }];
+    if (typeof contract?.asyncapi === 'string') {
+      for (const operation of extractContractOperations({ protocol: 'asyncapi', document: contract, filePath, relativePath: relative })) {
+        for (const error of operation.errors || []) errors.add(`${relative}: ${error}`);
+        for (const binding of operation.ruleBindings || []) declarations.push({ label: `${relative}: ${operation.label} ${binding.location}`, rules: binding.rules });
+      }
     }
-    for (const id of xRules) {
-      if (!ruleIds.has(id)) {
-        errors.add(`${relative}: x-rules names ${id}, which no verification map mentions`);
+    if (declarations.length === 0) continue;
+    contractCount += 1;
+    for (const { label, rules: xRules } of declarations) {
+      if (!Array.isArray(xRules) || xRules.some((id) => typeof id !== 'string')) {
+        errors.add(`${label}: x-rules must be an array of rule IDs`);
+        continue;
+      }
+      for (const id of xRules) {
+        if (!ruleIds.has(id)) {
+          errors.add(`${label}: x-rules names ${id}, which no verification map mentions`);
+        }
       }
     }
   }
