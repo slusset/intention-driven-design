@@ -7,6 +7,7 @@ const path = require('node:path');
 const yaml = require('js-yaml');
 
 const { getValidator, formatAjvErrors, loadIndex } = require('../../tools/lib/schema-loader');
+const { parseGherkinFrontMatter: parseFeatureHeader } = require('../../tools/lib/parse-front-matter');
 
 const REPO_ROOT = path.join(__dirname, '..', '..');
 const SPECS_ROOT = path.join(REPO_ROOT, 'specs');
@@ -37,20 +38,9 @@ function parseMarkdownFrontMatter(filePath) {
 
 function parseGherkinFrontMatter(filePath) {
   const raw = fs.readFileSync(filePath, 'utf8');
-  const out = {};
-  for (const line of raw.split('\n')) {
-    const trimmed = line.trim();
-    if (trimmed === '') continue;
-    const m = trimmed.match(/^#\s+([a-z_-]+):\s*(.*)$/);
-    if (m) {
-      out[m[1]] = m[2].trim();
-    } else if (trimmed.startsWith('#')) {
-      continue;
-    } else {
-      break;
-    }
-  }
-  return Object.keys(out).length ? out : null;
+  const parsed = parseFeatureHeader(raw);
+  assert.equal(parsed.parseError, undefined, parsed.parseError);
+  return parsed.frontMatter;
 }
 
 function parseJsonFixture(filePath) {

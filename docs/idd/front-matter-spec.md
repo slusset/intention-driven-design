@@ -103,6 +103,27 @@ Feature: Mobile Signup
 
 The `id`, `type`, `story`, `journey`, `contract` comment headers are the feature-file equivalent of front-matter. Tools parse the `# key: value` block at the top of the file.
 
+Features may declare multiple links with `stories` and `journeys` (schema
+1.15). Lists accept YAML flow syntax or indented comment items:
+
+```gherkin
+# id: shared-signup
+# type: feature
+# stories:
+#   - specs/stories/onboarding/mobile-signup.md
+#   - specs/stories/audits/quick-start-audit.md
+# journeys: [specs/journeys/trade-show-signup.md]
+Feature: Shared signup
+```
+
+Leading blank lines and ordinary comments may separate headers. Parsing ends
+at the first Gherkin token, including a tag; comments within scenarios do not
+add metadata. Repeated singular headers remain supported. When singular and
+plural forms coexist, their distinct values are combined; neither masks the
+other. Malformed lists are parse errors. Empty lists do not satisfy a
+recommended reference field. These rules apply to front-matter validation,
+traceability, and reference-graph extraction ([#99](https://github.com/slusset/intention-driven-design/issues/99)).
+
 ### Fixtures (JSON files)
 
 The existing `_meta` block serves as front-matter. Add `id` and `type`:
@@ -120,6 +141,13 @@ The existing `_meta` block serves as front-matter. Add `id` and `type`:
   "response": {}
 }
 ```
+
+Fixtures may use `stories` and `scenarios` arrays instead of `story` and
+`scenario`. JSON stores these in `_meta`; YAML supports top-level metadata
+or `_meta`. Every story link is checked, including additional links alongside
+a singular primary story. Scenario names remain labels; a scenario value that
+is a spec path also contributes a reference-graph edge and is checked for
+existence. The same singular/plural union and empty-list rules apply.
 
 ### Journey maps (YAML files)
 

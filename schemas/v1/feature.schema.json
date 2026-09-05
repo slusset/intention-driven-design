@@ -9,10 +9,12 @@
   "properties": {
     "id": { "type": "string", "minLength": 1 },
     "type": { "const": "feature" },
-    "story": { "type": "string" },
-    "journey": { "type": "string" },
+    "story": { "type": ["string", "array"], "items": { "type": "string" } },
+    "stories": { "type": "array", "items": { "type": "string" } },
+    "journey": { "type": ["string", "array"], "items": { "type": "string" } },
+    "journeys": { "type": "array", "items": { "type": "string" } },
     "scenario": { "type": "string" },
-    "contract": { "type": "string" },
+    "contract": { "type": ["string", "array"], "items": { "type": "string" } },
     "$conformance": { "$ref": "#/$defs/conformance" },
     "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
   },

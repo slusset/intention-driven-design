@@ -11,12 +11,13 @@
  *   persona     → refs.* (any string path under refs)
  *   journey     → refs.persona (one or many)
  *   story       → refs.journey, refs.persona (one or many)
- *   feature     → story, journey, contract (Gherkin '# key: value' headers)
+ *   feature     → story/stories, journey/journeys, contract (Gherkin headers)
  *   model       → sources.{stories, journeys, features}
  *   lifecycle   → sources.{stories, journeys, features}
  *   journey-map → sources.journey, sources.stories, sources.features,
  *                 fixtures.*.ref
- *   fixture     → story, feature, contract (string or .ref)
+ *   fixture     → story/stories, scenario/scenarios, journey, feature,
+ *                 contract/contracts (string or .ref)
  *   capability  → NOT used as a source for closure walking; the capability
  *                 scope is the *declared* set the closure is compared against.
  *   contract    → x-story, x-feature, x-journey extensions on any node
@@ -29,6 +30,7 @@
 const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
+const { parseGherkinFrontMatter, referenceValues } = require('./parse-front-matter');
 
 const SPEC_REF = /^(specs|examples)\//;
 
@@ -72,18 +74,11 @@ function extractFromMarkdownFrontMatter(content) {
 
 function extractFromGherkin(content) {
   const refs = new Set();
-  for (const line of content.split('\n')) {
-    const t = line.trim();
-    const m = t.match(/^#\s+([a-z_-]+):\s*(.*)$/);
-    if (!m) {
-      if (t === '' || t.startsWith('#')) continue;
-      break;
-    }
-    const key = m[1];
-    const rawValue = m[2].trim();
-    if (key === 'story' || key === 'journey' || key === 'contract' || key === 'feature') {
+  const { frontMatter } = parseGherkinFrontMatter(content);
+  for (const key of ['story', 'journey', 'contract', 'feature']) {
+    for (const value of referenceValues(frontMatter, key)) {
       // contract values may be prose ("openapi POST /accounts"); only extract spec paths.
-      const tokens = rawValue.split(/[\s,]+/);
+      const tokens = value.split(/[\s,]+/);
       for (const tok of tokens) {
         if (isSpecRef(tok)) refs.add(tok);
       }
@@ -134,12 +129,9 @@ function extractFromYamlDocument(filePath, content) {
   // Fixtures
   if (isFixture) {
     const meta = doc._meta && typeof doc._meta === 'object' ? doc._meta : doc;
-    pushRefs(refs, meta.story);
-    pushRefs(refs, meta.stories);
-    pushRefs(refs, meta.feature);
-    pushRefs(refs, meta.journey);
-    pushRefs(refs, meta.contract);
-    pushRefs(refs, meta.contracts);
+    for (const key of ['story', 'journey', 'feature', 'contract', 'scenario']) {
+      pushRefs(refs, referenceValues(meta, key));
+    }
   }
 
   // Contracts: walk recursively for x-story / x-feature / x-journey extensions.
@@ -175,12 +167,9 @@ function extractFromJsonFixture(content) {
   }
   if (!doc || typeof doc !== 'object') return refs;
   const meta = doc._meta && typeof doc._meta === 'object' ? doc._meta : doc;
-  pushRefs(refs, meta.story);
-  pushRefs(refs, meta.stories);
-  pushRefs(refs, meta.feature);
-  pushRefs(refs, meta.journey);
-  pushRefs(refs, meta.contract);
-  pushRefs(refs, meta.contracts);
+  for (const key of ['story', 'journey', 'feature', 'contract', 'scenario']) {
+    pushRefs(refs, referenceValues(meta, key));
+  }
   return refs;
 }
 

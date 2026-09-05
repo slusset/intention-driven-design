@@ -193,6 +193,38 @@
         "data": "unchanged",
         "operations": "review-required"
       }
+    },
+    {
+      "id": "schema-1-14-0-to-1-15-0",
+      "from": { "schema": "1.14.0" },
+      "to": { "schema": "1.15.0" },
+      "kind": "schema",
+      "summary": "Accept plural feature references and preserve every singular/plural metadata link through front-matter validation, traceability, and the reference graph.",
+      "steps": [
+        {
+          "id": "review-plural-references",
+          "mode": "review",
+          "description": "Review feature stories/journeys and fixture stories/scenarios. Singular primary links no longer mask additional links; review newly visible missing references and capability-closure findings."
+        },
+        {
+          "id": "record-consumer-contract",
+          "mode": "transform",
+          "transformation": "record-consumer-contract",
+          "description": "Update the accepted toolkit/schema pins in specs/skills/repo-overlay.md; no reference metadata is rewritten."
+        },
+        {
+          "id": "validate-plural-references",
+          "mode": "validate",
+          "description": "Run the deterministic validators and confirm every plural link is represented before removing any downstream singular-reference workarounds."
+        }
+      ],
+      "continuity": {
+        "identity": "preserved",
+        "intent": "preserved",
+        "semantics": "preserved",
+        "data": "unchanged",
+        "operations": "review-required"
+      }
     }
   ]
 }
