@@ -197,6 +197,106 @@ function extractRefs(source) {
   };
 }
 
+function asyncApiMetadata(operation, messages) {
+  const sources = [
+    { location: 'operation', source: operation },
+    ...messages.map(({ name, source }) => ({ location: `message ${name}`, source })),
+  ];
+  const refs = sources.map(({ source }) => extractRefs(source));
+  return {
+    ...Object.fromEntries(['storyRefs', 'featureRefs', 'journeyRefs'].map(key => [key, [...new Set(refs.flatMap(ref => ref[key]))]])),
+    ruleBindings: sources.filter(({ source }) => source?.['x-rules'] !== undefined)
+      .map(({ location, source }) => ({ location, rules: source['x-rules'] })),
+  };
+}
+
+function isObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function localAsyncApiObject(value, document, errors, label) {
+  const seen = new Set();
+  while (isObject(value) && value.$ref !== undefined) {
+    const ref = value.$ref;
+    if (typeof ref !== 'string' || !ref.startsWith('#/')) {
+      errors.push(`${label}: unsupported reference ${String(ref)}; expected a local JSON pointer`);
+      return null;
+    }
+    if (seen.has(ref)) {
+      errors.push(`${label}: cyclic reference ${ref}`);
+      return null;
+    }
+    seen.add(ref);
+    value = resolvePointer(document, ref);
+    if (value === null || value === undefined) {
+      errors.push(`${label}: unresolved reference ${ref}`);
+      return null;
+    }
+  }
+  if (!isObject(value)) {
+    errors.push(`${label}: expected an object`);
+    return null;
+  }
+  return value;
+}
+
+function pointerParts(ref) {
+  return typeof ref === 'string' && ref.startsWith('#/')
+    ? ref.slice(2).split('/').map(part => part.replace(/~1/g, '/').replace(/~0/g, '~'))
+    : [];
+}
+
+function asyncApi3Operations(contract) {
+  const document = contract.document;
+  if (!isObject(document.operations)) return [];
+  return Object.entries(document.operations).filter(([id]) => !id.startsWith('x-')).map(([id, rawOperation]) => {
+    const errors = [];
+    const operation = localAsyncApiObject(rawOperation, document, errors, id) || {};
+    if (!['send', 'receive'].includes(operation.action)) errors.push(`${id}: action must be send or receive`);
+    const channelParts = pointerParts(operation.channel?.$ref);
+    const channelName = channelParts.length === 2 && channelParts[0] === 'channels' ? channelParts[1] : null;
+    if (!channelName) errors.push(`${id}: channel must reference a local #/channels/<key>`);
+    const channel = channelName
+      ? localAsyncApiObject(document.channels?.[channelName], document, errors, `${id} channel ${channelName}`)
+      : null;
+    if (channel?.messages !== undefined && !isObject(channel.messages)) errors.push(`${id}: channel messages must be an object`);
+    const available = isObject(channel?.messages) ? channel.messages : {};
+    let selected = Object.keys(available);
+    if (operation.messages !== undefined) {
+      selected = [];
+      if (!Array.isArray(operation.messages)) errors.push(`${id}: messages must be an array of channel message references`);
+      else for (const reference of operation.messages) {
+        const parts = pointerParts(reference?.$ref);
+        if (parts.length !== 4 || parts[0] !== 'channels' || parts[1] !== channelName || parts[2] !== 'messages' || !Object.hasOwn(available, parts[3])) {
+          errors.push(`${id}: message reference ${String(reference?.$ref)} must name a message in the selected channel`);
+        } else selected.push(parts[3]);
+      }
+    }
+    const messages = [...new Set(selected)].map(name => ({
+      name, source: localAsyncApiObject(available[name], document, errors, `${id} message ${name}`),
+    })).filter(message => message.source);
+    const schemas = messages.map(({ name, source }) => {
+      if (source.payload === undefined) return null;
+      const schema = resolveLocalRefs(source.payload, document);
+      if (isObject(schema) && schema.schemaFormat !== undefined) {
+        errors.push(`${id} message ${name}: multi-format payload schemas are not supported; expected JSON Schema`);
+        return null;
+      }
+      return schema;
+    });
+    const complete = schemas.length > 0 && schemas.every(schema => schema !== null && schema !== undefined);
+    return {
+      protocol: 'asyncapi', filePath: contract.filePath, relativePath: contract.relativePath,
+      source: operation, signature: `asyncapi ${id}`, aliases: channelName ? [`${operation.action} ${channelName}`, `asyncapi ${operation.action} ${channelName}`] : [],
+      label: id, operationId: id, action: operation.action, channelName,
+      channelAddress: channel?.address ?? null,
+      payloadSchema: complete ? (schemas.length === 1 ? schemas[0] : { oneOf: schemas }) : null,
+      errors,
+      ...asyncApiMetadata(operation, messages),
+    };
+  });
+}
+
 function openApiOperations(contract) {
   const operations = [];
   const document = contract.document;
@@ -240,6 +340,7 @@ function openApiOperations(contract) {
 function asyncApiOperations(contract) {
   const operations = [];
   const document = contract.document;
+  if (String(document?.asyncapi).startsWith('3.')) return asyncApi3Operations(contract);
   const channels = document && document.channels;
 
   if (!channels || typeof channels !== 'object') {
@@ -271,7 +372,7 @@ function asyncApiOperations(contract) {
         action,
         operationId: resolvedOperation.operationId || null,
         payloadSchema,
-        ...extractRefs(resolvedOperation),
+        ...asyncApiMetadata(resolvedOperation, resolvedMessage ? [{ name: resolvedMessage.name || 'message', source: resolvedMessage }] : []),
       });
     }
   }

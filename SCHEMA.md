@@ -189,6 +189,34 @@ and maturity claims are the canonical closed contract.
 
 ## Literal evidence bindings and reciprocal contracts (v1.9)
 
+### AsyncAPI operation discovery
+
+The shared contract reader supports AsyncAPI 2.x channel `publish`/`subscribe`
+operations and AsyncAPI 3.x top-level `operations` with `send`/`receive` actions
+([#103](https://github.com/slusset/intention-driven-design/issues/103)). For 3.x,
+the operation map key is its ID, and the channel key and address remain
+separate. Local operation, channel, and message references are resolved with
+cycle detection; missing or external references produce explicit errors.
+
+An explicit operation `messages` list selects only messages from its referenced
+channel. When omitted, the reader uses the channel's messages; an empty list
+does not select any. Selected payload schemas are combined with `oneOf` when
+there is more than one. The operation and its selected messages contribute
+their distinct `x-story`, `x-feature`, and `x-journey` references. Any declared
+`x-rules` arrays on those objects must name rules present in verification maps;
+the existing root-level reciprocal contract obligations still apply.
+
+AsyncAPI fixtures use `contract.action: send|receive` for 3.x and identify the
+channel by key or address. If more than one operation matches, the fixture
+must also put the operation ID in `contract.operation`; the reader never
+chooses arbitrarily.
+These are discovery and IDD binding checks, not a complete AsyncAPI validator.
+The first 3.x slice covers local references and JSON Schema payloads, without
+trait merging, reply interpretation, external-file loading, or other payload
+schema formats. See the [AsyncAPI 3.0 operation contract](https://www.asyncapi.com/docs/reference/specification/v3.0.0#operationObject).
+
+### Reciprocal contract rules
+
 Current evidence binds selectors to exact repository files or directories:
 
 ```yaml

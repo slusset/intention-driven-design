@@ -310,16 +310,20 @@ function validateAsyncApiFixture(fixture, index, ajv, metadata) {
     return { valid: true, warning: 'AsyncAPI fixture is missing contract.channel metadata' };
   }
 
-  const operation = index.operations.find(candidate =>
+  const operations = index.operations.filter(candidate =>
     candidate.protocol === 'asyncapi'
-    && candidate.channelName === channel
+    && (candidate.channelName === channel || candidate.channelAddress === channel)
     && candidate.action === action
     && (!refPath || candidate.contract.filePath === refPath)
+    && (!metadata?.operation || candidate.operationId === metadata.operation)
   );
 
-  if (!operation) {
+  if (operations.length === 0) {
     return { valid: false, error: `AsyncAPI operation not found: ${action} ${channel}` };
   }
+  if (operations.length > 1) return { valid: false, error: `AsyncAPI operation is ambiguous: ${action} ${channel}; set contract.operation to its ID` };
+  const [operation] = operations;
+  if (operation.errors?.length) return { valid: false, error: operation.errors.join('; ') };
 
   const payload = (fixture.request && fixture.request.payload !== undefined)
     ? fixture.request.payload
@@ -329,7 +333,7 @@ function validateAsyncApiFixture(fixture, index, ajv, metadata) {
     return { valid: true, warning: `AsyncAPI fixture did not include request.payload for ${action} ${channel}` };
   }
 
-  if (!operation.payloadSchema) {
+  if (operation.payloadSchema == null) {
     return { valid: true, warning: `No message payload schema found for ${action} ${channel}` };
   }
 
