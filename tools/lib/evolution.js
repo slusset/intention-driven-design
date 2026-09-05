@@ -22,11 +22,16 @@ function requiresAcceptance(migration) {
 
 /**
  * Build a deterministic migration plan for a repository (#69). The plan is a
- * pure function of the repository tree, the running toolkit, and the shipped
- * migration catalog: no timestamps, and its JCS digest doubles as both a
+ * pure function of repository diagnostics, the running toolkit, the shipped
+ * migration catalog, and any explicit source-schema assertion: no timestamps,
+ * and its JCS digest doubles as both a
  * staleness check and replay protection for `idd doctor apply`.
  */
 function buildMigrationPlan(options = {}) {
+  const assertedSource = options.fromSchema !== undefined && options.fromSchema !== null;
+  if (assertedSource && (typeof options.fromSchema !== 'string' || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(options.fromSchema))) {
+    throw new Error('--from-schema requires an exact schema version, for example 1.11.0');
+  }
   const repoRoot = path.resolve(options.repoRoot || process.cwd());
   const toolkitRoot = findToolkitRoot(__dirname) || path.resolve(__dirname, '..', '..');
   const report = runDoctor({ repoRoot });
@@ -34,7 +39,10 @@ function buildMigrationPlan(options = {}) {
   const catalogPath = path.join(toolkitRoot, 'migrations', 'catalog.json');
   const catalog = report.migration.catalog;
   const isToolkit = report.repository.toolkit_repository;
-  const fromSchema = isToolkit
+  if (assertedSource && (isToolkit || !['missing', 'unrecorded'].includes(report.repository.consumer_contract?.status))) {
+    throw new Error('--from-schema is only valid for an unrecorded consumer; it cannot override a recorded contract or target the toolkit');
+  }
+  const fromSchema = assertedSource ? options.fromSchema : isToolkit
     ? report.repository.schema_version
     : report.repository.consumer_contract?.schema_version || null;
   const toSchema = isToolkit
@@ -51,6 +59,7 @@ function buildMigrationPlan(options = {}) {
       schema_digest: report.repository.doctor_schema_digest,
     },
     transition: { from_schema: fromSchema, to_schema: toSchema },
+    ...(assertedSource ? { source_schema: { version: fromSchema, source: 'operator-asserted' } } : {}),
     catalog: {
       path: 'migrations/catalog.json',
       digest: fs.existsSync(catalogPath) ? digestJsonFile(catalogPath) : null,
@@ -63,9 +72,16 @@ function buildMigrationPlan(options = {}) {
     journal_mutation: false,
   };
 
-  if (!isToolkit && fromSchema === null && toSchema) {
-    // No recorded contract means no cataloged transition applies; the first
-    // evolution is adoption: record the contract for the running toolkit.
+  if (assertedSource && fromSchema !== toSchema) {
+    const loaded = readMigrationCatalog(toolkitRoot);
+    if (loaded.status !== 'valid') throw new Error(`Cannot select a catalog migration path: catalog is ${loaded.status}`);
+    plan.migrations = findMigrationPath(loaded.catalog, fromSchema, toSchema);
+    if (plan.migrations.length === 0) {
+      throw new Error(`No catalog migration path from ${fromSchema} to ${toSchema}; no adoption fallback was selected`);
+    }
+  } else if (!isToolkit && (fromSchema === null || (assertedSource && fromSchema === toSchema)) && toSchema) {
+    // With no source version, or an assertion already at the target schema,
+    // only adoption remains: record the contract for the running toolkit.
     const { synthetic, ...adoption } = adoptionMigration(toSchema);
     plan.migrations.push(adoption);
   } else if (!isToolkit && catalog.migration_ids.length > 0) {
@@ -164,11 +180,21 @@ function applyMigrationPlan(options = {}) {
   }
   result.plan_digest = stored.digest;
 
-  const { plan: current, report: before } = buildMigrationPlan({ repoRoot });
+  let rebuilt;
+  try {
+    rebuilt = buildMigrationPlan({
+      repoRoot,
+      ...(stored.source_schema?.source === 'operator-asserted' ? { fromSchema: stored.source_schema.version } : {}),
+    });
+  } catch (error) {
+    return refusal(result, 'plan-stale', `cannot rebuild the saved plan: ${error.message}`);
+  }
+  const { plan: current, report: before } = rebuilt;
   result.findings_before = { ...before.summary };
   if (current.digest !== stored.digest) {
     return refusal(result, 'plan-stale', 'repository, toolkit, or catalog state changed since the plan was generated — regenerate with `idd doctor plan`');
   }
+  if (current.source_schema) result.source_schema = current.source_schema;
   const blockers = stored.blockers || [];
   const unallowed = blockers.filter((id) => !allowBlockers.includes(id));
   if (unallowed.length > 0) {
@@ -266,6 +292,7 @@ function applyMigrationPlan(options = {}) {
     plan_digest: stored.digest,
     toolkit: stored.toolkit,
     transition: stored.transition,
+    ...(stored.source_schema ? { source_schema: stored.source_schema } : {}),
     migrations: result.migrations,
     invariants: result.invariants,
     findings_before: result.findings_before,
@@ -287,6 +314,7 @@ function applyMigrationPlan(options = {}) {
 
 function formatApplyResult(result) {
   const lines = ['IDD Doctor (apply)', '', `Repository: ${result.repository.root}`, `Status: ${result.status}`];
+  if (result.source_schema) lines.push(`Source schema: ${result.source_schema.version} (${result.source_schema.source})`);
   if (result.refusals.length > 0) {
     lines.push('', 'Refused:');
     for (const item of result.refusals) lines.push(`- ${item.reason}: ${item.detail}`);
