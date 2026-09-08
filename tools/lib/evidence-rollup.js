@@ -17,7 +17,7 @@
  */
 
 const path = require('path');
-const { validateCoverage } = require('./evidence-coverage');
+const { createCoverageValidator } = require('./evidence-coverage');
 const { getValidator } = require('./schema-loader');
 const { claimsFor, declaredProbes, expectedFor, loadVerificationMaps, readFormalResults, verdictFor } = require('./formal-results');
 
@@ -45,6 +45,7 @@ function finding(id, severity, subject, detail, extra = {}) {
 }
 
 function rollupEvidence(repoRoot, options = {}) {
+  const validateCoverage = createCoverageValidator(repoRoot);
   const resultsDir = options.resultsDir || '.idd/evidence/results';
   const { manifest, maps } = loadVerificationMaps(repoRoot, options.manifestPath);
   const findings = [];
@@ -121,7 +122,7 @@ function rollupEvidence(repoRoot, options = {}) {
     if (record.observed === 'not-run') {
       try {
         if (!baselineValid) throw new Error('baseline records unavailable or invalid');
-        const coverage = validateCoverage(repoRoot, record, baselines, claims, maps, options.manifestPath);
+        const coverage = validateCoverage(record, baselines, claims, maps, options.manifestPath);
         observed = coverage.observed;
         if (claims.some(claim => expectedFor(claim, record.probe.source) !== observed)) throw new Error('baseline outcome differs from current map expectation');
         rollup.covered_results.push({ where: item.where, probe: record.probe, observed: 'not-run', covered_by: record.covered_by, baseline_observed: observed });

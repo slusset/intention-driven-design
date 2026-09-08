@@ -5,7 +5,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
-const { buildFormalResult } = require('../tools/lib/formal-results');
+const { buildFormalResult, loadVerificationMaps, declaredProbes, claimsFor } = require('../tools/lib/formal-results');
+const { createCoverageValidator } = require('../tools/lib/evidence-coverage');
 const { rollupEvidence, formatRollupMarkdown } = require('../tools/lib/evidence-rollup');
 const { getValidator } = require('../tools/lib/schema-loader');
 const ROOT = path.resolve(__dirname, '..');
@@ -18,13 +19,16 @@ function write(root, file, value) {
 }
 function git(root, ...args) { return execFileSync('git', args, { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] }).toString().trim(); }
 function save(f) { write(f.root, '.idd/evidence/results/current.json', f.current); write(f.root, '.idd/evidence/baseline/prior.json', f.prior); }
-function fixture(t, withDependency = false) {
+function fixture(t, withDependency = false, extraProbes = 0, extraInputs = 0) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'idd-coverage-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   write(root, '.gitignore', '.idd/\n');
   write(root, 'specs/modules.yaml', { version: 1, modules: { kernel: { root: 'specs', capabilities: ['specs/capabilities/kernel.capability.yaml'], rule_families: ['K'], depends_on: [] } } });
-  write(root, MAP, { capability: 'specs/capabilities/kernel.capability.yaml', tooling: { alloy: { sources: ['model.als'], lock: 'formal-tools.lock.json' } }, evidence: { classification: { verification: 'verified' } }, rules: [{ id: 'K-1', alloy: { assertions: ['Safe'], predicates: ['Witness'] } }] });
-  write(root, 'model.als', 'open import\nassert Safe {}\npred Witness {}\n');
+  const witnesses = ['Witness', ...Array.from({ length: extraProbes }, (_, i) => `Witness${i}`)];
+  const files = Array.from({ length: extraInputs }, (_, i) => `input-${i}.txt`);
+  for (const file of files) write(root, file, 'tracked input\n');
+  write(root, MAP, { capability: 'specs/capabilities/kernel.capability.yaml', tooling: { alloy: { sources: ['model.als'], lock: 'formal-tools.lock.json' } }, evidence: { classification: { verification: 'verified' } }, rules: [{ id: 'K-1', alloy: { assertions: ['Safe'], predicates: witnesses } }] });
+  write(root, 'model.als', `open import\nassert Safe {}\n${witnesses.map(name => `pred ${name} {}`).join('\n')}\n`);
   write(root, 'import.als', 'sig E {}\n'); write(root, 'model.cfg', 'bound=3\n'); write(root, 'runner.js', '// runner v1\n');
   write(root, 'formal-tools.lock.json', { alloy: { version: '6.2.0', sha256: 'c'.repeat(64) } });
   const parent = 'specs/verification/upstream/verification.yaml';
@@ -34,8 +38,8 @@ function fixture(t, withDependency = false) {
   }
   git(root, 'init', '-q'); git(root, 'config', 'user.email', 'fixture@example.invalid'); git(root, 'config', 'user.name', 'Fixture'); git(root, 'add', '.'); git(root, '-c', 'commit.gpgsign=false', 'commit', '-qm', 'baseline');
   const base = git(root, 'rev-parse', 'HEAD');
-  const options = { tool: 'alloy', lock: 'formal-tools.lock.json', kind: 'alloy-command', source: 'model.als', inputs: withDependency ? [...INPUTS, parent] : INPUTS, scope: 'for 3', runId: 'prior', revision: base, environment: 'ci' };
-  const prior = ['Safe', 'Witness'].map(name => buildFormalResult(root, { ...options, name, observed: name === 'Safe' ? 'UNSAT' : 'SAT' }));
+  const options = { tool: 'alloy', lock: 'formal-tools.lock.json', kind: 'alloy-command', source: 'model.als', inputs: [...INPUTS, ...files, ...(withDependency ? [parent] : [])], scope: 'for 3', runId: 'prior', revision: base, environment: 'ci' };
+  const prior = ['Safe', ...witnesses].map(name => buildFormalResult(root, { ...options, name, observed: name === 'Safe' ? 'UNSAT' : 'SAT' }));
   write(root, 'README.md', 'docs only\n'); git(root, 'add', '.'); git(root, '-c', 'commit.gpgsign=false', 'commit', '-qm', 'docs');
   const revision = git(root, 'rev-parse', 'HEAD');
   const current = prior.map(r => buildFormalResult(root, { ...options, name: r.probe.name, observed: 'not-run', runId: 'current', revision, coveredBy: { run_id: 'prior', revision: base, source_digest: r.probe.source_digest } }));
@@ -47,6 +51,84 @@ function rejected(f, pattern) {
   assert.ok(r.findings.some(x => pattern.test(x.detail)), JSON.stringify(r.findings));
   assert.equal(r.summary.covered_records, 0);
 }
+
+// Instrument before loading the validator, without replacing Git's behavior.
+// Count processes, not elapsed-time thresholds, so the regression is stable in CI.
+function measuredRollups(f, roots = [f.root]) {
+  const script = `
+    const cp = require('node:child_process');
+    const original = cp.execFileSync;
+    let stats = {};
+    cp.execFileSync = (command, args, options) => {
+      if (command === 'git') stats[args[0]] = (stats[args[0]] || 0) + 1;
+      return original(command, args, options);
+    };
+    const { rollupEvidence } = require(${JSON.stringify(path.join(ROOT, 'tools/lib/evidence-rollup'))});
+    const observations = [];
+    for (const root of ${JSON.stringify(roots)}) {
+      stats = {};
+      const started = performance.now();
+      const result = rollupEvidence(root, { baselineResultsDir: '.idd/evidence/baseline', now: '2026-09-08T00:00:00.000Z' });
+      observations.push({ result, stats, durationMs: performance.now() - started });
+    }
+    process.stdout.write(JSON.stringify(observations));
+  `;
+  return JSON.parse(execFileSync(process.execPath, ['-e', script], { env, maxBuffer: 16 * 1024 * 1024 }));
+}
+
+test('one roll-up reads each immutable tree input once while checking mutable state per probe', t => {
+  const f = fixture(t, false, 100, 34); // 102 probes sharing 41 tracked inputs.
+  const [observation] = measuredRollups(f);
+  t.diagnostic(JSON.stringify({ durationMs: observation.durationMs, gitCalls: observation.stats }));
+  assert.equal(observation.result.summary.errors, 0);
+  assert.equal(observation.result.summary.covered_records, 102);
+  assert.equal(observation.stats['ls-tree'], f.options.inputs.length * 2);
+  assert.equal(observation.stats.show, f.options.inputs.length * 2);
+  assert.equal(observation.stats['rev-parse'], f.current.length * 3);
+  assert.equal(observation.stats['merge-base'], f.current.length);
+});
+
+test('immutable input caches end with each roll-up and do not cross repositories', t => {
+  const f = fixture(t);
+  const other = fs.mkdtempSync(path.join(os.tmpdir(), 'idd-coverage-other-'));
+  t.after(() => fs.rmSync(other, { recursive: true, force: true }));
+  git(f.root, 'clone', '--no-hardlinks', f.root, other);
+  save({ ...f, root: other });
+  const observations = measuredRollups(f, [f.root, f.root, other]);
+  for (const observation of observations) {
+    assert.equal(observation.result.summary.errors, 0);
+    assert.equal(observation.stats['ls-tree'], INPUTS.length * 2);
+    assert.equal(observation.stats.show, INPUTS.length * 2);
+  }
+  assert.deepEqual(observations[0].result, observations[1].result);
+  assert.deepEqual(observations[0].result.summary, observations[2].result.summary);
+});
+
+test('a warm cache still observes changed working bytes, symlinks, citations, outcomes and HEAD', t => {
+  const f = fixture(t);
+  const { maps } = loadVerificationMaps(f.root);
+  const declared = declaredProbes(maps);
+  const validate = createCoverageValidator(f.root);
+  const check = index => validate(f.current[index], f.prior.map(record => ({ record })), claimsFor(declared, f.current[index].probe), maps);
+  assert.equal(check(0).observed, 'UNSAT');
+  const file = path.join(f.root, 'import.als');
+  const original = fs.readFileSync(file);
+  fs.appendFileSync(file, '// dirty\n');
+  assert.throws(() => check(1), /coverage input changed/);
+  fs.unlinkSync(file); fs.symlinkSync('model.als', file);
+  assert.throws(() => check(1), /symlinks/);
+  fs.unlinkSync(file); fs.writeFileSync(file, original);
+  assert.equal(check(1).observed, 'SAT');
+  f.prior[1].observed = 'UNSAT';
+  assert.throws(() => check(1), /directly executed matching outcome/);
+  f.prior[1].observed = 'SAT';
+  f.current[1].covered_by.run_id = 'unknown';
+  assert.throws(() => check(1), /exactly one matching baseline record/);
+  f.current[1].covered_by.run_id = 'prior';
+  write(f.root, 'README.md', 'a later head\n'); git(f.root, 'add', '.');
+  git(f.root, '-c', 'commit.gpgsign=false', 'commit', '-qm', 'later');
+  assert.throws(() => check(1), /current run revision differs from checkout HEAD/);
+});
 
 test('unchanged tracked inputs reuse a baseline without counting it as fresh execution', t => {
   const f = fixture(t); const r = roll(f);
@@ -126,8 +208,26 @@ test('CLI records inputs and separates baseline coverage in source and bundled r
   const result = JSON.parse(execFileSync(process.execPath, [path.join(ROOT, 'bin/idd.js'), ...args], { cwd: f.root, env }));
   assert.equal(result.record.verdict, 'covered');
   for (const bin of ['bin/idd.js', 'dist/bin/idd.js']) {
-    const r = spawnSync(process.execPath, [path.join(ROOT, bin), 'evidence', 'rollup', '--baseline-results-dir', '.idd/evidence/baseline', '--json'], { cwd: f.root, env, encoding: 'utf8' });
-    assert.equal(r.status, 0, r.stderr + r.stdout); assert.equal(JSON.parse(r.stdout).summary.covered_records, 2);
+    const report = path.join(f.root, '.idd/cli-report.json');
+    const counts = path.join(f.root, '.idd/cli-counts.json');
+    const program = `
+      const fs = require('node:fs'); const cp = require('node:child_process');
+      const original = cp.execFileSync; const calls = {};
+      cp.execFileSync = (command, args, options) => {
+        if (command === 'git') calls[args[0]] = (calls[args[0]] || 0) + 1;
+        return original(command, args, options);
+      };
+      process.on('exit', () => fs.writeFileSync(${JSON.stringify(counts)}, JSON.stringify(calls)));
+      process.argv = [process.execPath, ${JSON.stringify(path.join(ROOT, bin))}, 'evidence', 'rollup',
+        '--baseline-results-dir', '.idd/evidence/baseline', '--out', ${JSON.stringify(report)}];
+      require(${JSON.stringify(path.join(ROOT, bin))});
+    `;
+    const r = spawnSync(process.execPath, ['-e', program], { cwd: f.root, env, encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    assert.equal(JSON.parse(fs.readFileSync(report)).summary.covered_records, 2);
+    const calls = JSON.parse(fs.readFileSync(counts));
+    assert.equal(calls['ls-tree'], INPUTS.length * 2, bin);
+    assert.equal(calls.show, INPUTS.length * 2, bin);
   }
 });
 

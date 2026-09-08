@@ -42,10 +42,16 @@ function commit(repoRoot, revision) {
   const resolved = git(repoRoot, ['rev-parse', '--verify', `${revision}^{commit}`]).toString().trim();
   if (resolved !== revision) fail('revision must name a commit directly');
 }
-function treeDigest(repoRoot, revision, relative) {
+function treeDigest(repoRoot, revision, relative, cache) {
+  const key = JSON.stringify([fs.realpathSync(repoRoot), revision, relative]);
+  if (cache.has(key)) return cache.get(key);
   const entry = git(repoRoot, ['ls-tree', '-z', revision, '--', relative]).toString();
   if (!/^(100644|100755) blob [0-9a-f]+\t/.test(entry) || entry.slice(entry.indexOf('\t') + 1) !== `${relative}\0`) fail(`input is not a regular tracked file: ${relative}`);
-  return sha256(git(repoRoot, ['show', `${revision}:${relative}`]));
+  const digest = sha256(git(repoRoot, ['show', `${revision}:${relative}`]));
+  // Only successful reads of immutable Git objects are cached. Never cache
+  // working bytes, HEAD, ancestry, failures or the coverage decision itself.
+  cache.set(key, digest);
+  return digest;
 }
 function requiredMaps(claims, maps) {
   const seen = new Set();
@@ -63,7 +69,7 @@ function requiredMaps(claims, maps) {
 
 // This checks content/ancestry consistency. Authenticating the supplied CI
 // artifact and enumerating the complete dependency set remain consumer duties.
-function validateCoverage(repoRoot, record, baselines, claims, maps, manifestPath = 'specs/modules.yaml') {
+function validateCoverageWithCache(repoRoot, record, baselines, claims, maps, manifestPath, treeCache) {
   const cite = record.covered_by;
   if (!claims.length) fail('coverage requires a current verification-map claim');
   if (cite.run_id === record.run.id) fail('coverage must cite a different run');
@@ -86,7 +92,7 @@ function validateCoverage(repoRoot, record, baselines, claims, maps, manifestPat
   for (const required of [manifestPath, record.probe.source, record.tool.lock, ...requiredMaps(claims, maps)]) if (!current.has(required)) fail(`coverage input set omits required file: ${required}`);
   if (current.get(record.probe.source) !== record.probe.source_digest) fail('source digest differs from input manifest');
   for (const [name, digest] of current) {
-    if (treeDigest(repoRoot, cite.revision, name) !== digest || treeDigest(repoRoot, record.run.revision, name) !== digest || sha256(workingBytes(repoRoot, name)) !== digest) fail(`coverage input changed: ${name}`);
+    if (treeDigest(repoRoot, cite.revision, name, treeCache) !== digest || treeDigest(repoRoot, record.run.revision, name, treeCache) !== digest || sha256(workingBytes(repoRoot, name)) !== digest) fail(`coverage input changed: ${name}`);
   }
   const lock = JSON.parse(workingBytes(repoRoot, record.tool.lock));
   const pinned = lock[record.tool.name];
@@ -94,4 +100,17 @@ function validateCoverage(repoRoot, record, baselines, claims, maps, manifestPat
   return { baseline, observed: prior.observed };
 }
 
-module.exports = { buildInputs, validateCoverage };
+// The roll-up owns this closure and discards it when that invocation ends.
+// Callers cannot seed cache entries or reuse a process-global verdict cache.
+function createCoverageValidator(repoRoot) {
+  const treeCache = new Map();
+  return (record, baselines, claims, maps, manifestPath = 'specs/modules.yaml') =>
+    validateCoverageWithCache(repoRoot, record, baselines, claims, maps, manifestPath, treeCache);
+}
+
+// Preserve the existing single-record entry point without shared state.
+function validateCoverage(repoRoot, record, baselines, claims, maps, manifestPath) {
+  return createCoverageValidator(repoRoot)(record, baselines, claims, maps, manifestPath);
+}
+
+module.exports = { buildInputs, validateCoverage, createCoverageValidator };
