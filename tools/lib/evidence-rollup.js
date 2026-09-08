@@ -16,6 +16,8 @@
  * of the gap between technical correctness and intent.
  */
 
+const path = require('path');
+const { validateCoverage } = require('./evidence-coverage');
 const { getValidator } = require('./schema-loader');
 const { claimsFor, declaredProbes, expectedFor, loadVerificationMaps, readFormalResults, verdictFor } = require('./formal-results');
 
@@ -78,6 +80,29 @@ function rollupEvidence(repoRoot, options = {}) {
     }
     records.push({ where, record });
   }
+  // Baselines live outside the current result set and never promote run metadata.
+  const baselines = [];
+  let baselineValid = true;
+  if (records.some(({ record }) => record.observed === 'not-run')) {
+    if (!options.baselineResultsDir || path.resolve(repoRoot, options.baselineResultsDir) === path.resolve(repoRoot, resultsDir)) {
+      baselineValid = false;
+      findings.push(finding('coverage-baseline-required', 'error', resultsDir, 'not-run requires a separate baseline-results directory'));
+    } else {
+      const loaded = readFormalResults(repoRoot, options.baselineResultsDir);
+      for (const problem of loaded.problems) {
+        baselineValid = false;
+        findings.push(finding('invalid-baseline-file', 'error', options.baselineResultsDir, problem));
+      }
+      for (const { file, line, record } of loaded.records) {
+        const check = validate(record);
+        if (!check.valid) {
+          baselineValid = false;
+          findings.push(finding('invalid-baseline-record', 'error', file, check.errors.map(e => e.message).join('; ')));
+        } else baselines.push({ where: line ? `${file}:${line}` : file, record });
+      }
+    }
+  }
+  rollup.covered_results = [];
   const runIds = new Set(); const revisions = new Set(); const environments = new Set();
   for (const { record } of records) {
     runIds.add(record.run.id);
@@ -92,6 +117,19 @@ function rollupEvidence(repoRoot, options = {}) {
   for (const item of records) {
     const { record } = item;
     const claims = claimsFor(declared, record.probe);
+    let observed = record.observed;
+    if (record.observed === 'not-run') {
+      try {
+        if (!baselineValid) throw new Error('baseline records unavailable or invalid');
+        const coverage = validateCoverage(repoRoot, record, baselines, claims, maps, options.manifestPath);
+        observed = coverage.observed;
+        if (claims.some(claim => expectedFor(claim, record.probe.source) !== observed)) throw new Error('baseline outcome differs from current map expectation');
+        rollup.covered_results.push({ where: item.where, probe: record.probe, observed: 'not-run', covered_by: record.covered_by, baseline_observed: observed });
+      } catch (error) {
+        findings.push(finding('invalid-coverage', 'error', item.where, error.message));
+        continue;
+      }
+    }
     if (claims.length === 0) {
       rollup.orphan_results.push({ where: item.where, kind: record.probe.kind, name: record.probe.name, source: record.probe.source, observed: record.observed });
       findings.push(finding('orphan-result', 'advisory', item.where, `${record.probe.kind} ${record.probe.name}${record.probe.source ? ` (${record.probe.source})` : ''} observed ${record.observed}, but no verification map claims it`));
@@ -103,7 +141,7 @@ function rollupEvidence(repoRoot, options = {}) {
       // The verdict is recomputed here against the map's pin, so a record
       // written with a stale `expected` cannot smuggle a match through.
       const expected = expectedFor(claim, record.probe.source);
-      observedBy.get(key).push({ ...item, expected, verdict: expected === null ? 'unpinned' : verdictFor(record.observed, expected) });
+      observedBy.get(key).push({ ...item, observed, expected, covered: record.observed === 'not-run', verdict: expected === null ? 'unpinned' : verdictFor(observed, expected) });
     }
   }
 
@@ -134,7 +172,10 @@ function rollupEvidence(repoRoot, options = {}) {
       dimension.unobserved.push(claim.name);
     } else {
       for (const observation of observations) {
-        if (observation.verdict === 'match') dimension.matched += 1;
+        if (observation.verdict === 'match') {
+          if (observation.covered) dimension.covered = (dimension.covered || 0) + 1;
+          else dimension.matched += 1;
+        }
         else if (observation.verdict === 'mismatch') {
           dimension.mismatched += 1;
           findings.push(finding('formal-result-mismatch', 'error', `${claim.ruleId} ${claim.kind} ${claim.name}`, `${observation.where}: observed ${observation.record.observed}, map expects ${observation.expected}`, { rule: claim.ruleId, map: claim.mapPath }));
@@ -142,7 +183,7 @@ function rollupEvidence(repoRoot, options = {}) {
       }
     }
     if (claim.kind === 'alloy-command') {
-      const outcome = (observations.find((o) => o.verdict !== 'mismatch')?.record.observed) || expectedFor(claim, claim.sources[0]);
+      const outcome = (observations.find((o) => o.verdict !== 'mismatch')?.observed) || expectedFor(claim, claim.sources[0]);
       if (claim.role === 'predicate' && outcome === 'SAT') {
         for (const source of claim.sources) satWitnessBySource.set(`${claim.mapPath}|${source}`, true);
         rule.witness.witnessed_by = [...(rule.witness.witnessed_by || []), claim.name];
@@ -167,7 +208,7 @@ function rollupEvidence(repoRoot, options = {}) {
     const dims = Object.entries(rule.coverage);
     const declaredCount = dims.reduce((sum, [, d]) => sum + d.declared, 0);
     const mismatched = dims.reduce((sum, [, d]) => sum + d.mismatched, 0);
-    const fullyObserved = dims.filter(([, d]) => d.declared > 0 && d.unobserved.length === 0 && d.mismatched === 0 && d.matched > 0);
+    const fullyObserved = dims.filter(([, d]) => d.declared > 0 && d.unobserved.length === 0 && d.mismatched === 0 && (d.matched + (d.covered || 0)) > 0);
     const partial = dims.filter(([, d]) => d.declared > 0 && d.unobserved.length > 0).map(([name]) => name);
     if (declaredCount === 0) {
       rule.derived = 'not-verified';
@@ -182,7 +223,7 @@ function rollupEvidence(repoRoot, options = {}) {
       const observations = fullyObserved.flatMap(([, d]) => d).length; // eslint-disable-line no-unused-vars
       const ci = rollup.run.environments.length === 1 && rollup.run.environments[0] === 'ci' && rollup.run.revisions.length === 1;
       rule.derived = ci ? 'verified' : 'locally-verified';
-      rule.reasons.push(`${fullyObserved.map(([name]) => name).join(', ')} fully observed and matched`);
+      rule.reasons.push(`${fullyObserved.map(([name]) => name).join(', ')} fully matched by fresh observations or validated baseline coverage`);
     }
     if (partial.length > 0) {
       rule.reasons.push(`unobserved: ${partial.join(', ')}`);
@@ -228,7 +269,8 @@ function summarize(rollup) {
     overstated: capabilities.filter((c) => c.status === 'overstated').length,
     rules: Object.keys(rollup.rules).length,
     rules_verified: Object.values(rollup.rules).filter((r) => r.derived !== 'not-verified').length,
-    records: rollup.orphan_results.length + Object.values(rollup.rules).reduce((sum, r) => sum + Object.values(r.coverage).reduce((s, d) => s + d.matched + d.mismatched + d.unpinned, 0), 0),
+    records: rollup.orphan_results.length + Object.values(rollup.rules).reduce((sum, r) => sum + Object.values(r.coverage).reduce((s, d) => s + d.matched + (d.covered || 0) + d.mismatched + d.unpinned, 0), 0),
+    covered_records: (rollup.covered_results || []).length,
     errors: count('error'),
     advisories: count('advisory'),
     infos: count('info'),
@@ -246,13 +288,17 @@ function formatRollupMarkdown(rollup) {
     lines.push(`| ${capability} | ${item.rules} (${item.rules_with_executable_probes}) | ${item.declared?.verification || 'undeclared'} | ${item.derived.verification} | ${item.status} |`);
   }
   lines.push('', '## Rules', '', '| Rule | Alloy | TLA+ | Vectors | Tests | Mutation | Witness | Derived |', '| --- | --- | --- | --- | --- | --- | --- | --- |');
-  const cell = (d) => (d.declared === 0 ? '—' : `${d.matched}/${d.declared}${d.mismatched ? ` ✗${d.mismatched}` : ''}`);
+  const cell = (d) => (d.declared === 0 ? '—' : `${d.matched}/${d.declared}${d.covered ? ` +${d.covered} covered` : ''}${d.mismatched ? ` ✗${d.mismatched}` : ''}`);
   for (const [ruleId, rule] of Object.entries(rollup.rules)) {
     const c = rule.coverage;
     const witness = rule.witness.assertions === 0 ? '—' : `${rule.witness.witnessed}/${rule.witness.assertions}`;
     lines.push(`| ${ruleId} | ${cell(c.alloy)} | ${cell(c.tla)} | ${cell(c.vectors)} | ${cell(c.tests)} | ${cell(c.mutation)} | ${witness} | ${rule.derived} |`);
   }
-  lines.push('', 'Cells read matched/declared for this run; ✗ counts observations that contradict the map. Witness reads assertions with at least one SAT predicate over all assertions.');
+  lines.push('', 'Cells read fresh matched/declared for this run; +N covered counts validated prior results separately; ✗ counts observations that contradict the map. Witness reads assertions with at least one SAT predicate over all assertions.');
+  if ((rollup.covered_results || []).length) {
+    lines.push('', '## Reused verification evidence', '', `${rollup.covered_results.length} probe record(s) covered by prior execution; none were executed by these not-run records.`, '');
+    for (const item of rollup.covered_results) lines.push(`- ${item.probe.kind} ${item.probe.name} (${item.probe.source}): covered by run ${item.covered_by.run_id} at revision ${item.covered_by.revision}; baseline observed ${item.baseline_observed}; scope ${item.probe.scope}.`);
+  }
   lines.push('', '## Findings', '');
   if (rollup.findings.length === 0) lines.push('- none');
   for (const item of rollup.findings.filter((f) => f.severity !== 'info')) lines.push(`- [${item.severity}] ${item.id}: ${item.subject} — ${item.detail}`);

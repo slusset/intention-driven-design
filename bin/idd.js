@@ -504,12 +504,13 @@ function evidenceRecordUsage() {
   return `Usage: idd evidence record --tool <name> --kind <probe-kind> --name <probe> --observed <outcome>
          [--source <repo-path>] [--scope <text>] [--expected <outcome>] [--lock <formal-tools.lock.json>]
          [--tool-version <v>] [--run-id <id>] [--revision <sha>] [--environment ci|local]
+         [--inputs-file <paths.json>] [--covered-by-file <citation.json>]
          [--duration-ms <n>] [--detail <text>] [--results-dir <dir>] [--repo <dir>] [--json]
   probe kinds: ${PROBE_KINDS.join(', ')}`;
 }
 
 function evidenceRollupUsage() {
-  return 'Usage: idd evidence rollup [--results-dir <dir>] [--out <file>] [--markdown <file>] [--repo <dir>] [--json] [--strict]';
+  return 'Usage: idd evidence rollup [--results-dir <dir>] [--baseline-results-dir <dir>] [--out <file>] [--markdown <file>] [--repo <dir>] [--json] [--strict]';
 }
 
 function cmdEvidence(argv) {
@@ -523,18 +524,20 @@ function cmdEvidence(argv) {
 function cmdEvidenceRecord(argv) {
   const o = parseOptions(argv, {
     flags: ['json'],
-    values: ['tool', 'kind', 'name', 'observed', 'source', 'scope', 'expected', 'lock', 'tool-version', 'run-id', 'revision', 'environment', 'duration-ms', 'detail', 'results-dir', 'repo'],
+    values: ['tool', 'kind', 'name', 'observed', 'source', 'scope', 'expected', 'lock', 'tool-version', 'run-id', 'revision', 'environment', 'duration-ms', 'detail', 'results-dir', 'repo', 'inputs-file', 'covered-by-file'],
   }, evidenceRecordUsage());
   for (const required of ['tool', 'kind', 'name', 'observed']) {
     if (!o[required]) { console.error(`--${required} is required\n${evidenceRecordUsage()}`); process.exit(1); }
   }
   if (!PROBE_KINDS.includes(o.kind)) { console.error(`--kind must be one of ${PROBE_KINDS.join(', ')}`); process.exit(1); }
-  if (!OUTCOMES[o.kind].includes(o.observed)) { console.error(`--observed must be one of ${OUTCOMES[o.kind].join(', ')} for ${o.kind}`); process.exit(1); }
+  if (o.observed !== 'not-run' && !OUTCOMES[o.kind].includes(o.observed)) { console.error(`--observed must be one of ${OUTCOMES[o.kind].join(', ')} for ${o.kind}`); process.exit(1); }
   const repoRoot = path.resolve(o.repo || process.cwd());
   const record = buildFormalResult(repoRoot, {
     tool: o.tool, toolVersion: o['tool-version'], lock: o.lock,
     kind: o.kind, name: o.name, source: o.source, scope: o.scope,
     observed: o.observed, expected: o.expected,
+    inputs: o['inputs-file'] ? JSON.parse(fs.readFileSync(path.resolve(o['inputs-file']), 'utf8')) : undefined,
+    coveredBy: o['covered-by-file'] ? JSON.parse(fs.readFileSync(path.resolve(o['covered-by-file']), 'utf8')) : undefined,
     runId: o['run-id'], revision: o.revision, environment: o.environment,
     durationMs: o['duration-ms'] !== undefined ? Number(o['duration-ms']) : undefined, detail: o.detail,
   });
@@ -545,9 +548,9 @@ function cmdEvidenceRecord(argv) {
 }
 
 function cmdEvidenceRollup(argv) {
-  const o = parseOptions(argv, { flags: ['json', 'strict'], values: ['results-dir', 'out', 'markdown', 'repo'] }, evidenceRollupUsage());
+  const o = parseOptions(argv, { flags: ['json', 'strict'], values: ['results-dir', 'baseline-results-dir', 'out', 'markdown', 'repo'] }, evidenceRollupUsage());
   const repoRoot = path.resolve(o.repo || process.cwd());
-  const rollup = rollupEvidence(repoRoot, { resultsDir: o['results-dir'] });
+  const rollup = rollupEvidence(repoRoot, { resultsDir: o['results-dir'], baselineResultsDir: o['baseline-results-dir'] });
   if (o.out) {
     fs.mkdirSync(path.dirname(path.resolve(o.out)), { recursive: true });
     fs.writeFileSync(path.resolve(o.out), `${JSON.stringify(rollup, null, 2)}\n`);

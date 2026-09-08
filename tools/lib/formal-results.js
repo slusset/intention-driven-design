@@ -226,9 +226,11 @@ function buildFormalResult(repoRoot, observation, options = {}) {
   const { maps } = options.maps ? { maps: options.maps } : loadVerificationMaps(repoRoot, options.manifestPath);
   const declared = options.declared || declaredProbes(maps);
   if (!PROBE_KINDS.includes(observation.kind)) throw new Error(`unknown probe kind: ${observation.kind}`);
-  if (!OUTCOMES[observation.kind].includes(observation.observed)) {
+  if (observation.observed !== 'not-run' && !OUTCOMES[observation.kind].includes(observation.observed)) {
     throw new Error(`observed must be one of ${OUTCOMES[observation.kind].join(', ')} for ${observation.kind}; got ${observation.observed}`);
   }
+  const covered = observation.observed === 'not-run';
+  if (covered !== Boolean(observation.coveredBy)) throw new Error('not-run requires covered_by; executed records cannot cite coverage');
   const probe = { kind: observation.kind, name: observation.name, source: observation.source || null };
   const claims = claimsFor(declared, probe);
   let expected = observation.expected === undefined ? null : observation.expected;
@@ -238,7 +240,7 @@ function buildFormalResult(repoRoot, observation, options = {}) {
     else if (pinned.length > 1) expected = null; // claims disagree for this source; the roll-up reports per claim
   }
   const lock = toolDigestFromLock(repoRoot, observation.lock, observation.tool);
-  return {
+  const record = {
     record_version: 1,
     kind: 'formal-result',
     run: {
@@ -263,10 +265,17 @@ function buildFormalResult(repoRoot, observation, options = {}) {
     rules: [...new Set(claims.map((claim) => claim.ruleId))].sort(),
     observed: observation.observed,
     expected,
-    verdict: claims.length === 0 && expected === null ? 'unclaimed' : verdictFor(observation.observed, expected),
+    verdict: covered ? 'covered' : claims.length === 0 && expected === null ? 'unclaimed' : verdictFor(observation.observed, expected),
     duration_ms: typeof observation.durationMs === 'number' ? observation.durationMs : null,
     detail: observation.detail || null,
   };
+  if (observation.inputs) record.probe.inputs = require('./evidence-coverage').buildInputs(repoRoot, observation.inputs);
+  if (covered) {
+    record.covered_by = observation.coveredBy;
+    const result = require('./schema-loader').getValidator('formal-result')(record);
+    if (!result.valid) throw new Error(`invalid coverage record: ${result.errors.map(e => e.message).join('; ')}`);
+  }
+  return record;
 }
 
 function appendFormalResult(repoRoot, record, resultsDir = '.idd/evidence/results') {
