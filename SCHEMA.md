@@ -91,7 +91,7 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.15.0`** (declared in
+The current version is **`1.16.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
 actions, and assertions landed in 1.2; declarative lifecycle and journey-map
@@ -1012,3 +1012,10 @@ schema to a file via a comment at the top of the YAML file:
 ```yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/slusset/intention-driven-design/main/schemas/v1/model.schema.json
 ```
+
+## v1.16: reused verification evidence
+
+Formal results may propose `not-run` coverage with an explicit baseline citation
+and tracked input digests. Roll-up validates prior records and Git ancestry,
+and reports reused results separately from current observations. Existing
+executed records remain valid. See [the coverage contract](docs/covered-verification.md).

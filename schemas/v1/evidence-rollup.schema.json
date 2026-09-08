@@ -65,6 +65,7 @@
               "properties": {
                 "declared": { "type": "integer" },
                 "matched": { "type": "integer" },
+                "covered": { "type": "integer", "minimum": 0 },
                 "mismatched": { "type": "integer" },
                 "unpinned": { "type": "integer" },
                 "unobserved": { "type": "array", "items": { "type": "string" } }
@@ -96,6 +97,45 @@
           "severity": { "enum": ["error", "advisory", "info"] },
           "subject": { "type": "string" },
           "detail": { "type": "string" }
+        }
+      }
+    },
+    "covered_results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "where",
+          "probe",
+          "observed",
+          "covered_by",
+          "baseline_observed"
+        ],
+        "properties": {
+          "where": {
+            "type": "string"
+          },
+          "probe": {
+            "type": "object"
+          },
+          "observed": {
+            "const": "not-run"
+          },
+          "covered_by": {
+            "type": "object"
+          },
+          "baseline_observed": {
+            "enum": [
+              "SAT",
+              "UNSAT",
+              "holds",
+              "violated",
+              "pass",
+              "fail",
+              "detected",
+              "undetected"
+            ]
+          }
         }
       }
     },

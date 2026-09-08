@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/formal-result.schema.json",
   "title": "IDD Formal Result",
-  "description": "One observed probe outcome from one run: the tool that produced it, the source it ran, what was observed, what the verification map expects, and the verdict. Records are generated into the gitignored .idd/evidence/results/ workspace and never committed; the evidence roll-up derives every report from them (v1.14).",
+  "description": "One executed probe outcome or explicit not-run coverage request: the tool that produced it, the source it ran, what was observed, what the verification map expects, and the verdict. Records are generated into the gitignored .idd/evidence/results/ workspace and never committed; the evidence roll-up derives every report from them (v1.16).",
   "type": "object",
   "additionalProperties": false,
   "required": ["record_version", "kind", "run", "tool", "probe", "observed", "verdict"],
@@ -50,6 +50,29 @@
         "name": { "type": "string", "minLength": 1 },
         "source": { "type": ["string", "null"] },
         "source_digest": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "digest"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "digest": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
         "scope": {
           "type": ["string", "null"],
           "description": "The bound the result holds under (an Alloy scope, a TLC configuration, a replay ordering). A bounded result is evidence for its scope, not a proof."
@@ -61,12 +84,121 @@
       "type": "array",
       "items": { "type": "string" }
     },
-    "observed": { "enum": ["SAT", "UNSAT", "holds", "violated", "pass", "fail", "detected", "undetected"] },
+    "observed": { "enum": ["SAT", "UNSAT", "holds", "violated", "pass", "fail", "detected", "undetected", "not-run"] },
     "expected": {
       "enum": ["SAT", "UNSAT", "holds", "violated", "pass", "fail", "detected", "undetected", null]
     },
-    "verdict": { "enum": ["match", "mismatch", "unpinned", "unclaimed"] },
+    "verdict": { "enum": ["match", "mismatch", "unpinned", "unclaimed", "covered"] },
+    "covered_by": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "revision",
+        "source_digest"
+      ],
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "source_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
     "duration_ms": { "type": ["number", "null"], "minimum": 0 },
     "detail": { "type": ["string", "null"] }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "observed": {
+            "const": "not-run"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "covered_by"
+        ],
+        "properties": {
+          "verdict": {
+            "const": "covered"
+          },
+          "run": {
+            "required": [
+              "revision"
+            ],
+            "properties": {
+              "revision": {
+                "type": "string",
+                "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+              }
+            }
+          },
+          "probe": {
+            "required": [
+              "inputs",
+              "source",
+              "source_digest",
+              "scope"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_digest": {
+                "type": "string"
+              },
+              "scope": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "tool": {
+            "required": [
+              "digest",
+              "lock"
+            ],
+            "properties": {
+              "digest": {
+                "type": "string"
+              },
+              "lock": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "covered_by"
+              ]
+            },
+            {
+              "properties": {
+                "verdict": {
+                  "const": "covered"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
 }

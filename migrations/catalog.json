@@ -225,6 +225,42 @@
         "data": "unchanged",
         "operations": "review-required"
       }
+    },
+    {
+      "id": "schema-1-15-0-to-1-16-0",
+      "from": {
+        "schema": "1.15.0"
+      },
+      "to": {
+        "schema": "1.16.0"
+      },
+      "kind": "schema",
+      "summary": "Opt in to explicit baseline coverage for unexecuted probes; existing executed records remain valid.",
+      "steps": [
+        {
+          "id": "review-covered-evidence",
+          "mode": "review",
+          "description": "Review trusted baseline acquisition and complete tracked probe input manifests. Existing records without input manifests cannot be reused."
+        },
+        {
+          "id": "record-consumer-contract",
+          "mode": "transform",
+          "transformation": "record-consumer-contract",
+          "description": "Update accepted toolkit/schema pins; do not rewrite result records or enable skipping automatically."
+        },
+        {
+          "id": "validate-covered-evidence",
+          "mode": "validate",
+          "description": "Run validators and disposable coverage fixtures before enabling consumer-side selection. Missing baseline or unverifiable ancestry must run the probe or fail."
+        }
+      ],
+      "continuity": {
+        "identity": "preserved",
+        "intent": "preserved",
+        "semantics": "preserved",
+        "data": "unchanged",
+        "operations": "review-required"
+      }
     }
   ]
 }
