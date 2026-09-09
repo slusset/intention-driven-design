@@ -3,15 +3,9 @@
 'use strict';
 
 /**
- * Report whether the commits since the last release would actually produce a
- * Release Please release PR.
- *
- * Release Please drops any commit whose subject it cannot parse as a
- * Conventional Commit — including a squash merge that took a non-conventional
- * pull request title — and proposes nothing when zero releasable commits
- * remain. The workflow still succeeds, so the failure looks like a missing
- * branch rather than an empty release. This preflight makes that visible
- * before dispatching the workflow.
+ * Estimate release eligibility from local commit subjects since the last release.
+ * This is not Release Please's parser: commit-body footers, PR-body overrides,
+ * and remote release state can change the actual result.
  *
  * Usage: node tools/release-preflight.js [--json]
  */
@@ -21,10 +15,11 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
-// Mirrors the Conventional Commits header grammar Release Please parses:
+// Recognizes ordinary Conventional Commit headers:
 // type, optional (scope), optional ! for breaking, then ": " and a subject.
 const CONVENTIONAL = /^(?<type>[a-zA-Z]+)(?:\((?<scope>[^)]*)\))?(?<breaking>!)?: (?<subject>.+)$/;
-const RELEASABLE_TYPES = new Set(['feat', 'fix']);
+// Visible default sections in googleapis/release-please src/util/filter-commits.ts.
+const RELEASABLE_TYPES = new Set(['feat', 'fix', 'perf', 'revert']);
 const SEPARATOR = '\t';
 
 function git(args) {
@@ -92,6 +87,7 @@ function main() {
   const commits = classify([rangeSpec]);
   const releasable = commits.filter((commit) => commit.releasable);
   const unparsed = commits.filter((commit) => !commit.parsed);
+  const nonReleasable = commits.filter((commit) => commit.parsed && !commit.releasable);
 
   const report = {
     last_release: release.version,
@@ -100,25 +96,39 @@ function main() {
     commits: commits.length,
     releasable: releasable.length,
     unparsed: unparsed.length,
+    parsed_non_releasable: nonReleasable.length,
+    // Retained for compatibility; this is a local-subject estimate only.
     would_release: releasable.length > 0,
+    basis: 'local-subjects-only',
+    limitations: 'Commit-body footers, PR-body overrides, and remote release state are not evaluated.',
     unparsed_subjects: unparsed.map((commit) => commit.subject),
+    parsed_non_releasable_subjects: nonReleasable.map((commit) => commit.subject),
   };
 
   if (json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
     console.log(`Release preflight since ${release.version} (anchor: ${release.anchor})`);
-    console.log(`  commits: ${report.commits}; releasable (feat/fix/breaking): ${report.releasable}; unparseable: ${report.unparsed}`);
+    console.log(`  commits: ${report.commits}; releasable subjects (feat/fix/perf/revert/breaking !): ${report.releasable}; parsed non-release: ${report.parsed_non_releasable}; unparseable: ${report.unparsed}`);
+    console.log(`  Local estimate only. ${report.limitations}`);
     for (const commit of unparsed) {
-      console.log(`  ! ignored by Release Please, not a Conventional Commit: ${commit.subject}`);
+      console.log(`  ! not recognized as a Conventional Commit header: ${commit.subject}`);
     }
     if (!report.would_release) {
       console.log('');
-      console.log('Release Please would propose NO release PR from this history.');
-      console.log('Squash merges take the pull request title as the commit subject, so the');
-      console.log('title must itself be a Conventional Commit (e.g. "feat: ..."). To release');
-      console.log('work that already landed unparseable, merge a conventional commit, pinning');
-      console.log('the version with a "Release-As: <version>" footer if it must be exact.');
+      console.log('No release-eligible subjects found locally; this does not prove Release Please will do nothing.');
+      if (report.commits === 0) {
+        console.log('There are no commits since the release boundary.');
+      }
+      if (nonReleasable.length > 0) {
+        console.log('Parsed non-release types are valid Conventional Commits, but do not trigger a release by default:');
+        for (const commit of nonReleasable) console.log(`  - ${commit.subject}`);
+      }
+      if (unparsed.length > 0) {
+        console.log('For future squash merges, use a Conventional Commit PR title that accurately describes the change.');
+      }
+      console.log('If footers or PR-body overrides supply release intent, run prepare directly to let Release Please evaluate it:');
+      console.log('  gh workflow run release-please.yml --ref main -f operation=prepare');
     }
   }
   process.exit(report.would_release ? 0 : 1);

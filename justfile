@@ -77,13 +77,13 @@ release-check: ci build-check validate-plugin
     node -e "const {runDoctor}=require('./tools/lib/doctor');const r=runDoctor({repoRoot:process.cwd()});console.log('Doctor:',r.summary.status,'('+r.summary.errors+' errors,',r.summary.advisories+' advisories)');process.exit(r.summary.errors>0?1:0)"
     @echo "UAT release candidate ready."
 
-# Check that the commits since the last release would actually produce a release PR
+# Estimate release eligibility from local commit subjects (not remote overrides)
 release-preflight:
     node tools/release-preflight.js
 
 # Prepare the UAT release PR via Release Please (review + merge it, then release-publish)
-# Guarded by the preflight: Release Please silently proposes nothing when no
-# commit since the last release parses as a Conventional Commit.
+# Guarded by a local-subject estimate: feat/fix/perf/revert or breaking !.
+# Footers/PR-body overrides may require the direct prepare command printed by preflight.
 release-prepare: release-preflight
     gh workflow run release-please.yml --ref main -f operation=prepare
 
