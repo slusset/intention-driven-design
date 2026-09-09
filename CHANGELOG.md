@@ -10,6 +10,18 @@ testing. Historical prototype entries retain their original `1.x` headings
 below active releases. Their commits remain available under `legacy/v1.*` tags,
 but those versions are not part of the active SemVer sequence.
 
+## [0.1.0-uat.8](https://github.com/slusset/intention-driven-design/compare/v0.1.0-uat.7...v0.1.0-uat.8) (2026-09-09)
+
+
+### Bug Fixes
+
+* **release:** align preflight types and diagnostic guidance ([#121](https://github.com/slusset/intention-driven-design/issues/121)) ([ae99b34](https://github.com/slusset/intention-driven-design/commit/ae99b347e2ec7cdff16cdaeb11c1c95d5092d79d))
+
+
+### Performance Improvements
+
+* **evidence:** cache immutable Git tree reads within each rollup ([#119](https://github.com/slusset/intention-driven-design/issues/119)) ([b696a0e](https://github.com/slusset/intention-driven-design/commit/b696a0e65623dd092e9846b95ec074a95673f62e))
+
 ## [0.1.0-uat.7](https://github.com/slusset/intention-driven-design/compare/v0.1.0-uat.6...v0.1.0-uat.7) (2026-09-08)
 
 
