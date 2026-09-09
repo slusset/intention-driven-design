@@ -46,6 +46,12 @@ Missing or invalid coverage is an error even without `--strict`. A consumer
 should run the probe instead of emitting a citation when any prerequisite is
 unknown. Ordinary missing probes remain unobserved; they are not covered.
 
+Within one roll-up, successful Git-tree digest lookups may be reused for the
+same repository, full commit ID and path. Working-tree bytes, symlink checks,
+HEAD, ancestry, citations and outcomes are still checked for every probe.
+The cache does not survive the roll-up or store coverage verdicts; a later
+validation observes current state again. This changes no report/schema meaning.
+
 ## Recording and reporting
 
 Use `evidence record --inputs-file inputs.json` with a JSON array of paths to
