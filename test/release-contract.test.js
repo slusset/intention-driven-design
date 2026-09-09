@@ -69,10 +69,11 @@ test('a conventional pull request title is enforced for squash merges', () => {
   );
   assert.match(workflow, /amannn\/action-semantic-pull-request@v5/);
   assert.match(workflow, /types: \[opened, edited, reopened, synchronize\]/);
-  // feat and fix are the types that move the UAT version line; a title
-  // Release Please cannot parse yields an empty release, not a failure.
+  // Default visible release types must all be accepted as squash titles.
   assert.match(workflow, /^\s+feat$/m);
   assert.match(workflow, /^\s+fix$/m);
+  assert.match(workflow, /^\s+perf$/m);
+  assert.match(workflow, /^\s+revert$/m);
 });
 
 test('release-prepare is guarded by the release preflight', () => {
