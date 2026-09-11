@@ -71,7 +71,7 @@ IDD breaks this into a traceable chain:
 | Contract | `specs/contracts/json-rpc/account-service.yaml` | RPC boundary: `account.getQuickStartPrompt` |
 | Contract | `specs/fixtures/onboarding/mobile-signup.json` | Test data: request/response pairs |
 | Implementation | Backend + Frontend code | Derived from contracts |
-| Validation | `frontend/e2e/journeys/trade-show-signup.spec.ts` | E2E test following the journey |
+| Validation | `{test tree}/journeys/trade-show-signup.spec.ts` | Journey test following the journey map |
 | Certification | CI evidence report (per capability) | Automated evidence tied to intent — generated in CI, published as job summary, PR comment, and workflow artifact; never committed |
 
 Every artifact in the chain references the one above it. An agent — or a human — can trace any line of code back to the persona goal that motivated it.
@@ -107,7 +107,7 @@ Read the full [manifesto](docs/idd/manifesto.md).
 
 ## Stack-agnostic by design
 
-The narrative, model, and contract layers are completely technology-independent. The `specs/` directory works the same whether your implementation uses Spring Boot, Express, Django, Rails, Angular, React, or anything else. Each consumer binds its own stack-specific implementation skills in `specs/skills/repo-overlay.md` without changing the upstream artifacts.
+The narrative, model, and contract layers are completely technology-independent. The `specs/` directory works the same whichever language, framework, or runtime the implementation uses — a web service, a command-line tool, a library, or a protocol kernel. Each consumer binds its own stack-specific implementation skills in `specs/skills/repo-overlay.md` without changing the upstream artifacts.
 
 ## Installation
 
@@ -314,7 +314,7 @@ For consumer upgrades and continuity dispositions, see [Evolution and Migration]
 | **Solution Narrative** | Personas, journeys, stories — the "why" | `/solution-narrative` |
 | **Domain Modeling** | Entities, aggregates, business rules | `/domain-modeling` |
 | **Behavior Contract** | BDD features, OpenAPI/AsyncAPI/JSON-RPC contracts, fixtures | `/behavior-contract` |
-| **E2E Journey Testing** | Playwright tests from journey maps | `/e2e-journey-testing` |
+| **E2E Journey Testing** | Journey maps and the tests that prove them | `/e2e-journey-testing` |
 | **Certification** | Traceability verification and evidence manifests | `/certification` |
 | **IDD Doctor** | Report-only migration alignment and continuity inspection | `/idd-doctor` |
 | **IDD Workflow** | Meta-skill: when to use which skill | `/idd-workflow` |
@@ -351,7 +351,7 @@ skills/                      IDD methodology skills (bundled in package)
 ├── solution-narrative/      Personas, journeys, stories
 ├── domain-modeling/         Entities, aggregates, business rules
 ├── behavior-contract/       BDD features, protocol contracts, fixtures
-├── e2e-journey-testing/     Playwright journey tests
+├── e2e-journey-testing/     Journey maps and journey tests
 ├── module-scaffolding/       Bounded-context module creation and linking
 ├── idd-doctor/               Read-only migration alignment and continuity inspection
 ├── certification/           Traceability verification and evidence

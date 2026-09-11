@@ -61,7 +61,7 @@ For every implementation area affected by a task:
 4. If the binding names an unavailable skill, report that mismatch and use the overlay's declared fallback or ask the user once.
 5. If the overlay has no binding for the area, select no stack-specific skill. Follow the overlay's architecture sources, commands, and a generic implementation checklist instead.
 
-Repository signals such as `angular.json`, `pom.xml`, `playwright.config.*`, or codegen configuration can help explain an absent or stale binding, but they never authorize automatic skill selection. `AGENTS.md` may declare the overlay path and hard repository rules; skill bindings still belong in the overlay.
+Repository signals such as build manifests, lockfiles, or codegen configuration can help explain an absent or stale binding, but they never authorize automatic skill selection. `AGENTS.md` may declare the overlay path and hard repository rules; skill bindings still belong in the overlay.
 
 ### Output Contract For Binding
 
@@ -222,14 +222,13 @@ Always report a concrete result for each relevant area:
    └── Output: overlay-bound skills or `none`, plus fallback assumptions
 
 6. Implementation (parallel, stack-specific)
-   ├── Selected backend skill → backend/
-   ├── Selected frontend skill → frontend/
+   ├── Overlay-bound skill per area → that area's source tree
    └── If no dedicated skill exists, follow repo architecture docs + generic implementation checklist
 
 7. /e2e-journey-testing
    ├── Create journey map
-   ├── Implement Playwright tests
-   └── Output: specs/journey-maps/, frontend/e2e/
+   ├── Implement the journey check with the repository's runner
+   └── Output: specs/journey-maps/, journey tests in the repository's test tree
 
 8. /certification
    ├── Verify capability scope is complete
@@ -330,7 +329,7 @@ Use this decision table when a defect is discovered:
 | Journey step, user intent, or story coverage missing | `/solution-narrative` | `specs/personas/`, `specs/journeys/`, `specs/stories/` |
 | Business rule, invariant, aggregate boundary, or lifecycle missing | `/domain-modeling` | `specs/models/` |
 | Scenario, API contract, error behavior, or fixture missing | `/behavior-contract` | `specs/features/`, `specs/contracts/`, `specs/fixtures/` |
-| Journey-map step or e2e assertion missing | `/e2e-journey-testing` | `specs/journey-maps/`, `frontend/e2e/` |
+| Journey-map step or journey assertion missing | `/e2e-journey-testing` | `specs/journey-maps/`, the repository's journey tests |
 | Spec is correct and code is wrong | Overlay-bound implementation skill or generic checklist | implementation + tests |
 | Evidence out of date after the repair | `/certification` | CI evidence report (regenerated) |
 
@@ -350,13 +349,10 @@ specs/                          ← Source of truth (stack-agnostic)
 ├── verification/               ← Rules, claims, and literal evidence bindings
 └── modules.yaml                ← Capability ownership and dependency DAG
 
-backend/                        ← Overlay-governed implementation
-├── src/                        ← Implementation from specs/
-└── test/                       ← Tests from specs/features/
-
-frontend/                       ← Overlay-governed implementation
-├── src/                        ← Implementation from specs/
-└── e2e/                        ← /e2e-journey-testing
+{implementation trees}          ← Overlay-governed, named by the repository
+├── source                      ← Implementation from specs/
+├── tests                       ← Tests from specs/features/
+└── journey tests               ← /e2e-journey-testing
 
 .idd/evidence/                  ← Evidence layer (gitignored — generated, never committed)
 └── {capability}/
@@ -432,13 +428,11 @@ solution-narrative              ← Stack-agnostic
         ▼
  behavior-contract              ← Stack-agnostic
         │
-        ├──────────────────────┐
-        ▼                      ▼
-  backend binding       frontend binding    ← Declared by repo-overlay
-        │                      │               (interchangeable)
-        └──────────┬───────────┘
+        ▼
+  implementation skills         ← Declared by repo-overlay, one per area
+                   │
                    ▼
-         e2e-journey-testing    ← Stack-aware (Playwright)
+         e2e-journey-testing    ← Runner declared by repo-overlay
                    │
                    ▼
           /certification        ← Stack-agnostic (cross-cutting)

@@ -707,7 +707,7 @@ Expanded form attributes:
 - `verb`: optional fine-grained verb (e.g., `double-click`)
 - `target`, `value`: as before
 
-Named combinations cover the Playwright vocabulary (`navigate`, `click`,
+Named combinations cover the browser vocabulary (`navigate`, `click`,
 `fill`, `select`, `check`, `uncheck`, `wait`, `hover`, `scroll`, `press`,
 `type`, `upload`). See `ACTION_COMBINATIONS` in
 [`tools/lib/kinds.js`](tools/lib/kinds.js).

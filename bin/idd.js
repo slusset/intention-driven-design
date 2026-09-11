@@ -629,10 +629,8 @@ function cmdInit(argv) {
 
 on:
   pull_request:
-    paths: ['specs/**', 'backend/src/**', 'frontend/src/**']
   push:
     branches: [main]
-    paths: ['specs/**', 'backend/src/**', 'frontend/src/**']
 
 permissions:
   contents: read

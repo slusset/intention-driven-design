@@ -1,6 +1,6 @@
 ---
 name: behavior-contract
-description: "Convert solution narratives into BDD feature files and protocol contracts. Use when translating user stories into testable specifications and API/event/RPC definitions. Consumes output from solution-narrative skill, produces artifacts consumed by architecture skills."
+description: "Convert solution narratives into BDD feature files and boundary contracts. Use when translating user stories into testable specifications and the contract for whatever boundary the capability crosses — HTTP, events, RPC, a command line, or a schema. Consumes output from the solution-narrative skill, produces artifacts consumed by implementation and verification."
 license: MIT
 argument-hint: "[feature-area or story]"
 allowed-tools: Read Write Glob Grep
@@ -10,22 +10,25 @@ allowed-tools: Read Write Glob Grep
 
 ## Purpose
 
-Transform narrative artifacts into executable specifications and API contracts. This is the bridge between "what" and "how."
+Transform narrative artifacts into executable specifications and boundary
+contracts. This is the bridge between "what" and "how."
 
 ## Workflow
 
-1. Review journey and story from specs/journeys/ and specs/stories/.
-2. Write Gherkin feature files capturing behavior.
-3. Identify API touchpoints from journey system responses.
-4. Define or update the appropriate OpenAPI, AsyncAPI, or JSON-RPC contract.
+1. Review the journey and story in `specs/journeys/` and `specs/stories/`.
+2. Write Gherkin feature files capturing the behavior.
+3. Identify which boundaries the story actually crosses — see
+   [boundary-kinds.md](references/boundary-kinds.md). A capability with no HTTP
+   surface needs no HTTP contract.
+4. Define or update the contract document for each boundary.
 5. Create fixtures for test data.
-6. Finalize the capability scope by adding the relevant models, features, and contracts.
-7. Update the capability's verification map with rule-to-contract references and literal current-evidence bindings.
+6. Finalize the capability scope by adding the relevant models, features, and
+   contracts.
+7. Update the capability's verification map: rule entries, reciprocal contract
+   `x-rules`, and literal current-evidence bindings.
 8. Ensure traceability: story → feature → contract → implementation.
 
-## Artifact Locations
-
-Store in specs/ directory:
+## Artifact locations
 
 ```
 specs/
@@ -33,21 +36,88 @@ specs/
 │   └── {feature-area}/
 │       └── {feature-name}.feature
 ├── contracts/
-│   ├── openapi/
-│   │   └── api.yaml              ← HTTP boundary
-│   ├── asyncapi/
-│   │   └── events.yaml           ← event boundary
-│   └── json-rpc/
-│       └── service.yaml          ← RPC boundary
+│   ├── openapi/                   ← HTTP boundary
+│   ├── asyncapi/                  ← event boundary
+│   ├── json-rpc/                  ← RPC boundary
+│   ├── cli/                       ← command-line boundary
+│   └── *.schema.json              ← structures crossing module boundaries
 ├── fixtures/
-    └── {feature-area}/
-        └── {fixture-name}.json
+│   └── {feature-area}/
+│       └── {fixture-name}.json
 └── verification/
     └── {capability}/
-        └── verification.yaml   ← rule inventory + evidence bindings
+        └── verification.yaml      ← rule inventory + evidence bindings
 ```
 
-## Fixture Template (with traceability)
+## Domain model awareness
+
+Before defining contract schemas, check `specs/models/`:
+
+1. Does the entity exist? If not, model it first.
+2. Are all attributes accounted for?
+3. Do the business rules match the feature scenarios?
+4. Is the lifecycle reflected in the status values the contract exposes?
+
+When the model and the contract disagree, the model wins and the contract is
+wrong.
+
+## Feature file template
+
+```gherkin
+# specs/features/{area}/{name}.feature
+
+# id: {feature-name}
+# type: feature
+# story: specs/stories/{area}/{story}.md
+# journey: specs/journeys/{journey}.md
+# contract: {operation or command}
+
+@{feature-area}
+Feature: {Feature Title}
+  As a {persona}
+  I want to {capability}
+  So that {benefit}
+
+  Background:
+    Given I am {precondition shared by every scenario}
+
+  @happy-path
+  Scenario: {Success scenario name}
+    Given {precondition}
+    When {action}
+    Then {expected outcome}
+
+  @validation
+  Scenario: {Validation scenario name}
+    Given {precondition}
+    When {action with invalid input}
+    Then I receive a {error-type} error
+    And the error indicates {reason}
+
+  @edge-case
+  Scenario Outline: {Parameterized scenario}
+    Given {precondition}
+    When {action with <parameter>}
+    Then {outcome with <expected>}
+
+    Examples:
+      | parameter | expected |
+      | value1    | result1  |
+```
+
+Every scenario traces to a story; every declared rule that governs the boundary
+has a scenario that exercises it.
+
+## Deriving operations from a journey
+
+A journey's system responses become boundary operations: "the system shows X"
+is a read, "the system creates X" is a create, "the system does Y to X" is an
+action. Name them by the boundary's own conventions — an HTTP method and path,
+an event name, an RPC method, a subcommand — using
+[boundary-kinds.md](references/boundary-kinds.md) to pick the document and
+[http-contracts.md](references/http-contracts.md) when the boundary is HTTP.
+
+## Fixture template
 
 ```json
 {
@@ -63,354 +133,11 @@ specs/
 }
 ```
 
-## Domain Model Awareness
+## Rules, contracts, and evidence
 
-Before defining contract schemas, check specs/models/:
+A rule is the join key between the model, the contract, and the proof. In the
+verification map:
 
-1. Does the entity exist? If not, create it first.
-2. Are all attributes accounted for?
-3. Do business rules match feature scenarios?
-4. Is the lifecycle reflected in status enum?
-
-## Traceability Requirements
-
-- Feature files must reference the source story, journey, and contract at the top of the file.
-- Contract operations must include `x-story`, `x-feature`, and `x-journey`.
-- A rule-bound contract must expose a root `x-rules` array naming every verification-map rule it implements.
-- Current-evidence selectors must be literal anchors bound to exact repository files or directories.
-- A cross-module contract consumption must be recorded in the verification map with a `jcs-sha256@1` pin to the upstream JSON Schema.
-- Fixtures must include a `_meta` block with the story and scenario they support.
-
-## Feature File Template
-
-```gherkin
-# specs/features/{area}/{name}.feature
-
-# id: {feature-name}
-# type: feature
-# story: specs/stories/{area}/{story}.md
-# journey: specs/journeys/{journey}.md
-# contract: {METHOD} {endpoint}
-
-@{feature-area}
-Feature: {Feature Title}
-  As a {persona}
-  I want to {capability}
-  So that {benefit}
-
-  Background:
-    Given I am authenticated as {persona-type}
-
-  @happy-path
-  Scenario: {Success scenario name}
-    Given {precondition}
-    When {action}
-    Then {expected outcome}
-    And {additional verification}
-
-  @validation
-  Scenario: {Validation scenario name}
-    Given {precondition}
-    When {action with invalid input}
-    Then I receive a {error-type} error
-    And the error message indicates {reason}
-
-  @authorization
-  Scenario: {Authorization scenario name}
-    Given I am authenticated as {different-persona}
-    When {action on protected resource}
-    Then I receive a {forbidden/not-found} error
-
-  @edge-case
-  Scenario Outline: {Parameterized scenario}
-    Given {precondition}
-    When {action with <parameter>}
-    Then {outcome with <expected>}
-
-    Examples:
-      | parameter | expected |
-      | value1    | result1  |
-      | value2    | result2  |
-```
-
-## Deriving Endpoints from Journeys
-
-Journey system responses map to API endpoints:
-
-| Journey Says | Contract Defines |
-|--------------|------------------|
-| "System displays list of X" | `GET /x` |
-| "System creates X" | `POST /x` |
-| "System shows X details" | `GET /x/{id}` |
-| "System updates X" | `PUT /x/{id}` or `PATCH /x/{id}` |
-| "System removes X" | `DELETE /x/{id}` |
-| "System does Y to X" | `POST /x/{id}/y` (action endpoint) |
-| "System searches for X" | `GET /x?query=...` |
-
-## OpenAPI Structure
-
-```yaml
-# specs/contracts/openapi/api.yaml
-openapi: 3.1.0
-x-rules: [ACCT-1-create-account]
-info:
-  title: {Service Name} API
-  version: 1.0.0
-  description: |
-    API contract for {service description}.
-    
-    ## Changelog
-    - 1.0.0: Initial release
-
-servers:
-  - url: /api/v1
-    description: API v1
-
-security:
-  - bearerAuth: []
-
-tags:
-  - name: audits
-    description: Identity audit operations
-  - name: accounts
-    description: User account operations
-
-paths:
-  /audits:
-    $ref: './paths/audits.yaml#/collection'
-  /audits/{auditId}:
-    $ref: './paths/audits.yaml#/item'
-  /audits/{auditId}/cancel:
-    $ref: './paths/audits.yaml#/cancel'
-
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: Supabase JWT token
-```
-
-## Endpoint Definition Template
-
-```yaml
-# specs/contracts/openapi/paths/audits.yaml
-
-collection:
-  get:
-    operationId: listAudits
-    summary: List user's audits
-    tags: [audits]
-    x-story: list-audits
-    x-feature: specs/features/audits/list-audits.feature
-    x-journey: specs/journeys/{journey}.md
-    parameters:
-      - $ref: '../components/parameters.yaml#/PageSize'
-      - $ref: '../components/parameters.yaml#/PageToken'
-    responses:
-      '200':
-        description: Audits retrieved successfully
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas.yaml#/AuditList'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-
-  post:
-    operationId: createAudit
-    summary: Create a new identity audit
-    tags: [audits]
-    x-story: create-first-audit
-    x-feature: specs/features/audits/create-audit.feature
-    x-journey: specs/journeys/{journey}.md
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: '../components/schemas.yaml#/CreateAuditRequest'
-    responses:
-      '201':
-        description: Audit created successfully
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas.yaml#/Audit'
-      '400':
-        $ref: '../components/responses.yaml#/BadRequest'
-      '401':
-        $ref: '../components/responses.yaml#/Unauthorized'
-
-item:
-  get:
-    operationId: getAudit
-    summary: Get audit details
-    tags: [audits]
-    parameters:
-      - $ref: '../components/parameters.yaml#/AuditId'
-    responses:
-      '200':
-        description: Audit retrieved successfully
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas.yaml#/Audit'
-      '404':
-        $ref: '../components/responses.yaml#/NotFound'
-
-cancel:
-  post:
-    operationId: cancelAudit
-    summary: Cancel a pending audit
-    tags: [audits]
-    x-story: cancel-pending-audit
-    x-feature: specs/features/audits/cancel-audit.feature
-    x-journey: specs/journeys/{journey}.md
-    parameters:
-      - $ref: '../components/parameters.yaml#/AuditId'
-    responses:
-      '200':
-        description: Audit cancelled successfully
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas.yaml#/Audit'
-      '409':
-        description: Audit cannot be cancelled
-        content:
-          application/json:
-            schema:
-              $ref: '../components/schemas.yaml#/Error'
-            example:
-              code: "AUDIT_NOT_CANCELLABLE"
-              message: "Audit in 'completed' status cannot be cancelled"
-```
-
-## Schema Definition Patterns
-
-```yaml
-# specs/contracts/openapi/components/schemas.yaml
-
-Audit:
-  type: object
-  required: [id, status, entityName, entityType, createdAt]
-  properties:
-    id:
-      type: string
-      pattern: '^aud_[a-zA-Z0-9]+$'
-      example: "aud_abc123"
-    status:
-      $ref: '#/AuditStatus'
-    entityName:
-      type: string
-      minLength: 1
-      maxLength: 200
-      example: "Acme Plumbing LLC"
-    entityType:
-      $ref: '#/EntityType'
-    createdAt:
-      type: string
-      format: date-time
-    completedAt:
-      type: string
-      format: date-time
-      nullable: true
-    cancelledAt:
-      type: string
-      format: date-time
-      nullable: true
-
-AuditStatus:
-  type: string
-  enum: [pending, analyzing, completed, cancelled]
-  description: |
-    - pending: Audit created, waiting to start
-    - analyzing: LLM analysis in progress
-    - completed: Analysis finished, results available
-    - cancelled: User cancelled before completion
-
-EntityType:
-  type: string
-  enum: [individual, business]
-
-CreateAuditRequest:
-  type: object
-  required: [entityName, entityType]
-  properties:
-    entityName:
-      type: string
-      minLength: 1
-      maxLength: 200
-    entityType:
-      $ref: '#/EntityType'
-
-Error:
-  type: object
-  required: [code, message]
-  properties:
-    code:
-      type: string
-      description: Machine-readable error code
-    message:
-      type: string
-      description: Human-readable error message
-    details:
-      type: object
-      additionalProperties: true
-      description: Additional error context
-```
-
-## Fixture Template
-
-```json
-{
-  "_meta": {
-    "id": "create-audit-happy-path",
-    "type": "fixture",
-    "description": "Successful audit creation",
-    "story": "specs/stories/audits/create-first-audit.md",
-    "feature": "specs/features/audits/create-audit.feature",
-    "scenario": "Successfully create an audit"
-  },
-  "request": {
-    "entityName": "Acme Plumbing LLC",
-    "entityType": "business"
-  },
-  "response": {
-    "id": "aud_abc123",
-    "status": "pending",
-    "entityName": "Acme Plumbing LLC",
-    "entityType": "business",
-    "createdAt": "2024-01-15T10:00:00Z",
-    "completedAt": null,
-    "cancelledAt": null
-  }
-}
-```
-
-## Traceability
-
-Every artifact must reference its source. Use front-matter fields (`id`, `type`, and typed refs) so tools can parse links uniformly. See `docs/idd/front-matter-spec.md` for the full schema.
-
-**In feature files** (comment-based front-matter):
-```gherkin
-# id: cancel-audit
-# type: feature
-# story: specs/stories/audits/cancel-pending-audit.md
-# journey: specs/journeys/cancel-audit.md
-# contract: POST /audits/{id}/cancel
-```
-
-**In contract** (root and operation traceability extensions):
-```yaml
-x-rules: [ACCT-1-cancel-account]
-x-story: cancel-pending-audit
-x-feature: specs/features/audits/cancel-audit.feature
-```
-
-**In the verification map**:
 ```yaml
 - id: ACCT-1-cancel-account
   source_models: [specs/models/account.model.yaml]
@@ -422,96 +149,56 @@ x-feature: specs/features/audits/cancel-audit.feature
         match: literal
 ```
 
-For a contract consumed from another module, also add:
-```yaml
-contract_pins:
-  - contract: specs/contracts/upstream.schema.json
-    canonicalization: jcs-sha256@1
-    digest: sha256:{64 lowercase hex characters}
-```
+The contract reciprocates with a root-level `x-rules` entry naming
+`ACCT-1-cancel-account`. A selector counts as evidence only when it appears
+literally in one of its bound files. For a contract consumed from another
+module, add a `contract_pins` entry with a `jcs-sha256@1` digest.
 
-**In fixtures** (`_meta` block with `id` and `type`):
-```json
-{
-  "_meta": {
-    "id": "cancel-audit-happy-path",
-    "type": "fixture",
-    "story": "specs/stories/audits/cancel-pending-audit.md",
-    "feature": "specs/features/audits/cancel-audit.feature",
-    "scenario": "Successfully cancel a pending audit"
-  }
-}
-```
+## Traceability requirements
+
+- Feature files reference the source story, journey, and contract.
+- Contract operations carry `x-story`, `x-feature`, and `x-journey`.
+- A rule-bound contract exposes a root `x-rules` array naming every rule it
+  implements, and every named rule exists in a verification map.
+- Current-evidence selectors are literal anchors bound to exact files.
+- Cross-module contract consumption records a `jcs-sha256@1` pin.
+- Fixtures include a `_meta` block naming the story and scenario.
+
+See `docs/idd/front-matter-spec.md` for the full metadata schema.
 
 ## Guardrails
 
-- Every scenario must trace to a story.
-- Every endpoint must trace to a feature scenario.
-- Scenarios test behavior, not implementation details.
-- Contract is source of truth for API shape.
-- Breaking contract changes require version bump.
-- Fixtures must match schema definitions exactly.
-- Use `x-` extensions for traceability metadata.
-- Contract `x-rules` and verification-map rule references must agree in both directions.
-- A selector is evidence only when it appears literally in one of its bound files.
+- Every scenario traces to a story.
+- Every boundary operation traces to a feature scenario.
+- Scenarios test behavior, not implementation detail.
+- The contract is the source of truth for the boundary's shape.
+- Breaking contract changes require a version bump.
+- Fixtures match the schemas exactly.
+- Contract `x-rules` and verification-map rule references agree in both
+  directions.
+- Do not invent a boundary the journey does not cross.
 
-## Validation Checklist
+## Validation checklist
 
 Before handoff to implementation:
 
 - [ ] All acceptance criteria have corresponding scenarios
-- [ ] All scenarios cover happy path and key error cases
-- [ ] Contract covers all journey system responses
-- [ ] Schemas have required fields marked
-- [ ] Schemas have examples
-- [ ] Fixtures match schemas exactly
+- [ ] Scenarios cover the happy path and the key error cases
+- [ ] Each boundary the journey crosses has exactly one contract document
+- [ ] Schemas mark required fields and carry examples
+- [ ] Fixtures match the schemas
 - [ ] Rule-bound contracts name the same IDs through root-level `x-rules`
-- [ ] Every current-evidence selector resolves in its explicit `bindings[].files`
+- [ ] Every current-evidence selector resolves in its bound files
 - [ ] Cross-module contract references have a recomputable `contract_pins` entry
-- [ ] No orphan endpoints (every endpoint has a scenario)
-- [ ] No orphan scenarios (every scenario maps to contract)
-- [ ] Error responses are defined consistently
-
-## Common Patterns
-
-### Authentication Background
-
-```gherkin
-Background:
-  Given I am authenticated as a small business owner
-```
-
-Maps to:
-- All endpoints require `bearerAuth`
-- 401 response defined for unauthorized access
-
-### Resource Not Found (Security)
-
-```gherkin
-Scenario: Cannot access another user's audit
-  Given another user has an audit
-  When I request their audit
-  Then I receive a not found error
-```
-
-Return 404, not 403, to avoid leaking existence information.
-
-### Conflict on Invalid State Transition
-
-```gherkin
-Scenario: Cannot cancel a completed audit
-  Given I have an audit in "completed" status
-  When I attempt to cancel the audit
-  Then I receive a conflict error
-```
-
-Use 409 Conflict with descriptive error code.
+- [ ] No orphan operations and no orphan scenarios
+- [ ] Errors are defined consistently across the boundary
 
 ## Handoff
 
-When complete:
-- **Capability scope**: Finalize `specs/capabilities/{name}.capability.yaml` so it includes the relevant `scope.models`, `scope.features`, and `scope.contracts` before implementation handoff.
-- **Verification map**: Add or update rule entries, reciprocal contract `x-rules`, and literal current-evidence bindings; run `idd validate verification`.
-- **Backend** (hexagonal-architecture skill): Implement ports/adapters from contract
-- **Frontend** (repo-overlay binding): Generate client from contract, implement UI from journeys
-- **E2E** (e2e-journey-testing skill): Create journey maps and tests
+- **Capability scope**: finalize `specs/capabilities/{name}.capability.yaml`
+  with `scope.models`, `scope.features`, and `scope.contracts`.
+- **Verification map**: add or update rule entries, reciprocal `x-rules`, and
+  literal evidence bindings, then run `idd validate verification`.
+- **Implementation**: the overlay-bound skill for each affected area, or the
+  repository's architecture docs and a generic checklist when none is bound.
+- **Journey checks**: `/e2e-journey-testing` for journey maps and their tests.

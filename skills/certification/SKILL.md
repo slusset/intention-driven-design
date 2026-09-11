@@ -43,9 +43,9 @@ specs/
 └── verification/      ← rule inventory, maturity claims, and evidence bindings
 
 Test results (from CI or local runs):
-├── Unit test reports (JUnit XML, Jest JSON, etc.)
+├── Unit test reports (XML or JSON, whatever the runner emits)
 ├── Contract test reports
-├── E2E test reports (Playwright)
+├── Journey test reports
 └── Coverage reports (optional)
 ```
 
@@ -169,9 +169,9 @@ rule-bound contract reciprocates through root-level `x-rules`, and every
 
 **Journey → E2E**
 
-For each journey in scope, verify a journey map and corresponding e2e spec exist:
+For each journey in scope, verify a journey map and a corresponding journey test exist:
 - `specs/journey-maps/{journey}.map.yaml`
-- `frontend/e2e/journeys/{journey}.spec.ts` (or equivalent)
+- the journey test in the repository's test tree, as bound in the verification map
 
 Record: `journeys_with_e2e: X/Y`
 
@@ -182,9 +182,9 @@ Scan for artifacts that break traceability:
 **Orphan tests** — test files with no intent reference in their header:
 
 ```bash
-# Find e2e test files missing journey/story references
-grep -rL "Journey:" frontend/e2e/journeys/ 2>/dev/null
-grep -rL "Story:" frontend/e2e/journeys/ 2>/dev/null
+# Find journey tests missing journey/story references
+grep -rL "Journey:" {journey test directory} 2>/dev/null
+grep -rL "Story:" {journey test directory} 2>/dev/null
 ```
 
 **Orphan features** — feature files not referenced by any story:
@@ -206,13 +206,9 @@ Record: `orphan_tests: N`, `orphan_features: N`, `orphan_endpoints: N`
 
 Gather test results from the most recent run. Location varies by stack:
 
-| Stack | Unit reports | Contract reports | E2E reports |
-|-------|-------------|-----------------|-------------|
-| Maven/Spring | `target/surefire-reports/` | `target/contract-reports/` | — |
-| Gradle | `build/test-results/` | `build/test-results/` | — |
-| Jest/Node | `coverage/` or `jest-results.json` | — | — |
-| Playwright | — | — | `playwright-report/` |
-| pytest | `pytest-results.xml` | — | — |
+Report locations vary by runner. Take them from the repo overlay's test
+commands or from the runner's own configuration; most runners write XML or
+JSON results into a build, target, or report directory.
 
 Copy relevant reports to `.idd/evidence/{capability}/reports/` (or point the generator at them with `--reports-dir`).
 
@@ -225,7 +221,7 @@ Review the traceability results and test coverage. Any of the following count as
 - Stories without feature coverage
 - Journey steps without e2e coverage
 - Edge cases mentioned in stories but not tested
-- Viewports or devices not covered in visual tests
+- Surfaces or environments the journey covers but the tests do not
 - Performance scenarios not tested
 - Error paths described in features but not implemented
 

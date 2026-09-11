@@ -152,7 +152,6 @@ runs:
 
         # Spec-before-code check
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          IMPL_CHANGES=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- 'backend/src/' 'frontend/src/' 2>/dev/null | wc -l | tr -d ' ')
           SPEC_PATH_ARGS=("$SPECS_DIR/")
           REPO_ROOT="$(cd "$SPECS_DIR/.." && pwd)"
           if [ -f "$SPECS_DIR/modules.yaml" ]; then
@@ -171,11 +170,21 @@ runs:
             fi
           fi
           SPEC_CHANGES=$(git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- "${SPEC_PATH_ARGS[@]}" 2>/dev/null | wc -l | tr -d ' ')
+          # An implementation change is anything outside the spec paths,
+          # documentation, and CI configuration. The repository names its own
+          # source trees, so this stays stack-neutral.
+          IMPL_EXCLUDE_ARGS=(':!*.md' ':!docs/' ':!.github/')
+          for SPEC_PATH in "${SPEC_PATH_ARGS[@]}"; do
+            IMPL_EXCLUDE_ARGS+=(":!${SPEC_PATH}")
+          done
+          : > /tmp/idd-results/impl-files.txt
+          git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" \
+            -- . "${IMPL_EXCLUDE_ARGS[@]}" > /tmp/idd-results/impl-files.txt 2>/dev/null || true
+          IMPL_CHANGES=$(wc -l < /tmp/idd-results/impl-files.txt | tr -d ' ')
           echo "impl_changes=$IMPL_CHANGES" >> "$GITHUB_OUTPUT"
           echo "spec_changes=$SPEC_CHANGES" >> "$GITHUB_OUTPUT"
           if [ "$IMPL_CHANGES" -gt "0" ] && [ "$SPEC_CHANGES" -eq "0" ]; then
             echo "spec_warning=true" >> "$GITHUB_OUTPUT"
-            git diff --name-only --diff-filter=ACMR "origin/${{ github.base_ref }}...HEAD" -- 'backend/src/' 'frontend/src/' > /tmp/idd-results/impl-files.txt 2>/dev/null
           else
             echo "spec_warning=false" >> "$GITHUB_OUTPUT"
           fi
