@@ -7,45 +7,29 @@ How IDD concepts distribute across skills. Use this when:
 
 ## Matrix
 
-| Concept | solution-narrative | domain-modeling | behavior-contract | e2e-journey-testing | certification | pr-review | idd-workflow | idd-doctor |
-|---------|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
-| C1  Intent Precedes Code        | **primary** | | | | | | referenced | |
-| C2  Models Are Artifacts        | **primary** | **primary** | **primary** | | | | referenced | |
-| C3  Contracts at Boundaries     | | | **primary** | referenced | | | referenced | |
-| C4  Assumptions Executable      | | | **primary** | **primary** | referenced | | referenced | |
-| C5  Fast Honest Feedback        | | | | **primary** | **primary** | **primary** | referenced | referenced |
-| C6  Protect Human Cognition     | referenced | referenced | referenced | referenced | | | referenced | |
-| C7  Evolution Preserves Meaning | | referenced | referenced | | | | referenced | referenced |
-| C8  Traceability Chain          | **primary** | referenced | **primary** | **primary** | **primary** | **primary** | **primary** | referenced |
-| C9  Narrative-First             | **primary** | | | | | | referenced | |
-| C10 Domain as Formal Model      | | **primary** | referenced | | | | referenced | |
-| C11 Layered Artifact Spine      | referenced | referenced | referenced | referenced | | | **primary** | |
-| C12 Done Means Verified         | | | referenced | **primary** | **primary** | referenced | referenced | referenced |
-| C13 Fix Forward                 | | | referenced | referenced | referenced | **primary** | **primary** | referenced |
-| C14 Agent Non-Negotiables       | referenced | referenced | referenced | referenced | referenced | **primary** | referenced | referenced |
-| C15 Capability as Cert Unit     | referenced | | | | **primary** | referenced | **primary** | referenced |
-| C16 Agent Role as Exec Contract | referenced | referenced | referenced | referenced | referenced | referenced | **primary** | |
-| C17 Evolution and Migration     | | | referenced | | referenced | | referenced | **primary** |
+| Concept | solution-narrative | domain-modeling | behavior-contract | module-scaffolding | e2e-journey-testing | certification | pr-review | idd-workflow | idd-doctor |
+|---------|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+| C1 Intent Precedes Implementation | **primary** | referenced | referenced | | | | referenced | referenced | |
+| C2 Shared Mental Models Are Artifacts | **primary** | **primary** | **primary** | referenced | | referenced | | referenced | |
+| C3 Traceability Spine | **primary** | referenced | **primary** | referenced | **primary** | **primary** | **primary** | **primary** | referenced |
+| C4 Formal Model, Rules as the Join Key | | **primary** | **primary** | referenced | referenced | referenced | referenced | referenced | referenced |
+| C5 Capability Is the Unit of Verification | referenced | | **primary** | **primary** | | **primary** | referenced | **primary** | referenced |
+| C6 Modules and Contracts at Boundaries | | referenced | **primary** | **primary** | referenced | referenced | referenced | referenced | referenced |
+| C7 Claims Require Evidence | | referenced | referenced | referenced | **primary** | **primary** | **primary** | referenced | referenced |
+| C8 Evolution Preserves Meaning | referenced | referenced | referenced | | referenced | referenced | **primary** | **primary** | **primary** |
+| C9 Humans Own Meaning | referenced | referenced | referenced | | referenced | referenced | **primary** | **primary** | referenced |
 
 **primary** = skill is the main vehicle for this concept; it defines templates and enforces it.
 **referenced** = skill mentions or depends on the concept but doesn't define it.
 
-The certification skill is cross-cutting — it verifies the connections *between* layers rather than quality *within* a layer. Its primary role is closing the traceability chain at the evidence level. Detailed standards are in `docs/idd/certification-guide.md`.
+The certification skill is cross-cutting — it verifies the connections *between*
+layers rather than quality *within* a layer. Its primary role is closing the
+traceability spine at the evidence level. Detailed standards are in
+[certification-guide.md](certification-guide.md).
 
-The pr-review skill is also cross-cutting — it enforces IDD compliance at the pull request boundary before merge. It operates in two layers: deterministic CI checks (fast, no LLM) and optional semantic review (agent-assisted). See `skills/pr-review/SKILL.md` and `.github/workflows/idd-check.yml`.
-
-## Concept density by skill
-
-| Skill | Primary concepts | Referenced concepts |
-|-------|:---:|:---:|
-| solution-narrative   | C1, C2, C8, C9        | C6, C11, C14, C15, C16 |
-| domain-modeling      | C2, C10                | C6, C7, C8, C11, C14, C16 |
-| behavior-contract    | C2, C3, C4, C8        | C7, C10, C11, C12, C13, C14, C16 |
-| e2e-journey-testing  | C4, C5, C8, C12       | C3, C6, C11, C13, C14, C16 |
-| certification        | C5, C8, C12, C15      | C4, C13, C14, C16 |
-| pr-review            | C5, C8, C13, C14      | C12, C15, C16 |
-| idd-workflow       | C8, C11, C13, C15, C16 | C1, C3, C4, C5, C6, C7, C9, C10, C12, C14, C17 |
-| idd-doctor         | C17                    | C5, C7, C8, C13, C14, C15 |
+The pr-review skill is also cross-cutting — it enforces IDD compliance at the
+pull request boundary before merge, in two layers: deterministic checks and
+optional semantic review.
 
 ## Conversion checklist
 
@@ -54,10 +38,10 @@ When converting a skill to a new agent platform:
 1. Look up the skill in the matrix above.
 2. For each **primary** concept, verify the converted skill:
    - Defines or enforces the concept explicitly.
-   - Includes relevant templates/schemas from the original skill.
+   - Includes the relevant templates and schemas from the original skill.
 3. For each **referenced** concept, verify the converted skill:
    - Does not contradict the concept.
-   - Mentions it where relevant (e.g., traceability headers in output templates).
+   - Mentions it where relevant, such as traceability headers in output templates.
 4. Cross-reference concept definitions in [concepts.md](concepts.md) if wording
    diverges — the catalog is authoritative.
 
@@ -68,4 +52,3 @@ When updating a concept definition in `concepts.md`:
 1. Find the concept row in the matrix.
 2. Update every skill marked **primary** — these define the concept operationally.
 3. Review skills marked **referenced** — they may need wording adjustments.
-4. Use `idd install-skills --link` to symlink skills into agent runtimes — no drift possible.

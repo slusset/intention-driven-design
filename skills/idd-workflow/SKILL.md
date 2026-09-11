@@ -221,23 +221,17 @@ Always report a concrete result for each relevant area:
    ├── Do not infer or discover a replacement when a binding is absent
    └── Output: overlay-bound skills or `none`, plus fallback assumptions
 
-6. Define agent roles when using delegated or parallel execution
-   ├── Assign each role an owned boundary and allowed write scope
-   ├── Declare required upstream artifacts and preserved invariants
-   ├── Define expected outputs and handoff target
-   └── Route cross-boundary ambiguity back to the relevant upstream skill
-
-7. Implementation (parallel, stack-specific)
+6. Implementation (parallel, stack-specific)
    ├── Selected backend skill → backend/
    ├── Selected frontend skill → frontend/
    └── If no dedicated skill exists, follow repo architecture docs + generic implementation checklist
 
-8. /e2e-journey-testing
+7. /e2e-journey-testing
    ├── Create journey map
    ├── Implement Playwright tests
    └── Output: specs/journey-maps/, frontend/e2e/
 
-9. /certification
+8. /certification
    ├── Verify capability scope is complete
    ├── Collect test evidence
    ├── Generate evidence manifest (references capability file)
@@ -275,7 +269,6 @@ Always report a concrete result for each relevant area:
 4. Implement changes:
    - Backend → Overlay-bound backend skill or generic backend checklist
    - Frontend → Overlay-bound frontend skill or generic frontend checklist
-   - Delegated work → define role contracts before parallel edits
 
 5. Update tests:
    - Journey affected? → /e2e-journey-testing
@@ -283,9 +276,12 @@ Always report a concrete result for each relevant area:
 6. Re-run `/certification` if capability scope changed — the next CI evidence report picks up the new scope.
 ```
 
-### Bug Fixes (Fix Forward)
+### Bug Fixes
 
-Bug fixes follow the Fix Forward principle (C13): fix the spec first, then the code.
+Classify the defect before repairing it (C8 Evolution Preserves Meaning): a
+specification gap is corrected in the specification first, and an
+implementation gap is repaired in code against the rule that already exists.
+Either path ends in evidence.
 
 ```
 1. Reproduce the defect
@@ -299,22 +295,22 @@ Bug fixes follow the Fix Forward principle (C13): fix the spec first, then the c
    ├── Scenario, API behavior, or fixture missing? → inspect `specs/features/`, `specs/contracts/`, and `specs/fixtures/`
    └── Journey-map or e2e expectation wrong? → inspect `specs/journey-maps/` and e2e sources
 
-3. Identify the spec gap and invoke the right skill
+3. Classify the gap and invoke the right skill
    ├── Missing journey step, persona context, or story intent → `/solution-narrative`
    ├── Missing entity, invariant, state transition, or rule → `/domain-modeling`
    ├── Missing scenario, contract behavior, or fixture → `/behavior-contract`
    ├── Missing journey-map step or e2e assertion → `/e2e-journey-testing`
-   └── If the spec is already correct, record that the gap is implementation-only and preserve the current spec
+   └── Spec correct and the violated rule already citable → implementation-only gap; leave the spec unchanged
 
-4. Update spec artifacts first
+4. Close the specification gap (skip for an implementation-only gap)
    ├── Add or correct the missing narrative/model/contract artifact
    ├── Update capability scope if new models, features, contracts, or journeys enter scope
    └── Re-check traceability before touching implementation
 
-5. Implement the fix to match the updated spec
+5. Repair the implementation
    ├── Resolve the exact implementation skill named by the repo overlay
-   ├── Change code only after the spec describes the corrected behavior
-   └── Add or update the validating tests that prove the repaired behavior
+   ├── For a specification gap, change code only after the spec describes the corrected behavior
+   └── Add the regression check that proves the repaired behavior, bound to the rule it exercises
 
 6. Recertify
    ├── Re-run the relevant verification layer(s)
@@ -322,13 +318,10 @@ Bug fixes follow the Fix Forward principle (C13): fix the spec first, then the c
    └── Confirm the repaired gap is now represented in both traceability and evidence
 ```
 
-**Never fix code without updating the spec.** Fixing code without updating specs is drift — the single most common way systems lose alignment with their intent.
-Always apply repo overlay constraints while fixing forward (for example, architecture boundaries and test pyramid policy).
+**Every repair leaves evidence.** Change the specification when its meaning is wrong or missing; otherwise repair the implementation and bind a regression check to the rule that already exists. A rule too vague to cite is itself a specification gap.
+Always apply repo overlay constraints while repairing (for example, architecture boundaries and test pyramid policy).
 
-If multiple actors are involved in the repair, assign explicit role contracts so
-each fix-forward step has a bounded owner.
-
-### Fix Forward Skill Routing
+### Defect Routing
 
 Use this decision table when a defect is discovered:
 
@@ -417,7 +410,7 @@ A: It should:
 5. Have certification evidence published in the CI report
 
 **Q: Can I skip the narrative layer for small changes?**
-A: For pure bug fixes or minor UI tweaks, yes. For anything that changes behavior, no — update the spec first. When in doubt, ask: "Would someone need to update the feature file for this?"
+A: Yes when the declared behavior does not change — repairing code to match an existing rule, or a cosmetic change. When declared behavior changes, update the specification first. In doubt, ask: "Would someone need to update the feature file for this?"
 
 **Q: What if the repo overlay file is missing?**
 A: Warn once, explain what the overlay controls, offer to scaffold it, then continue with explicit fallback assumptions. If the user chooses to proceed without one, remember that decision for the rest of the session and stop re-warning unless they ask to revisit it.
@@ -439,8 +432,6 @@ solution-narrative              ← Stack-agnostic
         ▼
  behavior-contract              ← Stack-agnostic
         │
-        ├────────── define role contracts when delegating
-        │
         ├──────────────────────┐
         ▼                      ▼
   backend binding       frontend binding    ← Declared by repo-overlay
@@ -460,7 +451,6 @@ solution-narrative              ← Stack-agnostic
 
 - **IDD philosophy**: `docs/idd/manifesto.md`
 - **Concept definitions**: `docs/idd/concepts.md`
-- **Agent role extension**: `docs/idd/agent-role.md`
 - **Front-matter schema**: `docs/idd/front-matter-spec.md`
 - **Certification standards**: `docs/idd/certification-guide.md`
 - **PR compliance checks**: `skills/pr-review/SKILL.md`
@@ -478,7 +468,6 @@ When this meta-skill is used by an orchestrator, include these fields in the han
 - `repo_overlay_status` (`loaded`, `missing-warned`, or `skipped`)
 - `repo_overlay_constraints` (summary bullets when loaded, otherwise the fallback assumptions or open gaps)
 - `implementation_skill_bindings` (exact overlay-declared skill per area, provider/location, and availability)
-- `agent_roles` (role contracts with owner, scope, invariants, outputs, and handoff target)
 - `skills_selected` (ordered list for this task)
 - `blocking_issues` (true blockers only; missing overlay alone does not belong here)
 

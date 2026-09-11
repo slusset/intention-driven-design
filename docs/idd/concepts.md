@@ -4,241 +4,166 @@ Canonical definitions of every IDD concept. Each concept is defined once here.
 Skills implement subsets of these concepts; the [concept-skill map](concept-skill-map.md)
 tracks which concepts each skill carries.
 
-When converting concepts to a new agent's skill format, use this catalog as the
+When converting concepts to another agent's skill format, use this catalog as the
 acceptance checklist: every concept a skill claims must be faithfully represented
 in the output.
 
 ---
 
-## C1 — Intent Precedes Code
+## C1 — Intent Precedes Implementation
 
-No implementation begins without an explicit intent artifact (persona, journey,
-or story). Code is a downstream consequence of declared intent, never the
-starting point.
+No implementation begins without an explicit intent artifact. Intent starts as
+human narrative — who needs this (persona), what experience they have (journey),
+what the system does for them (story) — and implementation is a downstream
+consequence of that declared intent, never the starting point.
 
 **Manifesto principle**: 1
-**Artifacts involved**: personas, journeys, stories
+**Artifacts**: personas, journeys, stories
 
 ---
 
 ## C2 — Shared Mental Models Are Artifacts
 
 Understanding lives in versioned documents, not conversations or tribal
-knowledge. If a concept matters, it has a file.
+knowledge. If a concept matters, it has a file, and that file is what gets
+referenced, reviewed, and changed.
 
 **Manifesto principle**: 2
-**Artifacts involved**: all `specs/` documents
+**Artifacts**: every specification document
 
 ---
 
-## C3 — Contracts Define Reality at Boundaries
+## C3 — Traceability Spine
 
-Boundary contracts (OpenAPI, AsyncAPI, JSON-RPC, plus Gherkin features) are the authoritative source of truth
-for how systems interact. Implementation must conform to the contract, not the
-other way around.
-
-**Manifesto principle**: 3
-**Artifacts involved**: features, contracts/*, fixtures
-
----
-
-## C4 — Assumptions Become Executable
-
-Every assumption about behavior is expressed as an automated check — BDD
-scenario, contract test, or e2e assertion. Untested assumptions are technical
-debt.
-
-**Manifesto principle**: 4
-**Artifacts involved**: features, fixtures, e2e tests
-
----
-
-## C5 — Fast Honest Automated Feedback
-
-Verification is evidence-based, not opinion-based. Feedback loops are automated,
-deterministic, and run continuously.
-
-**Manifesto principle**: 5
-**Artifacts involved**: CI evidence reports, CI pipelines
-
----
-
-## C6 — Protect Human Cognition
-
-Agents handle bookkeeping, traceability enforcement, and repetitive artifact
-generation. Humans focus on meaning, tradeoffs, and creative decisions.
-
-**Manifesto principle**: 6
-**Applies to**: agent behavior rules, workflow automation
-
----
-
-## C7 — Evolution Preserves Meaning
-
-Change is expected. Drift is not. Refactors must preserve declared invariants.
-Artifact references must be updated when upstream artifacts change.
-
-**Manifesto principle**: 7
-**Applies to**: modification workflows, traceability maintenance
-
----
-
-## C8 — Traceability Chain
-
-Every downstream artifact references its upstream source. The full chain:
+Artifacts follow a layered order, and every artifact names the upstream artifact
+it serves:
 
 ```
-Persona → Journey → Story → Capability → Feature → Contract → Tests → Evidence
+Persona → Journey → Story → Capability → Model and rules → Contracts and scenarios → Evidence
 ```
 
-The capability groups artifacts into a certifiable scope. No link in the chain
-is optional. If an artifact exists, its provenance is declared.
+Layers have clear boundaries, and skipping one requires explicit justification.
+No link is optional: if an artifact exists, its provenance is declared. How a
+link is declared — typed front matter, contract extensions, metadata blocks — is
+a mechanical question answered by the front-matter specification.
 
-**Enforced via**: YAML front-matter (preferred), comment headers,
-`x-story`/`x-feature`/`x-journey` contract extensions, `_meta` blocks in
-fixtures, test file headers. See `docs/idd/front-matter-spec.md` for the
-uniform front-matter schema.
-
----
-
-## C9 — Narrative-First Requirements
-
-Requirements begin as human stories, not technical specifications. The sequence
-is always: who needs this (persona) → what experience they have (journey) →
-what the system does (story) → how it behaves (feature/contract).
-
-**Skill entry point**: solution-narrative
-**Artifacts produced**: personas, journeys, stories
+**Manifesto principles**: 1, 2
+**Artifacts**: every specification document
 
 ---
 
-## C10 — Domain as Formal Model
+## C4 — Formal Model, Rules as the Join Key
 
-Business concepts are captured in structured, typed artifacts (entity
-definitions, lifecycle state machines, aggregate boundaries) before
-implementation. The model is the shared vocabulary between narrative and code.
+Business concepts are captured as structured, typed artifacts — entities, value
+objects, aggregates, lifecycles — before implementation. The model is the shared
+vocabulary between narrative and code.
 
-**Skill entry point**: domain-modeling
-**Artifacts produced**: entity YAML, lifecycle YAML, aggregate definitions
+Within the model, a rule is the unit of meaning. Each rule carries a stable
+identifier, and that identifier is what joins the model to contracts, scenarios,
+verification, and evidence. A rule without an identifier can be read but not
+cited, so it cannot be verified.
 
----
-
-## C11 — Layered Artifact Spine
-
-The project structure follows a fixed layered order. Each layer produces
-artifacts that feed the next:
-
-```
-Narrative  →  Model  →  Contract  →  Implementation  →  Validation
-```
-
-Layers have clear boundaries. Skipping a layer requires explicit justification.
-
-**Defined in**: project-template.md
-**Directory structure**: `specs/` subdirectories mirror the layers
+**Manifesto principles**: 2, 4
+**Artifacts**: models, lifecycles, verification maps
 
 ---
 
-## C12 — Done Means Verified
-
-A capability is done when:
-1. Every story references its journey and persona.
-2. Every contract operation references its source story/feature.
-3. Every automated test maps to an explicit intent artifact.
-4. No feature is accepted on manual confidence alone.
-
-**Defined in**: project-template.md (done criteria)
-
----
-
-## C13 — Fix Forward
-
-When a defect is found, the response is never "fix the code." The response is:
-
-1. Add the missing specification (feature scenario, contract clause, business rule).
-2. Fix the implementation to match the updated spec.
-3. Update certification evidence to cover the gap.
-
-Fixing code without updating specs is drift — the single most common way
-systems lose alignment with their intent. This concept is a critical safeguard
-for the entire traceability chain (C8).
-
-**Manifesto principle**: 7 (Evolution preserves meaning)
-**Applies to**: bug fix workflows, post-incident response, regression handling
-**See also**: manifesto.md (Fix Forward section), certification-guide.md
-
----
-
-## C14 — Agent Operating Non-Negotiables
-
-Four rules agents must never violate:
-1. No implementation without an explicit intent artifact.
-2. No boundary behavior without a contract artifact.
-3. No merge without verifiable evidence tied to intent.
-4. No silent drift: refactors must preserve declared invariants.
-
-**Defined in**: agent-operating-contract.md
-
----
-
-## C15 — Capability as Certification Unit
+## C5 — Capability Is the Unit of Verification
 
 A capability is the smallest unit of intent that delivers independently
-verifiable user value. It groups the artifacts that must be true together —
-personas, journeys, stories, features, contracts, and models — into a declared
-scope with a certification boundary.
+verifiable value. It groups the artifacts that must be true together — personas,
+journeys, stories, models, contracts, scenarios — into one declared scope with a
+verification and certification boundary.
 
-Capabilities are defined before certification and remain stable across the
-implementation lifecycle. The capability artifact is the single source of truth
-for "what are we building and certifying?" Evidence manifests reference
-capabilities; capabilities enumerate their constituent artifacts.
+A capability is declared before verification and stays stable across the
+implementation lifecycle. It is the single source of truth for "what are we
+building and proving?" Evidence references capabilities; capabilities enumerate
+their constituent artifacts.
 
-**Artifacts involved**: `specs/capabilities/{name}.capability.yaml`,
-generated evidence manifests (published via the CI evidence report)
-**Defined in**: front-matter-spec.md (capability schema), certification-guide.md
-(certification workflow)
-**Related concepts**: C8 (closes the chain at scope level), C11 (adds a
-grouping layer above the spine), C12 (defines what "done" means for)
+**Manifesto principle**: 1
+**Artifacts**: capability definitions, verification maps, evidence manifests
 
 ---
 
-## C16 — Agent Role as Execution Contract
+## C6 — Modules and Contracts at Boundaries
 
-When work is distributed across humans or agents, each actor must have a
-bounded role contract: owned scope, required inputs, permitted decisions,
-expected outputs, preserved invariants, and explicit handoff targets.
+Every capability belongs to exactly one module, and modules relate only through
+a declared acyclic dependency graph. Ownership and dependency are declared, never
+inferred from file placement.
 
-Agent role extends IDD through agency without changing the artifact spine. It
-defines how methodology is executed, not what intent means. Roles must route
-ambiguity back to the correct upstream layer instead of improvising across
-boundaries.
+Contracts define reality where boundaries meet: implementation conforms to the
+contract, not the other way around. A contract consumed across a module boundary
+is pinned to the exact document it was agreed against, so an upstream change is
+visible rather than silent.
 
-**Applies to**: orchestration, multi-agent delivery, handoff design, review
-**Defined in**: agent-role.md, agent-operating-contract.md, idd-workflow
+**Manifesto principle**: 3
+**Artifacts**: module manifest, contracts, contract pins, scenarios, fixtures
 
 ---
 
-## C17 — Evolution and Migration Preserve Continuity
+## C7 — Claims Require Evidence
 
-Change is a first-class operation, not an excuse to preserve obsolete
-representations indefinitely. An evolution distinguishes backward
-compatibility, continuity, migration, and legacy preservation. Continuity is
-the quality being preserved; compatibility is one possible strategy.
+Every assumption about behavior becomes an automated check, and a check counts
+as evidence only when its result is bound to the rule it exercises. Untested
+assumptions are technical debt; unbound results are not evidence.
 
-An evolution names its source and target state, detects deprecated or
-misaligned structures, declares what is preserved, transformed, retired, or
-unproven, and leaves a traceable migration artifact. When state exists,
-removal requires a migration or explicit disposition. A clean validator run
-does not establish continuity by itself.
+Claims about a capability stay separate rather than collapsing into one status:
 
-The `idd doctor` is the operational entry point. Its current report-only mode
-inspects alignment and migration impact without writing files or mutating
-journal history. Future plan/apply modes must remain deterministic and
-validated. The module DAG describes static semantic dependencies; a journal
-DAG records dynamic causal history. They are complementary and must not be
-conflated.
+| Claim | Question it answers |
+|---|---|
+| Intent | Is the declared intent coherent, and still open to change? |
+| Verification | What has executable checking established, and where? |
+| Certification | What have review and independent evidence established? |
+| Production | Is operational, deployment, recovery, and security posture explicit? |
 
-**Manifesto principle**: 7 (Evolution preserves meaning)
-**Applies to**: UAT upgrades, schema migrations, module evolution, artifact
-normalization, deprecation policy, and future identity continuity events
-**Defined in**: evolution-and-migration.md, idd-doctor, issue #69
+No claim exceeds the weakest claim it depends on. Evidence is derived output: it
+describes exactly one revision, so it is regenerated and published with the
+change rather than stored as a standing assertion. Done means verified — nothing
+is accepted on manual confidence alone, and gaps are declared instead of hidden.
+
+**Manifesto principle**: 4
+**Artifacts**: verification maps, evidence manifests, published evidence reports
+
+---
+
+## C8 — Evolution Preserves Meaning
+
+Change is expected. Drift is not. Refactors preserve declared invariants, and
+references are updated when upstream artifacts change.
+
+A defect is classified before it is repaired:
+
+- **Specification gap** — the intent, rule, contract, or scenario is missing or
+  wrong. Correct the specification first, then bring the implementation to it.
+- **Implementation gap** — the specification is already correct and citable.
+  Repair the implementation and add a regression check bound to the existing
+  rule.
+
+Either way the repair produces evidence. A defect whose repair leaves no
+evidence behind is not repaired, and a rule too vague to cite is itself a
+specification gap.
+
+Larger change is an evolution: it names its source and target state, declares
+what is preserved, transformed, retired, or unproven, and leaves a traceable
+migration record. Continuity is the quality being preserved; backward
+compatibility is one strategy for it, not the goal. Where state exists, removal
+requires a migration or an explicit disposition, and a clean validator run does
+not establish continuity by itself.
+
+**Manifesto principle**: 6
+**Applies to**: defect repair, refactors, artifact and schema migration, deprecation
+
+---
+
+## C9 — Humans Own Meaning
+
+People own meaning, tradeoffs, and creative decisions. Agents own bookkeeping:
+traceability, repetitive artifact generation, and deterministic checking.
+Automated review reports; humans decide.
+
+Whoever is acting works within the boundary they were given. A gap found outside
+that boundary is routed to the artifact that owns it rather than improvised
+across it.
+
+**Manifesto principle**: 5
+**Applies to**: agent behavior rules, delegated work, review

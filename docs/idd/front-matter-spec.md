@@ -243,7 +243,6 @@ There is no flag day. Both conventions coexist indefinitely. The checker just ge
 
 ## Relationship to existing concepts
 
-- **C2 (Models Are Artifacts)**: Front-matter makes artifact metadata machine-readable, not just human-readable.
-- **C8 (Traceability Chain)**: Typed `refs` make chain links explicit and parseable.
-- **C11 (Layered Artifact Spine)**: `type` field codifies which layer an artifact belongs to.
-- **C15 (Capability as Certification Unit)**: Capability front-matter defines the certification boundary.
+- **C2 (Shared Mental Models Are Artifacts)**: Front-matter makes artifact metadata machine-readable, not just human-readable.
+- **C3 (Traceability Spine)**: Typed `refs` make spine links explicit and parseable, and the `type` field codifies which layer an artifact belongs to.
+- **C5 (Capability Is the Unit of Verification)**: Capability front-matter defines the certification boundary.

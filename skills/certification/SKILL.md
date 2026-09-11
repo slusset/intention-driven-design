@@ -381,13 +381,10 @@ Each certification run regenerates the manifest from scratch — evidence always
 
 | Concept | Role |
 |---------|------|
-| C5 — Fast Honest Feedback | **primary**: evidence must be automated and deterministic |
-| C8 — Traceability Chain | **primary**: closes the chain from intent to proof |
-| C12 — Done Means Verified | **primary**: operational definition of "done" |
-| C15 — Capability as Cert Unit | **primary**: capability artifact defines the certification boundary |
-| C4 — Assumptions Executable | referenced: certification proves assumptions are executable |
-| C13 — Fix Forward | referenced: recertification follows fix-forward cycles |
-| C14 — Agent Non-Negotiables | referenced: enforces rule 3 (no merge without evidence) |
+| C3 — Traceability Spine | **primary**: closes the spine from intent to proof |
+| C5 — Capability Is the Unit of Verification | **primary**: capability artifact defines the certification boundary |
+| C7 — Claims Require Evidence | **primary**: evidence is automated, deterministic, and bounded by what actually ran; no merge without it |
+| C8 — Evolution Preserves Meaning | referenced: recertification follows each repair |
 
 ## Standards Reference
 

@@ -10,10 +10,6 @@ Agentic coding tools are remarkably capable at execution but have a subtle failu
 
 The result is a framework where AI agents can autonomously implement, verify, and evolve software while humans focus on meaning, tradeoffs, and creative decisions.
 
-IDD can also be extended through explicit agent roles: bounded execution
-contracts that let multiple agents develop the methodology or a target system in
-parallel without breaking traceability.
-
 ## How it works
 
 ```
@@ -98,13 +94,14 @@ node tools/graph-generation/generate-spec-graph.js examples --format mermaid
 
 ## Core principles
 
-1. **Intent precedes code.** No implementation without an explicit intent artifact.
+1. **Intent precedes implementation.** No implementation without an explicit intent artifact.
 2. **Shared mental models are artifacts, not conversations.** If a concept matters, it has a file.
-3. **Contracts define reality at boundaries.** OpenAPI, AsyncAPI, and JSON-RPC contracts are the source of truth, not implementation.
-4. **Assumptions must become executable.** Untested assumptions are technical debt.
-5. **Feedback must be fast, honest, and automated.** Evidence, not confidence theater.
-6. **Human cognition is protected.** Agents handle bookkeeping; humans handle meaning.
-7. **Evolution must preserve meaning.** We allow change, but we do not allow drift.
+3. **Boundaries are declared.** One owner per capability, declared dependencies, and contracts across the boundary.
+4. **Claims require evidence.** Checks produce it; gaps are declared, not hidden.
+5. **Human cognition is protected.** Agents handle bookkeeping; humans handle meaning.
+6. **Evolution preserves meaning.** We allow change, but we do not allow drift.
+
+The full text lives in [the manifesto](docs/idd/manifesto.md).
 
 Read the full [manifesto](docs/idd/manifesto.md).
 
@@ -305,24 +302,9 @@ IDD's narrative, model, and contract skills stay stack-agnostic. The core pack d
 
 The `idd-workflow` skill loads that overlay before implementation work. If a binding is absent, IDD selects no stack-specific skill and follows the repository's architecture docs, commands, and a generic implementation checklist. Framework files and the active plugin catalog never authorize automatic skill selection.
 
-## Agent roles as an IDD extension
+## Governing change
 
-When work is split across multiple humans or agents, define a role contract for
-each actor:
-
-- owned boundary
-- required inputs
-- decisions it may make autonomously
-- outputs it must produce
-- invariants it must preserve
-- handoff target and success evidence
-
-This extends IDD through agency rather than bypassing it. The role governs how
-work is executed; the artifact spine still governs what must remain true.
-
-See [Agent Role](docs/idd/agent-role.md) and [Agent Operating Contract](docs/idd/agent-operating-contract.md).
-For the broader systems view, see [Self-Evolving Engineering Ecosystem](docs/idd/self-evolving-ecosystem.md).
-For governing changes to IDD itself, see [Methodology Change Process](docs/idd/methodology-change-process.md).
+For how IDD itself changes, see [Methodology Change Process](docs/idd/methodology-change-process.md).
 For consumer upgrades and continuity dispositions, see [Evolution and Migration](docs/idd/evolution-and-migration.md).
 
 ## Skills
@@ -351,12 +333,12 @@ bin/
 
 docs/idd/                    IDD philosophy and concept library
 ├── manifesto.md             Core principles (the "why")
-├── concepts.md              Atomic concept catalog (C1–C17)
+├── concepts.md              Atomic concept catalog (C1–C9)
 ├── concept-skill-map.md     Which concepts each skill carries
-├── agent-operating-contract.md  Non-negotiable agent rules
-├── agent-role.md            Agent-role extension for orchestrated agency
-├── self-evolving-ecosystem.md  Runtime + world-model framing around IDD
 ├── methodology-change-process.md  How IDD changes should follow IDD
+├── evolution-and-migration.md  Continuity, migration, and doctor boundaries
+├── front-matter-spec.md     Typed metadata and reference schema
+├── release-and-distribution.md  Release units and host install surfaces
 ├── templates/               Reusable methodology templates
 ├── project-template.md      Artifact spine and delivery loop
 └── certification-guide.md   Evidence standards and templates
@@ -373,6 +355,7 @@ skills/                      IDD methodology skills (bundled in package)
 ├── module-scaffolding/       Bounded-context module creation and linking
 ├── idd-doctor/               Read-only migration alignment and continuity inspection
 ├── certification/           Traceability verification and evidence
+├── pr-review/               IDD compliance checks at the pull request boundary
 └── idd-workflow/            Meta-skill: when to use which skill
 
 tools/                       Validators and generators

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Certification is the evidence layer that makes "done means verified" (C12) real. It captures automated proof that implementation fulfills declared intent. Without certification, verification is a claim; with it, verification is a fact.
+Certification is the evidence layer that makes "done means verified" (C7) real. It captures automated proof that implementation fulfills declared intent. Without certification, verification is a claim; with it, verification is a fact.
 
 ## Core rule
 
@@ -25,9 +25,9 @@ The three surfaces of the published record:
 ├── {capability-name}/
 │   ├── evidence.yaml          ← structured evidence manifest
 │   ├── reports/               ← raw test output
-│   │   ├── unit.xml           ← JUnit/xUnit results
+│   │   ├── unit.xml           ← unit test results
 │   │   ├── contract.xml       ← contract test results
-│   │   ├── e2e.xml            ← Playwright results
+│   │   ├── e2e.xml            ← journey test results
 │   │   └── coverage.json      ← coverage data
 │   └── screenshots/           ← visual evidence (optional)
 │       └── journey-step-*.png
@@ -172,7 +172,7 @@ digest.
 
 ## Capability artifacts
 
-Certification happens at the capability level, not the PR level. A capability is the smallest unit of intent that delivers independently verifiable user value (C15).
+Certification happens at the capability level, not the PR level. A capability is the smallest unit of intent that delivers independently verifiable user value (C5).
 
 Each capability has a definition file that declares its scope:
 
@@ -333,10 +333,7 @@ The `gaps` section is not a failure — it's a declaration of what isn't verifie
 
 ## Relationship to other concepts
 
-- **C4 (Assumptions Executable)**: Certification is where assumptions are proven executable.
-- **C5 (Fast Honest Feedback)**: Evidence must be automated and deterministic.
-- **C8 (Traceability Chain)**: The evidence manifest closes the chain from intent to proof.
-- **C12 (Done Means Verified)**: Certification is the operational definition of "done."
-- **C13 (Fix Forward)**: When a defect is found post-certification, the fix includes updating the evidence.
-- **C14 (Agent Non-Negotiables)**: Rule 3 — no merge without verifiable evidence — is enforced here.
-- **C15 (Capability as Certification Unit)**: The capability artifact defines the certification boundary. Evidence references the capability; the capability enumerates intent.
+- **C3 (Traceability Spine)**: The evidence manifest closes the spine from intent to proof.
+- **C5 (Capability Is the Unit of Verification)**: The capability artifact defines the certification boundary. Evidence references the capability; the capability enumerates intent.
+- **C7 (Claims Require Evidence)**: Certification proves assumptions executable, keeps evidence automated and deterministic, and is the operational definition of "done." No merge without verifiable evidence tied to intent.
+- **C8 (Evolution Preserves Meaning)**: When a defect is found after certification, the repair includes updating the evidence.

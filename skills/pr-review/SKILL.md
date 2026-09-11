@@ -17,8 +17,6 @@ Two execution modes:
 2. **Agent-assisted** — Claude (or another agent) loads this skill for semantic review.
 
 The automated layer is fast and cheap (no LLM). The agent layer catches what static checks cannot: misaligned intent, incomplete journeys, naming drift.
-When role contracts are present, it should also catch cross-boundary changes
-that violate the declared execution contract.
 
 ## When to Use
 
@@ -57,7 +55,6 @@ that violate the declared execution contract.
 │  │  • Completeness (missing edge-case scenarios,     │  │
 │  │    missing error responses)                       │  │
 │  │  • Model drift (code diverging from model rules)  │  │
-│  │  • Role-boundary drift in delegated work          │  │
 │  └───────────────────────────────────────────────────┘  │
 │                          │                              │
 │                  comment on PR                          │
@@ -130,28 +127,14 @@ If the PR modifies implementation files (`backend/src/`, `frontend/src/`) but no
 
 ```
 ⚠️  Implementation files changed without spec updates.
-    If this changes behavior, update specs first (C13 Fix Forward).
+    If this changes behavior, update specs first (C8 Evolution Preserves Meaning).
     Changed: backend/src/audits/AuditService.java
     No changes in: specs/
 ```
 
 **Pass criteria**: Warning only (never blocks).
 
-### Check 6: Role Contract Coverage
-
-If the PR includes delegated or multi-agent work and role contracts are present,
-verify that:
-
-- each changed file falls within at least one declared role boundary
-- methodology or governance docs changed by an implementation role are flagged
-- artifact changes outside a role's allowed scope are reported for review
-
-This check is advisory by default because repositories may adopt role contracts
-incrementally.
-
-**Pass criteria**: Warning only unless the repo explicitly makes role contracts mandatory.
-
-### Check 7: Methodology Change Coverage
+### Check 6: Methodology Change Coverage
 
 If the PR changes methodology-defining surfaces such as `docs/idd/`, `skills/`,
 `tools/`, or `.github/workflows/`, verify that the PR includes enough context to
@@ -177,17 +160,6 @@ Optional LLM-assisted pass that covers what deterministic checks cannot:
 - **Completeness** — features cover happy-path, validation, authorization, and contract-defined error responses.
 
 Output: PR comments. Never blocks merge on Layer 2 alone.
-
-### Semantic Check: Role-Boundary Drift
-
-When role contracts are available:
-
-- compare the changed files to the active role boundaries
-- flag actors changing artifacts outside their declared ownership
-- flag downstream edits that should have been routed through an upstream skill
-- flag methodology or governance changes that lack explicit human approval
-
-**Output**: PR comment summarizing role-boundary drift risks.
 
 ### Semantic Check: Methodology Change Legibility
 
@@ -248,7 +220,7 @@ Both layers post results in a consistent format:
 
 ### Spec-Before-Code ⚠️
 - `backend/src/audits/AuditService.java` changed without spec updates
-- If this changes behavior, update specs first (C13)
+- If this changes behavior, update specs first (C8)
 
 ### Orphans ✅
 - No orphan artifacts detected
@@ -280,13 +252,11 @@ PR review catches problems early and cheaply. Certification provides the formal 
 
 | Concept | Role |
 |---------|------|
-| C5 — Fast Honest Feedback | **primary**: PR checks give immediate, automated feedback |
-| C8 — Traceability Chain | **primary**: validates chain links on every PR |
-| C13 — Fix Forward | **primary**: spec-before-code warning enforces fix-forward |
-| C14 — Agent Non-Negotiables | **primary**: enforces rule 3 (no merge without evidence) at PR boundary |
-| C12 — Done Means Verified | referenced: PR review is the first verification gate |
-| C15 — Capability as Cert Unit | referenced: capability scope check uses capability artifacts |
-| C16 — Agent Role as Execution Contract | referenced: role-boundary drift checks delegated work |
+| C3 — Traceability Spine | **primary**: validates spine links on every PR |
+| C7 — Claims Require Evidence | **primary**: immediate deterministic feedback, and no merge without evidence tied to intent |
+| C8 — Evolution Preserves Meaning | **primary**: the spec-before-code warning keeps repairs classified |
+| C9 — Humans Own Meaning | **primary**: deterministic checks report; humans decide semantic findings |
+| C5 — Capability Is the Unit of Verification | referenced: capability scope check uses capability artifacts |
 
 ## Guardrails
 

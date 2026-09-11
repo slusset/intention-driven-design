@@ -53,9 +53,8 @@ small ordered catalog of schema transitions. Its shape is checked by
 entry names an exact source and target schema version, a short sequence of
 inspect/review/transform/validate steps, and continuity dispositions.
 
-This borrows the useful part of Angular upgrade schematics: migrations are
-versioned, discoverable package metadata selected by the source and target
-versions. `idd doctor` reports the shortest cataloged path, and `idd doctor
+Migrations are versioned, discoverable package metadata selected by the source
+and target versions. `idd doctor` reports the shortest cataloged path, and `idd doctor
 apply` executes it from an accepted plan. A `transform` step must name a
 transformation registered in `tools/lib/transformations.js`; each
 transformation is deterministic — the same repository and toolkit inputs
@@ -150,8 +149,7 @@ migration, step, transformation, and continuity disposition that acceptance
 authorizes, and nothing outside the plan is executed.
 
 The first migration target is repository/spec state: modules, verification
-maps, evidence bindings, contract pins, role contracts, and other declarative
-artifacts. The doctor itself is a narrow module with its own capability and
+maps, evidence bindings, contract pins, and other declarative artifacts. The doctor itself is a narrow module with its own capability and
 verification map; it does not receive implicit authority over the Identity
 Kernel.
 
