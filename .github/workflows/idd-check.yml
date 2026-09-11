@@ -1,51 +1,13 @@
 name: IDD Compliance (example specs)
 
+# No path filters. Both jobs back required status checks, and a required
+# check whose workflow a path filter skipped stays pending and blocks merge.
 on:
   workflow_dispatch:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths:
-      - 'specs/**'
-      - 'backend/src/**'
-      - 'frontend/src/**'
-      - 'tools/**/*.js'
-      - 'bin/**'
-      - 'dist/**'
-      - 'test/**'
-      - 'tests/**'
-      - 'skills/**'
-      - 'docs/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'release-please-config.json'
-      - '.release-please-manifest.json'
-      - '.claude-plugin/**'
-      - '.codex-plugin/**'
-      - '.agents/plugins/**'
-      - '.github/workflows/**'
-      - '.github/actions/idd-check/**'
   push:
     branches: [main]
-    paths:
-      - 'specs/**'
-      - 'backend/src/**'
-      - 'frontend/src/**'
-      - 'tools/**/*.js'
-      - 'bin/**'
-      - 'dist/**'
-      - 'test/**'
-      - 'tests/**'
-      - 'skills/**'
-      - 'docs/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'release-please-config.json'
-      - '.release-please-manifest.json'
-      - '.claude-plugin/**'
-      - '.codex-plugin/**'
-      - '.agents/plugins/**'
-      - '.github/workflows/**'
-      - '.github/actions/idd-check/**'
 
 permissions:
   contents: read
