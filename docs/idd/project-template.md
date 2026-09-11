@@ -34,10 +34,9 @@ report — job summary, PR comment, and workflow artifact.
 4. Convert story acceptance criteria into BDD features + boundary contracts, then finalize the capability scope with models, features, and contracts.
 5. Assign the capability to one module and create its verification map; declare map and module dependencies explicitly rather than inferring them from file placement.
 6. Plan rule-scoped evidence and declare the four independent maturity claims honestly.
-7. If work is delegated or parallelized, define role contracts before edits begin.
-8. Implement code from contracts and feature expectations.
-9. Produce executable verification: unit, contract, e2e, regression.
-10. Publish evidence via the CI evidence report before merge (`/certification`).
+7. Implement code from contracts and feature expectations.
+8. Produce executable verification: unit, contract, e2e, regression.
+9. Publish evidence via the CI evidence report before merge (`/certification`).
 
 ## Done criteria
 
@@ -52,4 +51,3 @@ report — job summary, PR comment, and workflow artifact.
 - No feature is accepted on manual confidence alone.
 - Certification evidence is published in the CI report with traceability verified.
 - Gaps are declared honestly, not hidden.
-- Delegated roles preserve declared boundaries and invariants.
