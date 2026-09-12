@@ -282,6 +282,14 @@ certify:
 
 Evidence reporting is **report-only by default** (`evidence-gate: 'false'`): every PR shows per-capability certification status without blocking while coverage is still being built out. Setting `evidence-gate: 'true'` makes an uncertifiable capability fail the check — that is the enforcement of "no merge without evidence" once a project is ready to hold the line.
 
+When the repository emits formal-result records — through `idd evidence record`, or as JSONL a checker
+writes into `.idd/evidence/results/` — the action also runs the roll-up. It attaches `rollup.json` and
+`rollup.md` to the `idd-evidence` artifact and renders the derived per-rule coverage in the job summary
+and the PR comment. Roll-up errors fail the check: a record that contradicts its map, or a capability
+declaring more than this run derives. Advisories are reported and only fail with
+`evidence-rollup-strict: 'true'`. With no records present the step skips, so it costs nothing until a
+consumer starts emitting them.
+
 The equivalent by hand, for pipelines that don't use the action:
 
 ```yaml
