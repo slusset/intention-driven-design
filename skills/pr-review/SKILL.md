@@ -123,12 +123,12 @@ Extends the existing traceability checker:
 
 ### Check 5: Spec-Before-Code
 
-If the PR modifies implementation files (`backend/src/`, `frontend/src/`) but no spec files (`specs/`), emit a warning. This doesn't block the PR — pure refactors and bug fixes may legitimately touch only code — but it flags potential drift.
+If the PR modifies implementation files — anything outside the spec paths, documentation, and CI configuration — but no spec files, emit a warning. This doesn't block the PR — pure refactors and bug fixes may legitimately touch only code — but it flags potential drift.
 
 ```
 ⚠️  Implementation files changed without spec updates.
     If this changes behavior, update specs first (C8 Evolution Preserves Meaning).
-    Changed: backend/src/audits/AuditService.java
+    Changed: {source file the PR touched}
     No changes in: specs/
 ```
 
@@ -219,7 +219,7 @@ Both layers post results in a consistent format:
 - All changed specs are listed in `specs/capabilities/trade-show-signup.capability.yaml`
 
 ### Spec-Before-Code ⚠️
-- `backend/src/audits/AuditService.java` changed without spec updates
+- `{source file}` changed without spec updates
 - If this changes behavior, update specs first (C8)
 
 ### Orphans ✅

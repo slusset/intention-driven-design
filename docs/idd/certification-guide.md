@@ -267,7 +267,7 @@ certify:
         mkdir -p test-reports/${{ env.CAPABILITY }}
         cp backend/target/surefire-reports/*.xml test-reports/${{ env.CAPABILITY }}/unit.xml
         cp backend/target/contract-reports/*.xml test-reports/${{ env.CAPABILITY }}/contract.xml
-        cp frontend/playwright-report/results.xml test-reports/${{ env.CAPABILITY }}/e2e.xml
+        cp {journey report path}/results.xml test-reports/${{ env.CAPABILITY }}/e2e.xml
         cp frontend/coverage/coverage-summary.json test-reports/${{ env.CAPABILITY }}/coverage.json
 
     - name: IDD checks + certification evidence report

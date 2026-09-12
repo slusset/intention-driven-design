@@ -59,7 +59,7 @@ const ACTION_COMBINATIONS = {
 };
 
 const ASSERTION_COMBINATIONS = {
-  // Playwright-vocabulary (v1.2 originals)
+  // Browser vocabulary (v1.2 originals)
   visible: { kind: 'dom', property: 'visibility', expected: 'visible' },
   hidden: { kind: 'dom', property: 'visibility', expected: 'hidden' },
   text: { kind: 'dom', property: 'text' },

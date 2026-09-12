@@ -138,10 +138,8 @@ ${cu()}`),process.exit(1));su.includes(t.kind)||(console.error(`--kind must be o
 
 on:
   pull_request:
-    paths: ['specs/**', 'backend/src/**', 'frontend/src/**']
   push:
     branches: [main]
-    paths: ['specs/**', 'backend/src/**', 'frontend/src/**']
 
 permissions:
   contents: read
