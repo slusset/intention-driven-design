@@ -69,7 +69,8 @@ else
   ASSET="idd-toolkit-$VERSION.tgz"
   BASE="https://github.com/$REPO/releases/download/v$VERSION"
   echo "Downloading $ASSET"
-  curl -fsSL -o "$WORK/$ASSET" "$BASE/$ASSET" || fail "download failed: $BASE/$ASSET"
+  curl -fsSL -o "$WORK/$ASSET" "$BASE/$ASSET" \
+    || fail "download failed: $BASE/$ASSET (a release published moments ago may still be uploading its assets)"
   TARBALL="$WORK/$ASSET"
   # Verify against the published checksum when the release carries one.
   if curl -fsSL -o "$WORK/SHA256SUMS" "$BASE/SHA256SUMS" 2>/dev/null; then

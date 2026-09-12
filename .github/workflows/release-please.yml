@@ -48,6 +48,17 @@ jobs:
           node tools/build-dist.js --check
           node tools/sync-skill-references.js --check
 
+      # Packed before the release exists, so the only step left after creation
+      # is the upload. A release page that is visible without its tarball is
+      # what a consumer's installer hits as a 404.
+      - name: Build the toolkit release artifact
+        run: |
+          mkdir -p dist
+          npm pack --pack-destination dist
+          # Checksums let the standalone installer (install/idd-install.sh)
+          # verify the tarball it downloads.
+          (cd dist && sha256sum *.tgz > SHA256SUMS)
+
       - name: Prepare or publish the release
         id: release
         uses: googleapis/release-please-action@v4
@@ -59,41 +70,21 @@ jobs:
           skip-github-release: ${{ inputs.operation == 'prepare' }}
           skip-github-pull-request: ${{ inputs.operation == 'publish' }}
 
-      - name: Check out the released tag
-        if: ${{ steps.release.outputs.release_created }}
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.release.outputs.tag_name }}
-
-      - name: Set up Node.js
-        if: ${{ steps.release.outputs.release_created }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-
-      - name: Verify the released source
-        if: ${{ steps.release.outputs.release_created }}
-        run: |
-          npm ci
-          npm test
-          node bin/idd.js validate all
-          node tools/validate-plugin-manifests.js
-
-      - name: Build the toolkit release artifact
-        if: ${{ steps.release.outputs.release_created }}
-        run: |
-          mkdir -p dist
-          npm pack --pack-destination dist
-          # Checksums let the standalone installer (install/idd-install.sh)
-          # verify the tarball it downloads.
-          (cd dist && sha256sum *.tgz > SHA256SUMS)
-
+      # The gate above ran the suite, the validators and the manifest checks on
+      # this exact commit, and the tag points at it, so re-verifying the tag
+      # here would only delay the upload.
       - name: Attach the toolkit artifact
         if: ${{ steps.release.outputs.release_created }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ steps.release.outputs.tag_name }}" dist/*.tgz dist/SHA256SUMS install/idd-install.sh
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          TAG="${{ steps.release.outputs.tag_name }}"
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "Released tag $TAG does not match the packed version $VERSION."
+            exit 1
+          fi
+          gh release upload "$TAG" "dist/idd-toolkit-$VERSION.tgz" dist/SHA256SUMS install/idd-install.sh
 
       - name: Move the supported major action tag
         if: ${{ steps.release.outputs.release_created && steps.release.outputs.major != '0' && !contains(steps.release.outputs.version, '-') }}
