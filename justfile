@@ -71,8 +71,16 @@ build:
 build-check:
     node tools/build-dist.js --check
 
+# Regenerate each skill's copy of the methodology docs it cites
+sync-refs:
+    node tools/sync-skill-references.js
+
+# Fail if a skill's copy of a methodology doc is stale
+sync-refs-check:
+    node tools/sync-skill-references.js --check
+
 # Full UAT release readiness: tests, validators, bundle freshness, manifests, pack, doctor
-release-check: ci build-check validate-plugin
+release-check: ci build-check sync-refs-check validate-plugin
     npm pack --dry-run > /dev/null 2>&1
     node -e "const {runDoctor}=require('./tools/lib/doctor');const r=runDoctor({repoRoot:process.cwd()});console.log('Doctor:',r.summary.status,'('+r.summary.errors+' errors,',r.summary.advisories+' advisories)');process.exit(r.summary.errors>0?1:0)"
     @echo "UAT release candidate ready."

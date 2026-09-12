@@ -45,7 +45,7 @@ When scaffolding `specs/skills/repo-overlay.md`, ask only enough to capture the 
 5. Are there SDK/client generation steps, mock servers, or schema-driven test tools that implementation skills must honor?
 6. What CI or certification expectations must every downstream skill preserve?
 
-If the user wants a starting point, scaffold from `skills/idd-workflow/templates/repo-overlay-template.md` into `specs/skills/repo-overlay.md` and fill the known fields first.
+If the user wants a starting point, scaffold from `templates/repo-overlay-template.md` (bundled with this skill) into `specs/skills/repo-overlay.md` and fill the known fields first.
 
 ## Repo-Selected Implementation Skill Bindings
 
@@ -141,7 +141,7 @@ Always report a concrete result for each relevant area:
 │  CI checks ── traceability + front-matter + scope ── blocks merge on fail │
 │  Agent review ── semantic alignment ── advisory comments                  │
 │                                                                           │
-│                        /pr-review + .github/workflows/idd-check.yml       │
+│                        /pr-review + the idd-check CI workflow             │
 └───────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -443,12 +443,11 @@ solution-narrative              ← Stack-agnostic
 
 ## Getting Help
 
-- **IDD philosophy**: `docs/idd/manifesto.md`
-- **Concept definitions**: `docs/idd/concepts.md`
-- **Front-matter schema**: `docs/idd/front-matter-spec.md`
-- **Certification standards**: `docs/idd/certification-guide.md`
-- **PR compliance checks**: `skills/pr-review/SKILL.md`
-- **CI workflow**: `.github/workflows/idd-check.yml`
+- **Philosophy and concepts**: the methodology library in the IDD toolkit repository
+- **Front-matter schema**: the `references/` copy bundled with `/behavior-contract`, `/solution-narrative`, and `/pr-review`
+- **Certification standards**: the `references/` copy bundled with `/certification`
+- **PR compliance checks**: the `/pr-review` skill
+- **CI**: the `idd-check` action, invoked by your repository's workflow
 - **Process questions**: This guide (`/idd-workflow`)
 - **Specific patterns**: Each skill has templates and examples
 

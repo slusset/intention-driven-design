@@ -371,6 +371,7 @@ tools/                       Validators and generators
 ├── validate-enforcement-bindings.js Validate model rule enforced: bindings resolve to real artifacts
 ├── validate-journey-maps.js Validate journey map structural rules
 ├── generate-evidence.js     Generate certification evidence manifests (CI report input)
+├── sync-skill-references.js Copy methodology docs into the skills that cite them
 ├── graph-generation/        Mermaid spec traceability graph generators
 └── lib/                     Shared parsing and formatting helpers
 
@@ -459,6 +460,7 @@ When converting a skill to a new agent platform:
 1. Concept definitions in `docs/idd/` are authoritative for meaning.
 2. Skills in `skills/` are authoritative for operational implementation.
 3. Runtime copies (`~/.claude/skills`, `~/.codex/skills`) are installed via `idd install-skills` and version-stamped. Run `idd install-skills --check` to detect staleness.
+4. A skill's `references/` copy of a methodology doc is generated, never hand-edited. Edit the source in `docs/idd/`, run `just sync-refs`, and commit both; CI and the release gate fail on a stale copy.
 
 ## Self-referential note
 

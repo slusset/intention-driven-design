@@ -142,7 +142,7 @@ So that {benefit}.
 {Context, constraints, open questions}
 ```
 
-The front-matter `refs` block replaces the inline Journey Reference and Persona Reference sections. Tools parse front-matter for traceability; the body stays narrative-focused. See `docs/idd/front-matter-spec.md` for the full schema.
+The front-matter `refs` block replaces the inline Journey Reference and Persona Reference sections. Tools parse front-matter for traceability; the body stays narrative-focused. See [front-matter-spec.md](references/front-matter-spec.md) for the full schema.
 
 ## Guardrails
 

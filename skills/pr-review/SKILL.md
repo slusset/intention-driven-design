@@ -80,7 +80,7 @@ Every new or modified spec file must have front-matter with at least `id` and `t
 | `specs/journey-maps/*.map.yaml` | `id`, `type: journey-map` |
 | `specs/capabilities/*.capability.yaml` | `id`, `type: capability`, `scope` |
 
-See `docs/idd/front-matter-spec.md` for the full schema.
+See [front-matter-spec.md](references/front-matter-spec.md) for the full schema.
 
 **Pass criteria**: All new/modified spec files have required front-matter fields.
 
@@ -136,8 +136,8 @@ If the PR modifies implementation files — anything outside the spec paths, doc
 
 ### Check 6: Methodology Change Coverage
 
-If the PR changes methodology-defining surfaces such as `docs/idd/`, `skills/`,
-`tools/`, or `.github/workflows/`, verify that the PR includes enough context to
+If the PR changes methodology-defining surfaces — the methodology library,
+skills, validators, or CI workflows — verify that it includes enough context to
 justify the change:
 
 - an intent artifact or design note describing the change
@@ -174,7 +174,7 @@ When the PR changes methodology-defining files:
 
 ## GitHub Action Integration
 
-The deterministic checks run as a GitHub Action. See `.github/workflows/idd-check.yml` for the workflow definition.
+The deterministic checks run as the `idd-check` GitHub Action, invoked by the consuming repository's own workflow.
 
 ```
 PR opened/updated
@@ -226,12 +226,8 @@ Both layers post results in a consistent format:
 - No orphan artifacts detected
 
 ---
-*Automated by [IDD PR Review](docs/idd/pr-review.md) • [What is IDD?](docs/idd/manifesto.md)*
+*Automated by IDD PR Review*
 ```
-
-## Adding a New Validator
-
-Add `tools/validate-<name>.js` (standalone, exit 0/1, support `--json`), then register it in the `VALIDATORS` map in [bin/idd.js](bin/idd.js). It becomes available as `idd validate <name>` and is picked up by `idd validate all`.
 
 ## Relationship to Certification
 
