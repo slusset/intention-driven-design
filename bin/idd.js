@@ -7,7 +7,8 @@ const fs = require('fs');
 const { execFileSync, spawn } = require('child_process');
 const { createModule, linkModule, statusModules } = require('../tools/lib/module-scaffold');
 const { SEVERITIES, filterReport, formatDoctorReport, runDoctor } = require('../tools/lib/doctor');
-const { OUTCOMES, PROBE_KINDS, appendFormalResult, buildFormalResult } = require('../tools/lib/formal-results');
+const { OUTCOMES, PROBE_KINDS, appendFormalResult, buildFormalResult, declaredProbes, loadVerificationMaps } = require('../tools/lib/formal-results');
+const { formats: reportFormats, getAdapter } = require('../tools/lib/report-adapters');
 const { formatRollupMarkdown, rollupEvidence } = require('../tools/lib/evidence-rollup');
 const { applyMigrationPlan, buildMigrationPlan, formatApplyResult } = require('../tools/lib/evolution');
 const { toolCommand } = require('../tools/lib/tool-runner');
@@ -506,7 +507,13 @@ function evidenceRecordUsage() {
          [--tool-version <v>] [--run-id <id>] [--revision <sha>] [--environment ci|local]
          [--inputs-file <paths.json>] [--covered-by-file <citation.json>]
          [--duration-ms <n>] [--detail <text>] [--results-dir <dir>] [--repo <dir>] [--json]
-  probe kinds: ${PROBE_KINDS.join(', ')}`;
+  probe kinds: ${PROBE_KINDS.join(', ')}
+
+       idd evidence record --from <format> <report-file>
+         [--tool <name>] [--source <repo-path>] [--expected <outcome>]
+         [--run-id <id>] [--revision <sha>] [--environment ci|local]
+         [--results-dir <dir>] [--repo <dir>] [--json]
+  report formats: ${reportFormats().join(', ')}`;
 }
 
 function evidenceRollupUsage() {
@@ -524,8 +531,10 @@ function cmdEvidence(argv) {
 function cmdEvidenceRecord(argv) {
   const o = parseOptions(argv, {
     flags: ['json'],
-    values: ['tool', 'kind', 'name', 'observed', 'source', 'scope', 'expected', 'lock', 'tool-version', 'run-id', 'revision', 'environment', 'duration-ms', 'detail', 'results-dir', 'repo', 'inputs-file', 'covered-by-file'],
+    values: ['from', 'tool', 'kind', 'name', 'observed', 'source', 'scope', 'expected', 'lock', 'tool-version', 'run-id', 'revision', 'environment', 'duration-ms', 'detail', 'results-dir', 'repo', 'inputs-file', 'covered-by-file'],
   }, evidenceRecordUsage());
+  // A report carries many observations; the single-observation flags do not apply.
+  if (o.from) return cmdEvidenceRecordFromReport(o);
   for (const required of ['tool', 'kind', 'name', 'observed']) {
     if (!o[required]) { console.error(`--${required} is required\n${evidenceRecordUsage()}`); process.exit(1); }
   }
@@ -545,6 +554,83 @@ function cmdEvidenceRecord(argv) {
   if (o.json) console.log(JSON.stringify({ file, record }, null, 2));
   else console.log(`${record.verdict}: ${record.probe.kind} ${record.probe.name}${record.probe.source ? ` (${record.probe.source})` : ''} observed ${record.observed}${record.expected ? `, expected ${record.expected}` : ''} → ${file}`);
   process.exit(record.verdict === 'mismatch' ? 1 : 0);
+}
+
+// `--from <format> <report>` turns a whole run into records. The adapter knows
+// the report format; nothing here knows which runner produced it. Rule
+// attachment stays where it already lives: the maps the record builder reads.
+function cmdEvidenceRecordFromReport(o) {
+  let adapter;
+  try {
+    adapter = getAdapter(o.from);
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+
+  const reportPath = o._[0];
+  if (!reportPath) {
+    console.error(`--from ${o.from} needs a report file\n${evidenceRecordUsage()}`);
+    process.exit(1);
+  }
+
+  let parsed;
+  try {
+    parsed = adapter.parse(fs.readFileSync(path.resolve(reportPath), 'utf8'));
+  } catch (error) {
+    console.error(`${reportPath}: ${error.message}`);
+    process.exit(1);
+  }
+
+  const repoRoot = path.resolve(o.repo || process.cwd());
+  // Load the maps once: a run has hundreds of cases and every record resolves
+  // its expected outcome against the same declared probes.
+  const { maps } = loadVerificationMaps(repoRoot);
+  const declared = declaredProbes(maps);
+  const tool = o.tool || adapter.format;
+
+  const counts = { pass: 0, fail: 0, mismatch: 0, unclaimed: 0 };
+  let file = null;
+  for (const observation of parsed.observations) {
+    const record = buildFormalResult(repoRoot, {
+      tool,
+      toolVersion: o['tool-version'],
+      lock: o.lock,
+      kind: adapter.probeKind,
+      name: observation.name,
+      source: o.source,
+      scope: observation.scope,
+      observed: observation.outcome,
+      expected: o.expected,
+      runId: o['run-id'],
+      revision: o.revision,
+      environment: o.environment,
+      durationMs: observation.durationMs,
+      detail: observation.detail,
+    }, { maps, declared });
+    file = appendFormalResult(repoRoot, record, o['results-dir']);
+    counts[observation.outcome] += 1;
+    if (record.verdict === 'mismatch') counts.mismatch += 1;
+    if (record.verdict === 'unclaimed') counts.unclaimed += 1;
+  }
+
+  const summary = {
+    format: adapter.format,
+    report: reportPath,
+    file,
+    records: parsed.observations.length,
+    skipped: parsed.skipped,
+    ...counts,
+  };
+  if (o.json) {
+    console.log(JSON.stringify(summary, null, 2));
+  } else {
+    console.log(`${adapter.format}: ${summary.records} record(s) from ${reportPath}`
+      + `${file ? ` → ${file}` : ' (nothing written)'}`
+      + ` — ${counts.pass} pass, ${counts.fail} fail, ${parsed.skipped} skipped,`
+      + ` ${counts.unclaimed} unclaimed, ${counts.mismatch} mismatch`);
+  }
+  process.exit(counts.mismatch > 0 ? 1 : 0);
 }
 
 function cmdEvidenceRollup(argv) {
@@ -681,6 +767,8 @@ Commands:
   doctor apply --plan <file>   Apply an accepted plan (writes evolution evidence)
                                [--accept <migration-id>] [--allow-blocker <finding-id>]
   evidence record ...          Write one formal-result record for an observed probe
+  evidence record --from <format> <report>
+                               Turn a test report into one record per case
   evidence rollup              Derive per-rule coverage and per-capability claims
                                from a run's records, beside the declared claims
   version                      Print version
