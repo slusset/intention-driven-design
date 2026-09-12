@@ -164,4 +164,4 @@ authority, causality, replay, and continuity. Until those semantics are
 specified, doctor migrations remain repository-level changes with generated
 evidence and an explicit continuity disposition.
 
-Issue: [#69](https://github.com/slusset/intention-driven-design/issues/69)
+Issue: [#92](https://github.com/slusset/intention-driven-design/issues/92)
