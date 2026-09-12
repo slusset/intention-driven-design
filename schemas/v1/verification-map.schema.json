@@ -96,6 +96,14 @@
       "required": ["id", "source_models"],
       "properties": {
         "id": { "$ref": "#/$defs/ruleId" },
+        "kind": {
+          "description": "What sort of check the rule is, independent of its family (whose rule it is, from the id prefix) and of the tool that observed it.",
+          "enum": ["domain", "validation", "boundary"]
+        },
+        "cited_tests": {
+          "description": "Tests that name this rule are its evidence. An empty list accepts a citation from any file; a non-empty list scopes it to those paths. The citation matches the full id or its family-and-number prefix.",
+          "$ref": "#/$defs/pathList"
+        },
         "source_models": {
           "description": "Models governing the rule. An explicit empty list records that no source model currently exists.",
           "$ref": "#/$defs/pathList"

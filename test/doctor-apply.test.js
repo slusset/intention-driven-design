@@ -89,6 +89,7 @@ test('doctor plan resolves the cataloged path for a stale schema pin', (t) => {
     'schema-1-14-0-to-1-15-0',
     'schema-1-15-0-to-1-16-0',
     'schema-1-16-0-to-1-17-0',
+    'schema-1-17-0-to-1-18-0',
   ]);
   assert.deepEqual(plan.acceptance_required, plan.migrations.map((migration) => migration.id));
   assert.match(plan.catalog.digest, /^sha256:[0-9a-f]{64}$/);

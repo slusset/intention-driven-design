@@ -92,7 +92,7 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.17.0`** (declared in
+The current version is **`1.18.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
 actions, and assertions landed in 1.2; declarative lifecycle and journey-map
@@ -1028,3 +1028,28 @@ required `purpose`, and optional `non_goals`. It is optional everywhere: a
 repository without one validates exactly as before, and no artifact references
 it, so nothing needs migrating. Whether a capability serves the telos is a
 review judgment, not a validated link.
+
+## v1.18: rule kind and cited tests
+
+A rule may declare `kind` — `domain`, `validation` or `boundary` — which says
+what sort of check it is, independent of its family (whose rule it is, read
+from the id prefix) and of the tool that observed it. Three axes, three
+fields, one id.
+
+A rule may also declare `cited_tests`: tests that name the rule are its
+evidence. An empty list accepts a citation from any file; a non-empty list
+scopes it to those paths. A citation matches the full id or its
+family-and-number prefix, so `T-3: rejects malformed envelopes` observes
+`T-3-bounded-untrusted-ingestion`, while `T-30: …` does not.
+
+Scoping applies to records that carry a source, the same way a literal
+selector binding does: a record with no source matches the claim regardless.
+Reports that cover many files at once — a JUnit report, for instance — carry
+no per-case source, so scope them by what the run itself covered.
+
+Both are optional and additive: existing maps validate unchanged. In the
+roll-up, a `cited_tests` declaration is one claim however many tests cite it —
+matched when its citing tests ran and passed the map's pin, contradicted when
+any of them failed — and the number of citing observations is reported beside
+it. A test that cites a rule no map declares is an `unowned-citation`
+advisory.
