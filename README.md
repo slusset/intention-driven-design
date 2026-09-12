@@ -116,6 +116,34 @@ The narrative, model, and contract layers are completely technology-independent.
 > retired prototype line is preserved under `legacy/v1.*` tags, but should not
 > be used for new installations.
 
+**Which one do you want?** An agent host reaches the CLI through its plugin,
+so installing for Claude Code or Codex is usually all you need. For a shell —
+running `idd doctor` or `idd validate` by hand — use the standalone installer,
+which is pinned and independent of whatever Node version is active. Reserve
+the npm package for CI images and for repositories that want it as a
+dev dependency.
+
+Pick one for interactive use. `npm install -g` puts the CLI inside the
+currently active Node version's tree, so under a version manager (fnm, nvm,
+asdf, volta) it appears, vanishes, or goes stale as the active version
+changes, while a second copy from another install path sits further down
+`PATH`. If `which -a idd` lists more than one, that is the cause.
+
+### As a standalone CLI (recommended for a shell)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/slusset/intention-driven-design/main/install/idd-install.sh \
+  | sh -s -- --version 0.1.0-uat.9
+idd version
+```
+
+The release is unpacked to `~/.idd/toolkits/<version>/`, verified against the
+release's `SHA256SUMS`, and linked as `~/.local/bin/idd`. Versions sit side by
+side, so a pinned consumer can invoke one by path and treat drift as an error;
+`--no-link` skips the symlink, and `--prefix` / `--bin-dir` move both
+locations. Only Node.js 18+ is required at runtime. See
+[`docs/idd/release-and-distribution.md`](docs/idd/release-and-distribution.md).
+
 ### As a ChatGPT / Codex plugin (core skills)
 
 The repo also exposes a Codex plugin through `.codex-plugin/plugin.json` and a
@@ -167,7 +195,11 @@ enabled in Claude's plugin manager.
 
 For plugin development from a local checkout: `/plugin marketplace add ~/dev/idd`, refresh after edits with `/plugin marketplace update idd`, or use `claude --plugin-dir ~/dev/idd` for an ephemeral single-session load. Validate changes with `just validate-plugin` (runs `claude plugin validate --strict` on the marketplace and plugin manifests — CI runs the same checks).
 
-### As an npm package (for CI and local dev ergonomics)
+### As an npm package (for CI and a project dev dependency)
+
+Best where the Node version is fixed: a CI image, a container, or a repository
+that already runs on Node. A global install under a version manager is the one
+to avoid — see the note above.
 
 ```bash
 npm install --save-dev github:slusset/intention-driven-design#v0.1.0-uat.1
@@ -213,6 +245,10 @@ git clone git@github.com:slusset/intention-driven-design.git
 cd intention-driven-design
 just install                   # npm install && npm link
 ```
+
+`npm link` registers `idd` under the active Node version, exactly as a global
+install does. If you also keep a standalone install, run `which -a idd` after
+switching Node versions to see which copy a shell will pick.
 
 ### Initialize a new project
 

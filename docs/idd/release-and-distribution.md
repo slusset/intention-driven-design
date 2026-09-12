@@ -32,6 +32,14 @@ it to `<prefix>/toolkits/<version>/`, checks that it runs, and links
 `--from-file` installs a local tarball offline. Only Node.js 18+ is required
 at runtime.
 
+Prefer this over `npm install -g` for any interactive use. A global npm
+install lands inside the active Node version's tree, so under a version
+manager (fnm, nvm, asdf, volta) the CLI is present under one version and
+absent under another, and a stale copy can shadow a newer one that a different
+install path put on `PATH`. The installer's location does not move with the
+active runtime. Keep the npm package for CI images and containers, where the
+Node version is fixed for the life of the image.
+
 Because versions sit side by side, a consumer that pins an accepted toolkit
 can invoke it by path and treat drift as an error rather than a fallback:
 
