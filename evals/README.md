@@ -1,7 +1,7 @@
 # Methodology Evaluation Instrument
 
 This directory is an **instrument, not a feature** (issue #58, following the
-architecture proven in slusset/AlloyIdentity decision 44). It measures whether
+architecture proven in slusset/identity-project decision 44). It measures whether
 the IDD pack's workflow reduces drift and produces traceable, verified
 outcomes on real tasks — and which pack version or skill variant does it best.
 

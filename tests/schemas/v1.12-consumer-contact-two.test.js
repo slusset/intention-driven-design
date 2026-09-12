@@ -3,8 +3,8 @@
 /**
  * Regression tests for canonical shapes promoted in schema v1.12.
  *
- * Each addition came from the second AlloyIdentity contact (idd #81–#84 and
- * the unfiled items in slusset/AlloyIdentity#235): closed-world validation
+ * Each addition came from the second identity-project contact (idd #81–#84 and
+ * the unfiled items in slusset/identity-project#235): closed-world validation
  * rejecting load-bearing IDD patterns rather than consumer inventions.
  */
 

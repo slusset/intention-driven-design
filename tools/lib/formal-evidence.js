@@ -5,7 +5,7 @@
  *
  * A verification map may claim Alloy assertions, TLA+ invariants, replayed
  * vectors, and mutation probes for a rule. Those claims were author-extensible
- * prose until a consumer (AlloyIdentity) showed them carrying the whole
+ * prose until a consumer (identity-project) showed them carrying the whole
  * verification spine. This validator makes them checkable in the same
  * closed-world spirit as literal evidence bindings:
  *
