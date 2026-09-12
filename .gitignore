@@ -6,6 +6,8 @@ build/
 node_modules/
 tools/node_modules/
 
-# Generated certification evidence — published via the CI report, never committed
+# Generated certification evidence — published via the CI report, never committed.
+# Anchored: an unanchored `certification/` also matches skills/certification/,
+# which silently drops new files from that skill.
 .idd/
-certification/
+/certification/

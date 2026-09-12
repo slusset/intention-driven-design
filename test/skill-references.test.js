@@ -4,6 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
+const { COPIES } = require('../tools/sync-skill-references.js');
+
 const REPO_ROOT = path.resolve(__dirname, '..');
 const SKILLS_DIR = path.join(REPO_ROOT, 'skills');
 
@@ -24,6 +26,28 @@ test('skill copies of the methodology docs are current', () => {
   } catch (err) {
     assert.fail(`${err.stdout || ''}${err.stderr || ''}`.trim()
       || 'tools/sync-skill-references.js --check failed');
+  }
+});
+
+test('every generated copy is tracked by git', () => {
+  // A copy that exists locally but is ignored by .gitignore passes every other
+  // check here and fails only in CI, where the checkout has tracked files only.
+  try {
+    execFileSync('git', ['rev-parse', '--git-dir'], { cwd: REPO_ROOT, stdio: 'ignore' });
+  } catch {
+    return; // not a git checkout (packed tarball, vendored copy)
+  }
+
+  for (const target of COPIES.flatMap((copy) => copy.targets)) {
+    const tracked = execFileSync('git', ['ls-files', '--', target], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    }).trim();
+    assert.equal(
+      tracked,
+      target,
+      `${target} is not tracked by git — check .gitignore for a pattern that swallows it`,
+    );
   }
 });
 

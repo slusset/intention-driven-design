@@ -52,35 +52,42 @@ function expected(copy) {
   return render(copy.source, fs.readFileSync(sourcePath, 'utf8'));
 }
 
-const checkOnly = process.argv.includes('--check');
-const stale = [];
-let written = 0;
+function main() {
+  const checkOnly = process.argv.includes('--check');
+  const stale = [];
+  let written = 0;
 
-for (const copy of COPIES) {
-  const content = expected(copy);
-  for (const target of copy.targets) {
-    const targetPath = path.join(REPO_ROOT, target);
-    const current = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, 'utf8') : null;
-    if (current === content) continue;
-    if (checkOnly) {
-      stale.push({ target, reason: current === null ? 'missing' : 'stale' });
-      continue;
+  for (const copy of COPIES) {
+    const content = expected(copy);
+    for (const target of copy.targets) {
+      const targetPath = path.join(REPO_ROOT, target);
+      const current = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, 'utf8') : null;
+      if (current === content) continue;
+      if (checkOnly) {
+        stale.push({ target, reason: current === null ? 'missing' : 'stale' });
+        continue;
+      }
+      fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+      fs.writeFileSync(targetPath, content);
+      written += 1;
+      console.log(`  ${target} ← ${copy.source}`);
     }
-    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-    fs.writeFileSync(targetPath, content);
-    written += 1;
-    console.log(`  ${target} ← ${copy.source}`);
   }
-}
 
-if (checkOnly) {
-  if (stale.length > 0) {
-    for (const entry of stale) {
-      console.error(`${entry.target} is ${entry.reason} — run \`node tools/sync-skill-references.js\` and commit the result.`);
+  if (checkOnly) {
+    if (stale.length > 0) {
+      for (const entry of stale) {
+        console.error(`${entry.target} is ${entry.reason} — run \`node tools/sync-skill-references.js\` and commit the result.`);
+      }
+      process.exit(1);
     }
-    process.exit(1);
+    console.log('Skill reference copies are current.');
+    return;
   }
-  console.log('Skill reference copies are current.');
-} else {
+
   console.log(written === 0 ? 'Skill reference copies were already current.' : `Updated ${written} copy/copies.`);
 }
+
+if (require.main === module) main();
+
+module.exports = { COPIES, REPO_ROOT };
