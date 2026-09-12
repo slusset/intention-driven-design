@@ -297,6 +297,42 @@
         "data": "unchanged",
         "operations": "unchanged"
       }
+    },
+    {
+      "id": "schema-1-17-0-to-1-18-0",
+      "from": {
+        "schema": "1.17.0"
+      },
+      "to": {
+        "schema": "1.18.0"
+      },
+      "kind": "schema",
+      "summary": "Rules gain an optional kind and may declare that tests citing them are evidence. Both are additive; existing maps validate unchanged.",
+      "steps": [
+        {
+          "id": "review-rule-kind-and-citations",
+          "mode": "review",
+          "description": "Decide which rules carry kind: domain, validation or boundary, and which accept cited_tests. A rule that declares cited_tests counts every test naming its id or family-and-number prefix, scoped to the listed files when given."
+        },
+        {
+          "id": "record-consumer-contract",
+          "mode": "transform",
+          "transformation": "record-consumer-contract",
+          "description": "Update the accepted toolkit/schema pins in specs/skills/repo-overlay.md; no rule is rewritten."
+        },
+        {
+          "id": "validate-rule-citations",
+          "mode": "validate",
+          "description": "Run the validators and the evidence roll-up. A test citing a rule no map declares is reported as unowned-citation, an advisory."
+        }
+      ],
+      "continuity": {
+        "identity": "preserved",
+        "intent": "preserved",
+        "semantics": "preserved",
+        "data": "unchanged",
+        "operations": "unchanged"
+      }
     }
   ]
 }

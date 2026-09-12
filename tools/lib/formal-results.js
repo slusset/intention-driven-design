@@ -162,6 +162,12 @@ function declaredProbes(maps) {
           probes.push({ ...base, kind: 'test-selector', name: selector, sources: binding.files || [], expected: 'pass' });
         }
       }
+      // `cited_tests` declares that tests naming this rule are its evidence:
+      // one claim, matched by citation instead of by a literal selector. An
+      // empty list means any citing test, anywhere, counts.
+      if (Array.isArray(rule.cited_tests)) {
+        probes.push({ ...base, kind: 'test-selector', citation: true, name: `cites:${rule.id}`, sources: listPaths(rule.cited_tests), expected: 'pass' });
+      }
       for (const probe of rule.mutation_probes || []) {
         if (!probe || typeof probe !== 'object') continue;
         probes.push({ ...base, kind: 'mutation-probe', name: probe.id || probe.mutation, sources: listPaths(probe.detected_by), expected: probe.expected || 'detected' });
@@ -200,14 +206,47 @@ function expectedFor(declared, source) {
  * declared probe when kinds agree, names agree (a vector by path prefix), and
  * — when the record names a source — the source is one the claim runs under.
  */
+/**
+ * The family-and-number prefix of a rule id — `T-3` of
+ * `T-3-bounded-untrusted-ingestion` — which is how tests cite rules in
+ * practice, alongside the full id.
+ */
+function citationTokens(ruleId) {
+  const prefix = /^([A-Z][A-Z0-9]*-\d+)/.exec(ruleId);
+  return prefix && prefix[1] !== ruleId ? [ruleId, prefix[1]] : [ruleId];
+}
+
+/** Does this probe name cite the rule? `T-3` matches; `T-30` does not. */
+function citesRule(name, ruleId) {
+  if (typeof name !== 'string') return false;
+  return citationTokens(ruleId).some((token) => {
+    const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|[^A-Za-z0-9-])${escaped}([^A-Za-z0-9-]|$)`).test(name);
+  });
+}
+
+/** The rule id a probe name cites, if any: `T-3` from `T-3: rejects junk`. */
+function citedRuleId(name) {
+  if (typeof name !== 'string') return null;
+  const match = /(^|[^A-Za-z0-9-])([A-Z][A-Z0-9]*-\d+)([^A-Za-z0-9-]|$)/.exec(name);
+  return match ? match[2] : null;
+}
+
+function withinSources(claim, source) {
+  if (!source || claim.sources.length === 0) return true;
+  return claim.sources.some((candidate) => (normalizeRepoPath(candidate) || candidate) === source || underPath(source, candidate));
+}
+
 function claimsFor(declared, probe) {
   const source = probe.source ? (normalizeRepoPath(probe.source) || probe.source) : null;
   return declared.filter((claim) => {
     if (claim.kind !== probe.kind) return false;
+    // A citation claim names no probe of its own: any test whose name cites
+    // the rule observes it, scoped to the declared files when given.
+    if (claim.citation) return citesRule(probe.name, claim.ruleId) && withinSources(claim, source);
     if (claim.kind === 'conformance-vector') return source ? underPath(source, claim.name) : claim.name === probe.name;
     if (claim.name !== probe.name) return false;
-    if (!source || claim.sources.length === 0) return true;
-    return claim.sources.some((candidate) => (normalizeRepoPath(candidate) || candidate) === source || underPath(source, candidate));
+    return withinSources(claim, source);
   });
 }
 
@@ -320,6 +359,8 @@ module.exports = {
   PROBE_KINDS,
   appendFormalResult,
   buildFormalResult,
+  citedRuleId,
+  citesRule,
   claimsFor,
   declaredProbes,
   expectedFor,

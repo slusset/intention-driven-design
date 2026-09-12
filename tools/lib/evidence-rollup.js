@@ -19,7 +19,7 @@
 const path = require('path');
 const { createCoverageValidator } = require('./evidence-coverage');
 const { getValidator } = require('./schema-loader');
-const { claimsFor, declaredProbes, expectedFor, loadVerificationMaps, readFormalResults, verdictFor } = require('./formal-results');
+const { citedRuleId, claimsFor, declaredProbes, expectedFor, loadVerificationMaps, readFormalResults, verdictFor } = require('./formal-results');
 
 const RANK = { 'not-verified': 0, 'locally-verified': 1, verified: 2 };
 const DIMENSIONS = ['alloy', 'tla', 'vectors', 'tests', 'mutation'];
@@ -133,7 +133,16 @@ function rollupEvidence(repoRoot, options = {}) {
     }
     if (claims.length === 0) {
       rollup.orphan_results.push({ where: item.where, kind: record.probe.kind, name: record.probe.name, source: record.probe.source, observed: record.observed });
-      findings.push(finding('orphan-result', 'advisory', item.where, `${record.probe.kind} ${record.probe.name}${record.probe.source ? ` (${record.probe.source})` : ''} observed ${record.observed}, but no verification map claims it`));
+      // A test that names a rule nobody declares is a more specific finding
+      // than a generic orphan: either the id is a typo or the rule is gone.
+      const cited = record.probe.kind === 'test-selector' ? citedRuleId(record.probe.name) : null;
+      const owned = cited !== null && [...maps.values()]
+        .some((entry) => (entry.document.rules || []).some((rule) => rule.id === cited || String(rule.id).startsWith(`${cited}-`)));
+      if (cited && !owned) {
+        findings.push(finding('unowned-citation', 'advisory', item.where, `${record.probe.name} cites ${cited}, which no verification map declares`));
+      } else {
+        findings.push(finding('orphan-result', 'advisory', item.where, `${record.probe.kind} ${record.probe.name}${record.probe.source ? ` (${record.probe.source})` : ''} observed ${record.observed}, but no verification map claims it`));
+      }
       continue;
     }
     for (const claim of claims) {
@@ -171,6 +180,17 @@ function rollupEvidence(repoRoot, options = {}) {
     const observations = observedBy.get(claimKey(claim)) || [];
     if (observations.length === 0) {
       dimension.unobserved.push(claim.name);
+    } else if (claim.citation) {
+      // Many citing tests, one claim: the rule is observed when its citing
+      // tests ran, and contradicted when any of them failed the map's pin.
+      dimension.cited = (dimension.cited || 0) + observations.length;
+      const failures = observations.filter((observation) => observation.verdict === 'mismatch');
+      for (const observation of failures) {
+        findings.push(finding('formal-result-mismatch', 'error', `${claim.ruleId} cited test`, `${observation.where}: ${observation.record.probe.name} observed ${observation.record.observed}, map expects ${observation.expected}`, { rule: claim.ruleId, map: claim.mapPath }));
+      }
+      if (failures.length > 0) dimension.mismatched += 1;
+      else if (observations.some((observation) => observation.verdict === 'match')) dimension.matched += 1;
+      else dimension.unpinned += 1;
     } else {
       for (const observation of observations) {
         if (observation.verdict === 'match') {
@@ -289,7 +309,7 @@ function formatRollupMarkdown(rollup) {
     lines.push(`| ${capability} | ${item.rules} (${item.rules_with_executable_probes}) | ${item.declared?.verification || 'undeclared'} | ${item.derived.verification} | ${item.status} |`);
   }
   lines.push('', '## Rules', '', '| Rule | Alloy | TLA+ | Vectors | Tests | Mutation | Witness | Derived |', '| --- | --- | --- | --- | --- | --- | --- | --- |');
-  const cell = (d) => (d.declared === 0 ? '—' : `${d.matched}/${d.declared}${d.covered ? ` +${d.covered} covered` : ''}${d.mismatched ? ` ✗${d.mismatched}` : ''}`);
+  const cell = (d) => (d.declared === 0 ? '—' : `${d.matched}/${d.declared}${d.covered ? ` +${d.covered} covered` : ''}${d.cited ? ` ·${d.cited} cited` : ''}${d.mismatched ? ` ✗${d.mismatched}` : ''}`);
   for (const [ruleId, rule] of Object.entries(rollup.rules)) {
     const c = rule.coverage;
     const witness = rule.witness.assertions === 0 ? '—' : `${rule.witness.witnessed}/${rule.witness.assertions}`;

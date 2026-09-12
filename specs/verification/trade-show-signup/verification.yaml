@@ -11,6 +11,7 @@ strategy:
 
 rules:
   - id: TS-1-signup-chain-remains-traceable
+    kind: validation
     source_models:
       - specs/models/trade-show-onboarding.aggregate.model.yaml
     contracts:
