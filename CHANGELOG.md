@@ -10,6 +10,18 @@ testing. Historical prototype entries retain their original `1.x` headings
 below active releases. Their commits remain available under `legacy/v1.*` tags,
 but those versions are not part of the active SemVer sequence.
 
+## [0.1.0-uat.9](https://github.com/slusset/intention-driven-design/compare/v0.1.0-uat.8...v0.1.0-uat.9) (2026-09-12)
+
+
+### Features
+
+* **action:** run the evidence roll-up in idd-check ([#130](https://github.com/slusset/intention-driven-design/issues/130)) ([abecde9](https://github.com/slusset/intention-driven-design/commit/abecde99b631ef2e7836e3308e3bd2f3c6b88102))
+* **evidence:** add the junit report adapter ([#132](https://github.com/slusset/intention-driven-design/issues/132)) ([fc51460](https://github.com/slusset/intention-driven-design/commit/fc5146004831658fbfbf322161883c78a2ca195c))
+* **schema:** add the optional repository telos (1.17.0) ([#128](https://github.com/slusset/intention-driven-design/issues/128)) ([68dc9d4](https://github.com/slusset/intention-driven-design/commit/68dc9d4b390fcd34cc87182f7c833affc555b3b6))
+* **schema:** let tests cite rules, and give rules a kind (1.18.0) ([#133](https://github.com/slusset/intention-driven-design/issues/133)) ([ae7657b](https://github.com/slusset/intention-driven-design/commit/ae7657b09b5911169f2b69132d0567cec235c2b1))
+* **skills:** make journey testing and contracts stack-neutral ([#126](https://github.com/slusset/intention-driven-design/issues/126)) ([9887d99](https://github.com/slusset/intention-driven-design/commit/9887d99245ed51fbd0bf473d66abbdc52a9bf989))
+* **skills:** resolve bundled guidance from the skill directory ([#127](https://github.com/slusset/intention-driven-design/issues/127)) ([bbb33d3](https://github.com/slusset/intention-driven-design/commit/bbb33d3e18ba0091a4911eb28612f82ef550da2f))
+
 ## [0.1.0-uat.8](https://github.com/slusset/intention-driven-design/compare/v0.1.0-uat.7...v0.1.0-uat.8) (2026-09-09)
 
 
