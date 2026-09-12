@@ -51,10 +51,11 @@ ACCEPTED=0.1.0-uat.4
    and `.release-please-manifest.json`.
 3. Review the release PR, run the normal repository checks, and mark it ready.
 4. Merge the release PR. No tag or release is created automatically.
-5. Manually dispatch Release Please with `operation=publish`. It creates the
-   immutable `v0.1.0-uat.N` tag and GitHub prerelease, re-runs source checks,
-   and attaches the npm tarball. It does not create a floating major Action tag
-   for prerelease or `0.x` releases.
+5. Manually dispatch Release Please with `operation=publish`. It checks the
+   repository and packs the tarball first, then creates the immutable
+   `v0.1.0-uat.N` tag and GitHub prerelease and attaches the artifact, so a
+   published release is never visible without its tarball. It does not create a
+   floating major Action tag for prerelease or `0.x` releases.
 
 Run either operation from the GitHub Actions UI on `main`, or with GitHub CLI:
 
