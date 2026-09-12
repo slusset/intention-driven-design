@@ -104,3 +104,24 @@ test('idd-check evidence discovery follows declared module roots', () => {
   assert.match(action, /CAP_KEY/);
   assert.doesNotMatch(action, /for CAP_FILE in "\$SPECS_DIR"\/capabilities/);
 });
+
+test('idd-check rolls up formal evidence and carries it into the report', () => {
+  const action = fs.readFileSync(path.join(REPO_ROOT, '.github', 'actions', 'idd-check', 'action.yml'), 'utf8');
+
+  assert.match(action, /evidence rollup/);
+  assert.match(action, /--out \.idd\/evidence\/rollup\.json/);
+  assert.match(action, /--markdown \.idd\/evidence\/rollup\.md/);
+  assert.match(action, /evidence-rollup-strict/);
+
+  // No records is a skip, never a failure.
+  assert.match(action, /No formal-result records under/);
+
+  // The roll-up rides along in the idd-evidence artifact, even when
+  // per-capability evidence generation is turned off.
+  assert.match(action, /cp \.idd\/evidence\/rollup\.json \/tmp\/idd-results\/evidence\/rollup\.json/);
+  assert.match(action, /\(inputs\.evidence == 'true' \|\| steps\.rollup\.outputs\.ran == 'true'\)/);
+
+  // The exit code is the gate, and the verdict is an action output.
+  assert.match(action, /failedChecks\.push\('Evidence roll-up'\)/);
+  assert.match(action, /evidence_rollup_status=/);
+});

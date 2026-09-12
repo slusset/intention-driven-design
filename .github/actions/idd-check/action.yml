@@ -42,6 +42,18 @@ inputs:
     description: 'Upload generated evidence manifests as a workflow artifact (idd-evidence)'
     required: false
     default: 'true'
+  evidence-rollup:
+    description: 'Derive per-rule coverage from this run formal-result records when the results directory exists'
+    required: false
+    default: 'true'
+  evidence-rollup-results-dir:
+    description: 'Directory holding formal-result records (default: .idd/evidence/results)'
+    required: false
+    default: ''
+  evidence-rollup-strict:
+    description: 'Fail on roll-up advisories as well as errors (errors always fail)'
+    required: false
+    default: 'false'
 
 outputs:
   total-errors:
@@ -56,6 +68,9 @@ outputs:
   evidence-certified:
     description: 'Whether every capability passed evidence validation'
     value: ${{ steps.summarize.outputs.evidence_certified }}
+  evidence-rollup-status:
+    description: 'Roll-up verdict for this run: pass, fail, or skipped'
+    value: ${{ steps.summarize.outputs.evidence_rollup_status }}
 
 runs:
   using: 'composite'
@@ -289,6 +304,50 @@ runs:
 
         exit 0
 
+    # Formal-result records come from the consumer's own probe runs (idd
+    # evidence record, or JSONL a checker writes). The roll-up only derives
+    # claims from those records and the checked-in maps; it runs no probe and
+    # creates no evidence.
+    - name: Roll up formal evidence
+      id: rollup
+      if: inputs.evidence-rollup == 'true'
+      shell: bash
+      run: |
+        set -uo pipefail
+        RESULTS_DIR="${{ inputs.evidence-rollup-results-dir }}"
+        if [ -z "$RESULTS_DIR" ]; then RESULTS_DIR=".idd/evidence/results"; fi
+
+        if [ ! -d "$RESULTS_DIR" ]; then
+          echo "ran=false" >> "$GITHUB_OUTPUT"
+          echo "exit=0" >> "$GITHUB_OUTPUT"
+          echo "No formal-result records under $RESULTS_DIR — roll-up skipped."
+          exit 0
+        fi
+
+        if [ -f "${{ github.action_path }}/../../../package.json" ]; then
+          IDD="node ${{ github.action_path }}/../../../bin/idd.js"
+        else
+          IDD="npx idd"
+        fi
+
+        STRICT=""
+        if [ "${{ inputs.evidence-rollup-strict }}" = "true" ]; then STRICT="--strict"; fi
+
+        mkdir -p /tmp/idd-results/evidence
+        ROLLUP_EXIT=0
+        $IDD evidence rollup \
+          --results-dir "$RESULTS_DIR" \
+          --out .idd/evidence/rollup.json \
+          --markdown .idd/evidence/rollup.md \
+          $STRICT > /tmp/idd-results/rollup.log 2>&1 || ROLLUP_EXIT=$?
+
+        cp .idd/evidence/rollup.json /tmp/idd-results/evidence/rollup.json 2>/dev/null || true
+        cp .idd/evidence/rollup.md /tmp/idd-results/evidence/rollup.md 2>/dev/null || true
+
+        echo "ran=true" >> "$GITHUB_OUTPUT"
+        echo "exit=$ROLLUP_EXIT" >> "$GITHUB_OUTPUT"
+        cat /tmp/idd-results/rollup.log
+
     - name: Build summary
       id: summarize
       shell: bash
@@ -516,6 +575,38 @@ runs:
           }
         }
 
+        // ── Evidence roll-up ──
+        // The roll-up exits nonzero on errors, and on advisories when
+        // evidence-rollup-strict is set, so its exit code is the gate here.
+        const rollupRan = '${{ steps.rollup.outputs.ran }}' === 'true';
+        const rollupExit = Number('${{ steps.rollup.outputs.exit }}' || 0);
+        let rollupStatus = 'skipped';
+        if (rollupRan) {
+          rollupStatus = rollupExit === 0 ? 'pass' : 'fail';
+          const rollupIcon = rollupExit === 0 ? '✅' : '❌';
+          const rollup = readJson(path.join(RESULTS_DIR, 'evidence', 'rollup.json'));
+          const rollupSummary = rollup && rollup.summary ? rollup.summary : null;
+          if (rollupExit !== 0) failedChecks.push('Evidence roll-up');
+          body += `| Evidence roll-up | ${rollupIcon} | ${rollupSummary ? rollupSummary.errors : '—'} | ${rollupSummary ? rollupSummary.advisories : '—'} |\n`;
+
+          let rollupMarkdown = '';
+          try {
+            rollupMarkdown = fs.readFileSync(path.join(RESULTS_DIR, 'evidence', 'rollup.md'), 'utf8').trim();
+          } catch (_) {
+            try {
+              rollupMarkdown = fs.readFileSync(path.join(RESULTS_DIR, 'rollup.log'), 'utf8').trim();
+            } catch (_) {}
+          }
+          if (rollupMarkdown.length > 15000) {
+            rollupMarkdown = `${rollupMarkdown.slice(0, 15000)}\n\n…truncated; the full roll-up is in the \`idd-evidence\` artifact.`;
+          }
+          if (rollupMarkdown) {
+            // Demote the roll-up's own headings so they nest under this report.
+            const nested = rollupMarkdown.replace(/^## /gm, '#### ').replace(/^# /gm, '### ');
+            detailSections.push({ label: 'Evidence roll-up', icon: rollupIcon, content: nested });
+          }
+        }
+
         body += '\n';
 
         // Detail sections as collapsible
@@ -571,12 +662,13 @@ runs:
         fs.appendFileSync(outputFile, `total_warnings=${totalWarnings}\n`);
         fs.appendFileSync(outputFile, `passed=${passed}\n`);
         fs.appendFileSync(outputFile, `evidence_certified=${evidenceCertified}\n`);
+        fs.appendFileSync(outputFile, `evidence_rollup_status=${rollupStatus}\n`);
         NODE
 
         cat /tmp/idd-summary.md >> "$GITHUB_STEP_SUMMARY"
 
     - name: Upload evidence artifact
-      if: inputs.evidence == 'true' && inputs.upload-evidence == 'true'
+      if: (inputs.evidence == 'true' || steps.rollup.outputs.ran == 'true') && inputs.upload-evidence == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: idd-evidence
