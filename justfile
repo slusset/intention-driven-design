@@ -127,7 +127,7 @@ upgrade-plugins:
     claude plugin marketplace update idd
     claude plugin update idd-skills@idd
 
-# Doctor a consumer repository (e.g. just doctor ~/Projects/AlloyIdentity)
+# Doctor a consumer repository (e.g. just doctor ~/Projects/identity-project)
 doctor repo=".":
     node {{justfile_directory()}}/bin/idd.js doctor --repo {{repo}}
 

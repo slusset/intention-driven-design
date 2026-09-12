@@ -74,7 +74,7 @@ source/import/configuration/tool/map, changed expectation, dirty input,
 non-ancestor or unavailable commit, missing/ambiguous/invalid baseline, local-to-CI
 promotion, chained reuse, schema-invalid citations, and CLI/bundled parity.
 
-AlloyIdentity #257 owns scheduling, trusted artifact acquisition, freshness
+identity-project #257 owns scheduling, trusted artifact acquisition, freshness
 policy and merge-base input selection. IDD cannot prove that a producer's input
 manifest is complete or that a checker actually ran. No remote access,
 attestation protocol, automatic skip, or consumer configuration migration is

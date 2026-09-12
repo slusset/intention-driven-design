@@ -510,7 +510,7 @@ function slug(text, maxWords = 6) {
 
 /**
  * Classify a validator message into a stable, discriminating code so findings
- * can be grouped, deduplicated, and suppressed by id (AlloyIdentity #235
+ * can be grouped, deduplicated, and suppressed by id (identity-project #235
  * doctor observations). The file the message names is split out; the code is
  * derived from the message shape with names, paths, and numbers removed, so
  * two files failing the same check share one id.

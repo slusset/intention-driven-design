@@ -319,10 +319,10 @@ consumer contract's schema version and digest review.
 
 ## Second consumer contact (v1.12)
 
-The second downstream contact (`slusset/AlloyIdentity`, a protocol kernel with
+The second downstream contact (`slusset/identity-project`, a protocol kernel with
 no web UI) had the same character as the first: closed-world validation
 rejecting load-bearing IDD patterns rather than consumer inventions. Issues
-#81–#84 and the unfiled items in slusset/AlloyIdentity#235 are promoted here.
+#81–#84 and the unfiled items in slusset/identity-project#235 are promoted here.
 Every change is additive; existing valid documents remain valid. The
 `schema-1-11-0-to-1-12-0` migration rewrites the three shapes that have a
 canonical spelling different from what consumers wrote.
@@ -452,7 +452,7 @@ Action kinds gain `cli`, `install`, `mcp`, `harness`; assertion kinds gain
 ## Formal evidence kinds (v1.13)
 
 A verification map's formal claims were author-extensible prose until a
-consumer (AlloyIdentity) showed them carrying the whole verification spine:
+consumer (identity-project) showed them carrying the whole verification spine:
 every rule id is cited by an Alloy assertion with a pinned SAT/UNSAT status, a
 TLA+ invariant under TLC, conformance vectors replayed under several receipt
 orderings, and named test selectors. v1.13 promotes those shapes to canonical

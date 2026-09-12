@@ -159,7 +159,7 @@ The module DAG describes static semantic dependencies. The journal DAG records
 dynamic causal history. A repository migration may be traceable and
 certification-backed without becoming a journal event.
 
-An eventual AlloyIdentity `EvolutionEvent` requires a separate contract for
+An eventual identity-project `EvolutionEvent` requires a separate contract for
 authority, causality, replay, and continuity. Until those semantics are
 specified, doctor migrations remain repository-level changes with generated
 evidence and an explicit continuity disposition.
