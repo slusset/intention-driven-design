@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/slusset/intention-driven-design/schemas/v1/telos.schema.json",
+  "title": "IDD Telos front-matter",
+  "description": "Schema for the YAML front-matter of the optional repository telos (Markdown body is freeform prose).",
+  "type": "object",
+  "required": ["id", "type", "purpose"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "type": { "const": "telos" },
+    "purpose": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Why this system exists at all, in the author's words."
+    },
+    "non_goals": {
+      "type": "array",
+      "description": "What the system deliberately will not become. Optional.",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "$conformance": { "$ref": "#/$defs/conformance" },
+    "$conformance-notes": { "$ref": "#/$defs/conformanceNotes" }
+  },
+  "$defs": {
+    "conformance": {
+      "description": "Conformance tier for the enclosing field. See SCHEMA.md.",
+      "enum": ["canonical", "legacy-compatible", "experimental"]
+    },
+    "conformanceNotes": {
+      "description": "Free-text note explaining the conformance tier (e.g., a tracking issue for promotion).",
+      "type": "string"
+    }
+  }
+}

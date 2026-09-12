@@ -16,12 +16,14 @@ const yaml = require('js-yaml');
 
 // ── Valid artifact types ──────────────────────────────────────────────
 const VALID_TYPES = [
-  'persona', 'journey', 'story', 'model', 'feature',
+  'telos', 'persona', 'journey', 'story', 'model', 'feature',
   'fixture', 'journey-map', 'capability'
 ];
 
 // ── File pattern → expected type mapping ──────────────────────────────
 const FILE_TYPE_MAP = [
+  // At most one per repository, directly under the spec root.
+  { pattern: /(?:^|\/)telos\.md$/, type: 'telos' },
   { pattern: /(?:^|\/)personas\/.*\.md$/, type: 'persona' },
   { pattern: /(?:^|\/)journeys\/.*\.md$/, type: 'journey' },
   { pattern: /(?:^|\/)stories\/.*\.md$/, type: 'story' },
@@ -35,6 +37,7 @@ const FILE_TYPE_MAP = [
 
 // ── Required fields by type ───────────────────────────────────────────
 const REQUIRED_FIELDS = {
+  telos:        { required: ['id', 'type', 'purpose'], recommended: [] },
   persona:      { required: ['id', 'type'], recommended: [] },
   journey:      { required: ['id', 'type'], recommended: ['refs.persona'] },
   story:        { required: ['id', 'type'], recommended: ['refs.journey', 'refs.persona'] },

@@ -34,6 +34,16 @@ Before applying any workflow step, load repo-specific constraints from the repos
 
 This preflight check is required for reliable orchestration and prevents architecture/test-policy drift, but a missing overlay is not itself a blocker.
 
+### Telos Check
+
+If `specs/telos.md` exists, read it before any narrative work and carry its
+purpose and non-goals forward: a new capability should state how it serves the
+declared purpose, and work that moves toward a declared non-goal is a question
+for the user rather than a silent choice. If the file does not exist, continue —
+a telos is optional and its absence is never a blocker. Offer to declare one
+only when a new capability chain is starting and no purpose is recorded
+anywhere.
+
 ### Overlay Scaffold Questions
 
 When scaffolding `specs/skills/repo-overlay.md`, ask only enough to capture the repo's operational constraints:
@@ -460,6 +470,7 @@ When this meta-skill is used by an orchestrator, include these fields in the han
 - `repo_overlay_path` (resolved path)
 - `repo_overlay_status` (`loaded`, `missing-warned`, or `skipped`)
 - `repo_overlay_constraints` (summary bullets when loaded, otherwise the fallback assumptions or open gaps)
+- `telos_status` (`loaded` with the purpose and any non-goals summarized, or `absent`)
 - `implementation_skill_bindings` (exact overlay-declared skill per area, provider/location, and availability)
 - `skills_selected` (ordered list for this task)
 - `blocking_issues` (true blockers only; missing overlay alone does not belong here)
