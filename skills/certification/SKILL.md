@@ -384,4 +384,4 @@ Each certification run regenerates the manifest from scratch — evidence always
 
 ## Standards Reference
 
-For detailed evidence format specification, traceability verification tables, CI integration templates, and the philosophy behind honest gaps, see `docs/idd/certification-guide.md`.
+For the full evidence format, traceability verification tables, CI integration templates, and the philosophy behind honest gaps, see [certification-guide.md](references/certification-guide.md).

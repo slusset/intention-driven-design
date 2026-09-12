@@ -164,7 +164,7 @@ module, add a `contract_pins` entry with a `jcs-sha256@1` digest.
 - Cross-module contract consumption records a `jcs-sha256@1` pin.
 - Fixtures include a `_meta` block naming the story and scenario.
 
-See `docs/idd/front-matter-spec.md` for the full metadata schema.
+See [front-matter-spec.md](references/front-matter-spec.md) for the full metadata schema.
 
 ## Guardrails
 

@@ -28,6 +28,26 @@ jobs:
           echo "Release Please must be dispatched from main."
           exit 1
 
+      - name: Check out main
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js for the release gate
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # Gate both prepare and publish: the post-release verification below runs
+      # after the tag exists, which is too late to stop a bad release.
+      - name: Gate the release on a clean repository
+        run: |
+          npm ci
+          npm test
+          node bin/idd.js validate all
+          node tools/validate-plugin-manifests.js
+          node tools/build-dist.js --check
+          node tools/sync-skill-references.js --check
+
       - name: Prepare or publish the release
         id: release
         uses: googleapis/release-please-action@v4
