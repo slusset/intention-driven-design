@@ -238,6 +238,9 @@ idd doctor apply --plan <file> Apply an accepted plan (--accept <migration-id>,
                                writes .idd/evolution/ evidence, never journal history)
 idd evidence record ...        Write one formal-result record for an observed probe
                                (into .idd/evidence/results/, expected outcome resolved from the maps)
+idd evidence record --from <format> <report>
+                               Turn a test report into one record per case; a format is an
+                               interchange format (junit), never a runner
 idd evidence rollup            Derive per-rule coverage and per-capability verification claims
                                from a run's records, beside the declared claims (--strict gates)
 idd version                    Print version
