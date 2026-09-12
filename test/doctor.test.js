@@ -191,8 +191,9 @@ test('doctor reports stale consumer schema pins without writing', (t) => {
     'schema-1-13-0-to-1-14-0',
     'schema-1-14-0-to-1-15-0',
     'schema-1-15-0-to-1-16-0',
+    'schema-1-16-0-to-1-17-0',
   ]);
-  assert.equal(report.migration.catalog.steps.length, 23);
+  assert.equal(report.migration.catalog.steps.length, 26);
   assert.equal(report.migration.writes, false);
 });
 

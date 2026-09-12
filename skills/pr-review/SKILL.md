@@ -161,6 +161,19 @@ Optional LLM-assisted pass that covers what deterministic checks cannot:
 
 Output: PR comments. Never blocks merge on Layer 2 alone.
 
+### Semantic Check: Telos Alignment
+
+When the repository declares a telos (`specs/telos.md`):
+
+- flag a new or changed capability whose description does not visibly serve the
+  declared purpose
+- flag work that moves toward a declared non-goal
+- quote the purpose or the non-goal in the finding and leave the judgment to the
+  author
+
+**Output**: PR comment naming the tension. Never blocking — a telos is a
+statement of intent, not a rule carrying evidence.
+
 ### Semantic Check: Methodology Change Legibility
 
 When the PR changes methodology-defining files:

@@ -261,6 +261,42 @@
         "data": "unchanged",
         "operations": "review-required"
       }
+    },
+    {
+      "id": "schema-1-16-0-to-1-17-0",
+      "from": {
+        "schema": "1.16.0"
+      },
+      "to": {
+        "schema": "1.17.0"
+      },
+      "kind": "schema",
+      "summary": "Add the optional repository telos. Nothing references it and nothing requires it, so adoption is a choice rather than a migration.",
+      "steps": [
+        {
+          "id": "review-telos",
+          "mode": "review",
+          "description": "Decide whether to declare specs/telos.md. A repository without one validates exactly as before; a declared telos needs a purpose, and non_goals are optional."
+        },
+        {
+          "id": "record-consumer-contract",
+          "mode": "transform",
+          "transformation": "record-consumer-contract",
+          "description": "Update the accepted toolkit/schema pins in specs/skills/repo-overlay.md; no artifact is rewritten."
+        },
+        {
+          "id": "validate-telos",
+          "mode": "validate",
+          "description": "Run the deterministic validator suite. A telos missing its purpose fails front-matter validation; its absence is never a finding."
+        }
+      ],
+      "continuity": {
+        "identity": "preserved",
+        "intent": "preserved",
+        "semantics": "preserved",
+        "data": "unchanged",
+        "operations": "unchanged"
+      }
     }
   ]
 }

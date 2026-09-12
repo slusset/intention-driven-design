@@ -27,6 +27,24 @@ Add optional YAML front-matter to every artifact type. Front-matter provides a u
 
 ## Schema by artifact type
 
+### Telos
+
+```yaml
+---
+id: telos
+type: telos
+purpose: |
+  Why this system exists at all, in one or two sentences.
+non_goals:                        # optional
+  - What the system deliberately will not become
+---
+```
+
+A repository may declare at most one telos, at `specs/telos.md`, and it is
+optional: a repository without one validates exactly as it does today. Nothing
+references a telos — with a single declaration per repository the link is
+implicit — so it carries no `refs` block.
+
 ### Personas
 
 ```yaml
@@ -200,10 +218,11 @@ scope:
 ## Valid types
 
 ```
-persona | journey | story | model | feature | fixture | journey-map | capability
+telos | persona | journey | story | model | feature | fixture | journey-map | capability
 ```
 
-These correspond 1:1 to `specs/` subdirectories (with `capability` added).
+These correspond 1:1 to `specs/` subdirectories, plus `capability` and the
+repository-level `telos`.
 
 ## Link resolution
 

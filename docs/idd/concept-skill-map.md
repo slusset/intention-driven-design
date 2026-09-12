@@ -18,6 +18,7 @@ How IDD concepts distribute across skills. Use this when:
 | C7 Claims Require Evidence | | referenced | referenced | referenced | **primary** | **primary** | **primary** | referenced | referenced |
 | C8 Evolution Preserves Meaning | referenced | referenced | referenced | | referenced | referenced | **primary** | **primary** | **primary** |
 | C9 Humans Own Meaning | referenced | referenced | referenced | | referenced | referenced | **primary** | **primary** | referenced |
+| C10 Telos | **primary** | | | | | | referenced | **primary** | |
 
 **primary** = skill is the main vehicle for this concept; it defines templates and enforces it.
 **referenced** = skill mentions or depends on the concept but doesn't define it.

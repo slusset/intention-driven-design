@@ -39,8 +39,11 @@ Artifacts follow a layered order, and every artifact names the upstream artifact
 it serves:
 
 ```
-Persona → Journey → Story → Capability → Model and rules → Contracts and scenarios → Evidence
+(Telos) → Persona → Journey → Story → Capability → Model and rules → Contracts and scenarios → Evidence
 ```
+
+The telos (C10) is optional and sits above the spine; every layer below it is
+required once the layer above exists.
 
 Layers have clear boundaries, and skipping one requires explicit justification.
 No link is optional: if an artifact exists, its provenance is declared. How a
@@ -167,3 +170,21 @@ across it.
 
 **Manifesto principle**: 5
 **Applies to**: agent behavior rules, delegated work, review
+
+---
+
+## C10 — Telos
+
+A repository may declare one telos: why this system exists at all, and what it
+deliberately will not become. Personas say who needs the system; the telos says
+why the system is worth building, and it stands above the spine as the
+statement every capability serves.
+
+A telos is optional, and a repository has at most one. Nothing cites it — with
+a single declaration the link is implicit — so alignment with it is a judgment
+made in review, never a link a validator can check. Qualities the system must
+preserve remain rules with identifiers and evidence (C4); the telos may name
+them in prose, but it does not enforce them.
+
+**Manifesto principle**: 1
+**Artifacts**: the repository telos

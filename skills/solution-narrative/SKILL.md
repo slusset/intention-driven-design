@@ -14,11 +14,12 @@ Capture the human-centered narrative that drives system behavior. This is the "w
 
 ## Workflow
 
-1. Identify or create personas for the actors involved.
-2. Map user journeys for key flows (happy path first, then edge cases).
-3. Derive user stories from journey steps.
-4. Define acceptance criteria in plain language.
-5. Output structured artifacts that feed into behavior-contract skill.
+1. Read `specs/telos.md` when it exists: the declared purpose and non-goals frame every persona and journey that follows. A repository without one is fine — continue, and offer to declare one only if the user wants the purpose recorded.
+2. Identify or create personas for the actors involved.
+3. Map user journeys for key flows (happy path first, then edge cases).
+4. Derive user stories from journey steps.
+5. Define acceptance criteria in plain language.
+6. Output structured artifacts that feed into behavior-contract skill.
 
 ## Traceability Requirements
 
@@ -39,6 +40,27 @@ specs/
 └── stories/
     └── {feature-area}/
         └── {story-name}.md
+```
+
+## Telos Template
+
+Optional, and at most one per repository, at `specs/telos.md`:
+
+```markdown
+---
+id: telos
+type: telos
+purpose: |
+  {Why this system exists at all, in one or two sentences}
+non_goals:
+  - {What it deliberately will not become}
+---
+
+# Telos: {System Name}
+
+{The need behind the purpose, and the qualities the system must not trade away.
+Rules carry the enforceable version of those qualities; this states why they
+matter.}
 ```
 
 ## Persona Template
@@ -151,6 +173,7 @@ The front-matter `refs` block replaces the inline Journey Reference and Persona 
 - Acceptance criteria are testable but not technical.
 - One persona per journey (guest actors are secondary).
 - Name files kebab-case matching the title.
+- When a telos exists, each persona and journey visibly serves it; one that serves no declared purpose is a question for the user, not an artifact to write.
 
 ## Process Tips
 

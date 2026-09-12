@@ -19,6 +19,7 @@ All schemas use **JSON Schema Draft 2020-12**
 
 | Artifact | Kind | Schema | Applies to |
 |---|---|---|---|
+| Telos | front-matter | [`telos.schema.json`](schemas/v1/telos.schema.json) | optional `specs/telos.md` |
 | Persona | front-matter | [`persona.schema.json`](schemas/v1/persona.schema.json) | `specs/personas/**/*.md` |
 | Journey | front-matter | [`journey.schema.json`](schemas/v1/journey.schema.json) | `specs/journeys/**/*.md` |
 | Story | front-matter | [`story.schema.json`](schemas/v1/story.schema.json) | `specs/stories/**/*.md` |
@@ -91,7 +92,7 @@ The schema set is versioned with semantic versioning:
   constraints that invalidate previously valid documents, removed artifact
   kinds. Major bumps ship with a documented migration path.
 
-The current version is **`1.16.0`** (declared in
+The current version is **`1.17.0`** (declared in
 [`schemas/v1/index.json`](schemas/v1/index.json)). Closed-world key validation
 with `$conformance` tiers landed in 1.1; kinded grammars for relationships,
 actions, and assertions landed in 1.2; declarative lifecycle and journey-map
@@ -1019,3 +1020,11 @@ Formal results may propose `not-run` coverage with an explicit baseline citation
 and tracked input digests. Roll-up validates prior records and Git ancestry,
 and reports reused results separately from current observations. Existing
 executed records remain valid. See [the coverage contract](docs/covered-verification.md).
+
+## v1.17: the optional telos
+
+A repository may declare one telos — `specs/telos.md` with `type: telos`, a
+required `purpose`, and optional `non_goals`. It is optional everywhere: a
+repository without one validates exactly as before, and no artifact references
+it, so nothing needs migrating. Whether a capability serves the telos is a
+review judgment, not a validated link.
